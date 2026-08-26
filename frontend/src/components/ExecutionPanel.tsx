@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import type { Node, Edge } from '@xyflow/react';
-import { executeWorkflowClient, validateWorkflowClient } from '../engine';
+import {
+  executeWorkflow,
+  toEngineNodes,
+  toEngineEdges,
+  type NodeStatus,
+} from '../engine';
 
 interface Props {
   executionResult: any;
@@ -10,25 +15,7 @@ interface Props {
   addToolLog: (tool: string, input: any, result: any, actor?: 'agent' | 'you') => void;
   setExecutionResult: (r: any) => void;
   setIsExecuting: (v: boolean) => void;
-}
-
-function toEngineNodes(nodes: Node[]) {
-  return nodes.map((n) => ({
-    id: n.id,
-    type: (n.data?.nodeType as string) || 'api_call',
-    label: (n.data?.label as string) || 'Untitled',
-    config: (n.data?.config as any) || {},
-    position: n.position,
-  }));
-}
-
-function toEngineEdges(edges: Edge[]) {
-  return edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: (e.label as string) || '',
-  }));
+  setLiveStatus: (updater: (prev: Record<string, NodeStatus>) => Record<string, NodeStatus>) => void;
 }
 
 export function ExecutionPanel({
@@ -39,26 +26,50 @@ export function ExecutionPanel({
   addToolLog,
   setExecutionResult,
   setIsExecuting,
+  setLiveStatus,
 }: Props) {
   const [workflowInput, setWorkflowInput] = useState('{}');
 
-  const executeWorkflow = async () => {
+  const runFlow = async () => {
     if (isExecuting || nodes.length === 0) return;
     setIsExecuting(true);
+    setLiveStatus(() => ({}));
+    let input: any = {};
     try {
-      const input = JSON.parse(workflowInput || '{}');
-      await new Promise((r) => setTimeout(r, 300));
-      const result = executeWorkflowClient(toEngineNodes(nodes), toEngineEdges(edges), input);
+      input = JSON.parse(workflowInput || '{}');
+    } catch {
+      addToolLog('execute_workflow', {}, { error: 'input is not valid JSON' }, 'you');
+      setIsExecuting(false);
+      return;
+    }
+
+    try {
+      const result = await executeWorkflow(toEngineNodes(nodes), toEngineEdges(edges), {
+        input,
+        onEvent: (e) =>
+          setLiveStatus((prev) => ({ ...prev, [e.id]: e.status })),
+      });
       setExecutionResult(result);
       addToolLog('execute_workflow', { input }, result, 'you');
-    } catch (e: any) {
-      addToolLog('execute_workflow', {}, { error: e.message });
+    } catch (err: any) {
+      const errResult = { success: false, error: err?.message };
+      setExecutionResult(errResult);
+      addToolLog('execute_workflow', { input }, errResult, 'you');
     }
     setIsExecuting(false);
   };
 
   const validateWorkflow = () => {
-    const result = validateWorkflowClient(toEngineNodes(nodes), toEngineEdges(edges));
+    const engineNodes = toEngineNodes(nodes);
+    const engineEdges = toEngineEdges(edges);
+    const errors: string[] = [];
+    engineEdges.forEach((e) => {
+      if (!engineNodes.find((n) => n.id === e.source))
+        errors.push(`wire references missing source ${e.source}`);
+      if (!engineNodes.find((n) => n.id === e.target))
+        errors.push(`wire references missing target ${e.target}`);
+    });
+    const result = { valid: errors.length === 0 && engineNodes.length > 0, errors };
     addToolLog('validate_workflow', {}, result, 'you');
   };
 
@@ -66,17 +77,6 @@ export function ExecutionPanel({
     <div className="run-console">
       <div className="panel-section">
         <h3>Run Console</h3>
-      </div>
-
-      <div className="exec-stats">
-        <div className="stat">
-          <b>{nodes.length}</b>
-          <span>Modules</span>
-        </div>
-        <div className="stat">
-          <b>{edges.length}</b>
-          <span>Wires</span>
-        </div>
       </div>
 
       <textarea
@@ -91,7 +91,7 @@ export function ExecutionPanel({
       <div className="exec-actions">
         <button
           className="btn-run"
-          onClick={executeWorkflow}
+          onClick={runFlow}
           disabled={isExecuting || nodes.length === 0}
         >
           {isExecuting ? 'RUNNING' : 'RUN'}
@@ -103,8 +103,10 @@ export function ExecutionPanel({
 
       {executionResult && (
         <div className="exec-result">
-          <h4>Output</h4>
-          <pre>{JSON.stringify(executionResult, null, 2)}</pre>
+          <h4>
+            Output{executionResult.durationMs !== undefined ? ` · ${executionResult.durationMs}ms` : ''}
+          </h4>
+          <pre>{JSON.stringify(executionResult.outputs ?? executionResult, null, 2)}</pre>
         </div>
       )}
     </div>

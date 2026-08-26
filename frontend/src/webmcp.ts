@@ -1,6 +1,6 @@
 import type { Node, Edge } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
-import { executeWorkflowClient, validateWorkflowClient } from './engine';
+import { executeWorkflow, toEngineNodes, toEngineEdges, type NodeStatus } from './engine';
 
 interface WebMCPContext {
   nodes: Node[];
@@ -10,25 +10,7 @@ interface WebMCPContext {
   addToolLog: (tool: string, input: any, result: any) => void;
   setExecutionResult: (result: any) => void;
   setIsExecuting: (v: boolean) => void;
-}
-
-function toEngineNodes(nodes: Node[]) {
-  return nodes.map((n) => ({
-    id: n.id,
-    type: (n.data?.nodeType as string) || 'api_call',
-    label: (n.data?.label as string) || 'Untitled',
-    config: (n.data?.config as any) || {},
-    position: n.position,
-  }));
-}
-
-function toEngineEdges(edges: Edge[]) {
-  return edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: (e.label as string) || '',
-  }));
+  setLiveStatus: (updater: (prev: Record<string, NodeStatus>) => Record<string, NodeStatus>) => void;
 }
 
 export function registerWebMCPTools(ctx: WebMCPContext): () => void {
@@ -116,7 +98,8 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
   // Tool 3: execute_workflow
   register({
     name: 'execute_workflow',
-    description: 'Execute the entire workflow. Runs all nodes in topological order, passing data between connected nodes.',
+    description:
+      'Execute the entire workflow for real. Modules run in topological order — API calls fetch, transforms reshape data, delays wait, outputs deliver. Wire labels "true"/"false" gate branches after a condition module.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -125,6 +108,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     },
     execute: async ({ input }: any) => {
       ctx.setIsExecuting(true);
+      ctx.setLiveStatus(() => ({}));
       const engineNodes = toEngineNodes(ctx.nodes);
       const engineEdges = toEngineEdges(ctx.edges);
 
@@ -135,14 +119,22 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
         return JSON.stringify(result);
       }
 
-      // Simulate brief delay for visual feedback
-      await new Promise((r) => setTimeout(r, 500));
-
-      const result = executeWorkflowClient(engineNodes, engineEdges, input || {});
-      ctx.setExecutionResult(result);
-      ctx.setIsExecuting(false);
-      ctx.addToolLog('execute_workflow', { input }, result);
-      return JSON.stringify(result);
+      try {
+        const result = await executeWorkflow(engineNodes, engineEdges, {
+          input: input || {},
+          onEvent: (e) => ctx.setLiveStatus((prev) => ({ ...prev, [e.id]: e.status })),
+        });
+        ctx.setExecutionResult(result);
+        ctx.addToolLog('execute_workflow', { input }, result);
+        return JSON.stringify(result.outputs ?? result);
+      } catch (err: any) {
+        const result = { success: false, error: err?.message || String(err) };
+        ctx.setExecutionResult(result);
+        ctx.addToolLog('execute_workflow', { input }, result);
+        return JSON.stringify(result);
+      } finally {
+        ctx.setIsExecuting(false);
+      }
     },
   });
 
@@ -244,7 +236,21 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     execute: async () => {
       const engineNodes = toEngineNodes(ctx.nodes);
       const engineEdges = toEngineEdges(ctx.edges);
-      const result = validateWorkflowClient(engineNodes, engineEdges);
+      const errors: string[] = [];
+      engineNodes.forEach((n) => {
+        if (!n.label) errors.push(`module ${n.id} has no label`);
+        if (n.type === 'api_call' && !n.config?.url)
+          errors.push(`api_call "${n.label}" has no URL configured`);
+        if (n.type === 'output' && n.config?.kind === 'webhook' && !n.config?.url)
+          errors.push(`output "${n.label}" is a webhook with no URL`);
+      });
+      engineEdges.forEach((e) => {
+        if (!engineNodes.find((n) => n.id === e.source))
+          errors.push(`wire references missing source ${e.source}`);
+        if (!engineNodes.find((n) => n.id === e.target))
+          errors.push(`wire references missing target ${e.target}`);
+      });
+      const result = { valid: errors.length === 0 && engineNodes.length > 0, errors };
       ctx.addToolLog('validate_workflow', {}, result);
       return JSON.stringify(result);
     },

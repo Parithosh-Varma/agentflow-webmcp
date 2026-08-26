@@ -322,6 +322,21 @@ textarea:focus-visible {
 }
 .btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); }
 
+.btn-example {
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.btn-example:hover { border-color: var(--amber); color: var(--amber); }
+
 .exec-result {
   margin-top: 12px;
   padding: 10px;
@@ -348,6 +363,55 @@ textarea:focus-visible {
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* ---------- Config / tuning panel ---------- */
+.config-panel {
+  padding: 16px 14px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.config-empty .hint { font-size: 12px; }
+
+.cfg-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.cfg-row > span {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.cfg-input {
+  width: 100%;
+  padding: 7px 9px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  outline: none;
+}
+.cfg-input::placeholder { color: #5f584d; }
+.cfg-input:focus { border-color: var(--amber); }
+textarea.cfg-input { resize: vertical; }
+
+select.cfg-input { appearance: auto; }
+
+.cfg-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-small { padding: 7px 14px !important; font-size: 12px !important; }
+.btn-danger:hover { border-color: var(--red) !important; color: var(--red) !important; }
 
 /* ---------- Telemetry log ---------- */
 .tool-log { flex: 1; padding: 14px; overflow-y: auto; min-height: 0; }
@@ -496,6 +560,12 @@ textarea:focus-visible {
 .module-led[data-status='running'] { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
 .module-led[data-status='done'] { background: var(--cyan); }
 .module-led[data-status='fault'] { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.module-led[data-status='skipped'] { background: #6b6459; }
+.module[data-skipped='true'] { opacity: 0.55; }
+
+.edge-faulted .react-flow__edge-path {
+  stroke: #e05d4488 !important;
+}
 
 /* Terminal pins */
 .react-flow__handle.pin {
