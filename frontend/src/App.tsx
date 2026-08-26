@@ -17,6 +17,7 @@ import { Sidebar } from './components/Sidebar';
 import { ExecutionPanel } from './components/ExecutionPanel';
 import { ToolLog } from './components/ToolLog';
 import { nodeTypes } from './components/nodes';
+import { BoltIcon } from './components/icons';
 import './App.css';
 
 const initialNodes: Node[] = [
@@ -64,7 +65,7 @@ function App() {
       <header className="header">
         <div className="header-left">
           <div className="logo">
-            <span className="logo-icon">⚡</span>
+            <span className="logo-icon"><BoltIcon size={18} /></span>
             <h1>AgentFlow</h1>
           </div>
           <span className="tagline">Visual Workflow Builder × WebMCP</span>

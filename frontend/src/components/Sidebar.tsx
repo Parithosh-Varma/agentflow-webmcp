@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
+import { GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon } from './icons';
 
 const NODE_TYPES = [
-  { type: 'api_call', nodeType: 'apiCallNode', label: 'API Call', icon: '🌐', color: '#6366f1' },
-  { type: 'transform', nodeType: 'transformNode', label: 'Transform', icon: '⚙', color: '#f59e0b' },
-  { type: 'condition', nodeType: 'conditionNode', label: 'Condition', icon: '◆', color: '#ec4899' },
-  { type: 'output', nodeType: 'outputNode', label: 'Output', icon: '📤', color: '#14b8a6' },
-  { type: 'delay', nodeType: 'delayNode', label: 'Delay', icon: '⏱', color: '#8b5cf6' },
+  { type: 'api_call', nodeType: 'apiCallNode', label: 'API Call', icon: <GlobeIcon size={13} />, color: '#6366f1' },
+  { type: 'transform', nodeType: 'transformNode', label: 'Transform', icon: <TransformIcon size={13} />, color: '#f59e0b' },
+  { type: 'condition', nodeType: 'conditionNode', label: 'Condition', icon: <BranchIcon size={13} />, color: '#ec4899' },
+  { type: 'output', nodeType: 'outputNode', label: 'Output', icon: <SendIcon size={13} />, color: '#14b8a6' },
+  { type: 'delay', nodeType: 'delayNode', label: 'Delay', icon: <ClockIcon size={13} />, color: '#8b5cf6' },
 ];
 
 interface Props {
@@ -52,7 +53,7 @@ export function Sidebar({ nodes, setNodes, addToolLog }: Props) {
               style={{ borderColor: nt.color + '40' }}
               onClick={() => addNode(nt.type, nt.nodeType)}
             >
-              <span>{nt.icon}</span>
+              <span style={{ display: 'inline-flex', color: nt.color }}>{nt.icon}</span>
               <span>{nt.label}</span>
             </button>
           ))}

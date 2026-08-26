@@ -1,4 +1,5 @@
 import { type NodeProps, Handle, Position } from '@xyflow/react';
+import { PlayIcon, GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon } from '../icons';
 
 const baseStyle = (color: string) => ({
   padding: '12px 16px',
@@ -21,11 +22,20 @@ function NodeWrapper({ children, color, hasInput = true, hasOutput = true }: any
   );
 }
 
+function NodeTitle({ icon, color, label }: { icon: React.ReactNode; color: string; label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      <span style={{ display: 'inline-flex', color, flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontWeight: 600, color }}>{label}</span>
+    </div>
+  );
+}
+
 export function StartNode({ data }: NodeProps) {
   return (
     <NodeWrapper color="#10b981" hasInput={false}>
-      <div style={{ fontWeight: 600, color: '#10b981' }}>▶ Start</div>
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{String(data.label)}</div>
+      <NodeTitle icon={<PlayIcon size={12} />} color="#10b981" label="Start" />
+      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
     </NodeWrapper>
   );
 }
@@ -33,8 +43,8 @@ export function StartNode({ data }: NodeProps) {
 export function ApiCallNode({ data }: NodeProps) {
   return (
     <NodeWrapper color="#6366f1">
-      <div style={{ fontWeight: 600, color: '#818cf8' }}>🌐 API Call</div>
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{String(data.label)}</div>
+      <NodeTitle icon={<GlobeIcon size={13} />} color="#818cf8" label="API Call" />
+      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
     </NodeWrapper>
   );
 }
@@ -42,8 +52,8 @@ export function ApiCallNode({ data }: NodeProps) {
 export function TransformNode({ data }: NodeProps) {
   return (
     <NodeWrapper color="#f59e0b">
-      <div style={{ fontWeight: 600, color: '#fbbf24' }}>⚙ Transform</div>
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{String(data.label)}</div>
+      <NodeTitle icon={<TransformIcon size={13} />} color="#fbbf24" label="Transform" />
+      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
     </NodeWrapper>
   );
 }
@@ -51,8 +61,8 @@ export function TransformNode({ data }: NodeProps) {
 export function ConditionNode({ data }: NodeProps) {
   return (
     <NodeWrapper color="#ec4899">
-      <div style={{ fontWeight: 600, color: '#f472b6' }}>◆ Condition</div>
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{String(data.label)}</div>
+      <NodeTitle icon={<BranchIcon size={13} />} color="#f472b6" label="Condition" />
+      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
     </NodeWrapper>
   );
 }
@@ -60,8 +70,8 @@ export function ConditionNode({ data }: NodeProps) {
 export function OutputNode({ data }: NodeProps) {
   return (
     <NodeWrapper color="#14b8a6" hasOutput={false}>
-      <div style={{ fontWeight: 600, color: '#2dd4bf' }}>📤 Output</div>
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{String(data.label)}</div>
+      <NodeTitle icon={<SendIcon size={13} />} color="#2dd4bf" label="Output" />
+      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
     </NodeWrapper>
   );
 }
@@ -69,8 +79,8 @@ export function OutputNode({ data }: NodeProps) {
 export function DelayNode({ data }: NodeProps) {
   return (
     <NodeWrapper color="#8b5cf6">
-      <div style={{ fontWeight: 600, color: '#a78bfa' }}>⏱ Delay</div>
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{String(data.label)}</div>
+      <NodeTitle icon={<ClockIcon size={13} />} color="#a78bfa" label="Delay" />
+      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
     </NodeWrapper>
   );
 }
