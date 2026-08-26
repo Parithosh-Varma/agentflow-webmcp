@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentFlow — One canvas. Two operators.</title>
+  <meta name="description" content="A visual workflow instrument where you and your AI agent build the same machine. Sketch modules, wire them up, then let your agent drive the canvas through browser-native WebMCP tools." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #151310;
+      --panel: #1d1915;
+      --panel-2: #241f19;
+      --line: #322b23;
+      --line-soft: #282219;
+      --ink: #ece7dc;
+      --dim: #8f867a;
+      --amber: #e8a33d;
+      --cyan: #56cdbd;
+      --red: #e05d44;
+      --display: 'Chakra Petch', sans-serif;
+      --body: 'Archivo', sans-serif;
+      --mono: 'IBM Plex Mono', monospace;
+      --maxw: 1060px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--body);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+    /* ---------- rail nav ---------- */
+    .rail {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(21,19,16,0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+    }
+    .rail-inner {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .wordmark { display: flex; align-items: baseline; gap: 10px; text-decoration: none; color: var(--ink); }
+    .wordmark svg { transform: translateY(2px); color: var(--amber); }
+    .wordmark b {
+      font-family: var(--display);
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      font-size: 16px;
+    }
+    .rail-links { display: flex; align-items: center; gap: 22px; }
+    .rail-links a {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--dim);
+      text-decoration: none;
+      transition: color .15s ease;
+    }
+    .rail-links a:hover { color: var(--ink); }
+
+    .btn {
+      display: inline-block;
+      padding: 9px 18px;
+      border-radius: 6px;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: .06em;
+      text-decoration: none;
+      transition: filter .15s ease, border-color .15s ease, color .15s ease;
+    }
+    .btn-amber {
+      background: var(--amber);
+      border: 1px solid var(--amber);
+      color: #201a10;
+    }
+    .btn-amber:hover { filter: brightness(1.12); }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--dim);
+      font-family: var(--mono);
+      font-weight: 400;
+      font-size: 13px;
+    }
+    .btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* ---------- hero ---------- */
+    .hero { padding: 88px 0 64px; border-bottom: 1px solid var(--line-soft); }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .2em;
+      color: var(--dim);
+      margin-bottom: 26px;
+    }
+    .eyebrow::before {
+      content: '';
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+    }
+
+    h1 {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: clamp(38px, 6.4vw, 68px);
+      line-height: 1.04;
+      letter-spacing: .01em;
+      max-width: 15ch;
+    }
+    h1 .you { color: var(--amber); }
+    h1 .agent { color: var(--cyan); }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+      gap: 56px;
+      align-items: center;
+    }
+
+    .lede {
+      margin-top: 22px;
+      max-width: 46ch;
+      color: var(--dim);
+      font-size: 17px;
+    }
+    .lede strong { color: var(--ink); font-weight: 500; }
+
+    .hero-ctas { display: flex; gap: 14px; margin-top: 34px; flex-wrap: wrap; }
+
+    /* schematic */
+    .schematic {
+      background:
+        repeating-linear-gradient(to right, #211c16 0 1px, transparent 1px 26px),
+        repeating-linear-gradient(to bottom, #211c16 0 1px, transparent 1px 26px),
+        var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 26px 20px;
+    }
+    .schematic svg { width: 100%; height: auto; display: block; }
+
+    .wire {
+      stroke: #3a342c;
+      stroke-width: 1.6;
+      fill: none;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .wire-signal {
+        stroke-dasharray: 5 7;
+        animation: march 1.1s linear infinite;
+      }
+    }
+    @keyframes march { to { stroke-dashoffset: -12; } }
+    .sig-a { stroke: var(--amber); opacity: .85; animation-delay: -.55s; }
+    .sig-b { stroke: var(--cyan); }
+
+    .mod-label { font-family: var(--mono); font-size: 11px; fill: var(--ink); letter-spacing: .08em; }
+    .mod-type  { font-family: var(--mono); font-size: 7.5px; letter-spacing: .18em; fill: var(--dim); }
+
+    .led-ring { fill: none; stroke: var(--line); stroke-width: 1.5; }
+    @media (prefers-reduced-motion: no-preference) {
+      .led-a { animation: ledstep 2.4s steps(1) infinite; }
+      .led-b { animation: ledstep 2.4s steps(1) infinite .6s; }
+      .led-c { animation: ledstep 2.4s steps(1) infinite 1.2s; }
+      .led-d { animation: ledstep 2.4s steps(1) infinite 1.8s; }
+    }
+    @keyframes ledstep {
+      0%, 25% { fill: var(--amber); filter: drop-shadow(0 0 3px var(--amber)); }
+      30%, 100% { fill: #3a342c; filter: none; }
+    }
+
+    /* ---------- sections ---------- */
+    section { padding: 76px 0; border-bottom: 1px solid var(--line-soft); }
+
+    .sec-head { margin-bottom: 44px; }
+    .sec-kicker {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .22em;
+      color: var(--dim);
+      display: block;
+      margin-bottom: 12px;
+    }
+    h2 {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: clamp(26px, 3.6vw, 36px);
+      line-height: 1.15;
+      max-width: 24ch;
+    }
+
+    /* operators */
+    .ops { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .op {
+      border: 1px solid var(--line);
+      border-top: 2px solid var(--actor);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 26px 26px 24px;
+    }
+    .op-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .22em;
+      color: var(--actor);
+      margin-bottom: 14px;
+      display: block;
+    }
+    .op h3 { font-size: 19px; font-weight: 600; margin-bottom: 8px; }
+    .op p { color: var(--dim); font-size: 15px; }
+    .op-you { --actor: var(--amber); }
+    .op-agent { --actor: var(--cyan); }
+
+    /* tools */
+    .tools {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .tool {
+      background: var(--panel);
+      border: 1px solid var(--line-soft);
+      border-left: 2px solid #56cdbd55;
+      border-radius: 5px;
+      padding: 14px 15px;
+    }
+    .tool code {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--cyan);
+      display: block;
+      margin-bottom: 5px;
+    }
+    .tool span { font-size: 13px; color: var(--dim); line-height: 1.45; display: block; }
+
+    /* steps — a real sequence */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px; counter-reset: step; }
+    .step { position: relative; padding-left: 54px; }
+    .step::before {
+      counter-increment: step;
+      content: '0' counter(step);
+      position: absolute;
+      left: 0; top: 2px;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 26px;
+      color: var(--amber);
+    }
+    .step::after {
+      content: '';
+      position: absolute;
+      left: 17px; top: 40px; bottom: -34px;
+      width: 1px;
+      background: var(--line);
+    }
+    .step:last-child::after { display: none; }
+    .step h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+    .step p { color: var(--dim); font-size: 14.5px; }
+    .step code { font-family: var(--mono); font-size: 12px; color: var(--cyan); }
+
+    /* final cta */
+    .final { text-align: center; padding: 96px 0; border-bottom: none; }
+    .final h2 { margin: 0 auto 18px; max-width: 22ch; }
+    .final p { color: var(--dim); max-width: 52ch; margin: 0 auto 34px; }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 26px 0;
+    }
+    .foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--dim);
+    }
+    .foot a { color: var(--dim); text-decoration: none; }
+    .foot a:hover { color: var(--ink); }
+
+    @media (max-width: 860px) {
+      .hero-grid, .ops { grid-template-columns: 1fr; }
+      .tools { grid-template-columns: 1fr 1fr; }
+      .steps { grid-template-columns: 1fr; gap: 28px; }
+      .step::after { display: none; }
+      .hero { padding: 60px 0 48px; }
+      .rail-links a.hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="rail">
+    <div class="rail-inner">
+      <a class="wordmark" href="#top">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12L13 2z"/></svg>
+        <b>AGENTFLOW</b>
+      </a>
+      <div class="rail-links">
+        <a class="hide-sm" href="#operators">Operators</a>
+        <a class="hide-sm" href="#tools">Tools</a>
+        <a class="hide-sm" href="#how">How it runs</a>
+        <a class="btn btn-amber" href="https://agentflow-hackathon.pages.dev">OPEN APP</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ================= HERO ================= -->
+  <header class="hero" id="top">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">WEBMCP WORKFLOW INSTRUMENT</span>
+        <h1>One canvas.<br /><span class="you">You</span> wire it.<br /><span class="agent">Your agent</span> drives it.</h1>
+        <p class="lede">
+          AgentFlow is a visual builder for automation where <strong>humans and agents
+          operate the same machine</strong>. Drag modules onto the canvas and route wires by hand —
+          or tell your agent what you need and watch it call real browser-native tools to do it.
+          Either way, you see every signal travel.
+        </p>
+        <div class="hero-ctas">
+          <a class="btn btn-amber" href="https://agentflow-hackathon.pages.dev">OPEN THE INSTRUMENT</a>
+          <a class="btn btn-ghost" href="https://github.com/Parithosh-Varma/agentflow-webmcp">read the source</a>
+        </div>
+      </div>
+
+      <figure class="schematic" aria-label="Animated diagram of a workflow with signals traveling between modules">
+        <svg viewBox="0 0 420 300" role="img">
+          <!-- wires -->
+          <path class="wire" d="M118 70 H182" />
+          <path class="wire wire-signal sig-a" d="M118 70 H182" />
+          <path class="wire" d="M278 70 H330 V150 H278" />
+          <path class="wire wire-signal sig-b" d="M278 70 H330 V150 H278" />
+          <path class="wire" d="M118 230 H182" />
+          <path class="wire wire-signal sig-b" d="M118 230 H182" />
+          <path class="wire" d="M278 230 H330 V150 H278" />
+
+          <!-- module: fetch -->
+          <g>
+            <rect x="42" y="48" width="76" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <circle class="led-ring led-a" cx="104" cy="58" r="3"/>
+            <text class="mod-type" x="54" y="66">API CALL</text>
+            <text class="mod-label" x="54" y="82">fetch</text>
+          </g>
+
+          <!-- module: transform -->
+          <g>
+            <rect x="182" y="48" width="96" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <circle class="led-ring led-b" cx="264" cy="58" r="3"/>
+            <text class="mod-type" x="194" y="66">TRANSFORM</text>
+            <text class="mod-label" x="194" y="82">reshape</text>
+          </g>
+
+          <!-- module: output (center right) -->
+          <g>
+            <rect x="202" y="128" width="76" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <circle class="led-ring led-c" cx="264" cy="138" r="3"/>
+            <text class="mod-type" x="214" y="146">OUTPUT</text>
+            <text class="mod-label" x="214" y="162">webhook</text>
+          </g>
+
+          <!-- module: delay -->
+          <g>
+            <rect x="42" y="208" width="76" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <circle class="led-ring led-d" cx="104" cy="218" r="3"/>
+            <text class="mod-type" x="54" y="226">DELAY</text>
+            <text class="mod-label" x="54" y="242">wait 5s</text>
+          </g>
+
+          <!-- module: condition -->
+          <g>
+            <rect x="182" y="208" width="96" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <circle class="led-ring led-a" cx="264" cy="218" r="3"/>
+            <text class="mod-type" x="194" y="226">CONDITION</text>
+            <text class="mod-label" x="194" y="242">if ready</text>
+          </g>
+
+          <!-- annotation -->
+          <text class="mod-type" x="42" y="286" style="fill:#56cdbd">AGENT: add_node · connect_nodes · run</text>
+          <text class="mod-type" x="290" y="286" style="fill:#e8a33d">YOU: drag · wire · press RUN</text>
+        </svg>
+      </figure>
+    </div>
+  </header>
+
+  <!-- ================= OPERATORS ================= -->
+  <section id="operators">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-kicker">TWO OPERATORS, ONE MACHINE</span>
+        <h2>Built for the moment a human hands over the controls.</h2>
+      </div>
+      <div class="ops">
+        <article class="op op-you">
+          <span class="op-tag">OPERATOR / YOU</span>
+          <h3>Sketch it by feel</h3>
+          <p>
+            Drag modules onto the canvas. Route data by connecting pins. Press RUN when
+            the shape looks right — amber signals show exactly which path your data takes.
+          </p>
+        </article>
+        <article class="op op-agent">
+          <span class="op-tag">OPERATOR / AGENT</span>
+          <h3>Drive it by tool calls</h3>
+          <p>
+            Your agent sees the same canvas through eight structured tools. No DOM scraping,
+            no guessing at buttons — it adds nodes, routes wires, tunes configs, and runs
+            the flow while you watch.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TOOLS ================= -->
+  <section id="tools">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-kicker">WHAT THE AGENT CAN TOUCH</span>
+        <h2>Eight browser-native tools, declared by the page itself.</h2>
+      </div>
+      <div class="tools">
+        <div class="tool"><code>add_node</code><span>Drops a new module onto the canvas</span></div>
+        <div class="tool"><code>connect_nodes</code><span>Routes a wire from one pin to another</span></div>
+        <div class="tool"><code>execute_workflow</code><span>Runs the whole flow in dependency order</span></div>
+        <div class="tool"><code>get_available_tools</code><span>Discovers everything on offer</span></div>
+        <div class="tool"><code>get_node_details</code><span>Inspects any module's wiring and config</span></div>
+        <div class="tool"><code>update_node_config</code><span>Retunes a module without rebuilding it</span></div>
+        <div class="tool"><code>get_workflow_status</code><span>Reads the board: modules, wires, counts</span></div>
+        <div class="tool"><code>validate_workflow</code><span>Catches broken wiring before a run</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= HOW ================= -->
+  <section id="how">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-kicker">HOW A RUN GOES</span>
+        <h2>Sketch, delegate, run.</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <h3>Sketch it</h3>
+          <p>Name a module, pick its type, drop it in. Wire the pins yourself until the flow reads the way you think.</p>
+        </div>
+        <div class="step">
+          <h3>Delegate it</h3>
+          <p>Tell your agent what's missing. It answers with tool calls — <code>add_node</code>, <code>connect_nodes</code> — and you watch each one land on the canvas.</p>
+        </div>
+        <div class="step">
+          <h3>Run it</h3>
+          <p>One press starts the sequence. Signals march across the wires, modules light up in order, and telemetry logs every step for both operators.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FINAL CTA ================= -->
+  <section class="final">
+    <div class="wrap">
+      <span class="eyebrow" style="justify-content:center; display:flex;">NO SIGNUP · RUNS IN YOUR BROWSER</span>
+      <h2>The canvas is live. Bring your agent.</h2>
+      <p>Open the instrument, build a flow, then ask an agent to rebuild it faster than you can drag.</p>
+      <a class="btn btn-amber" href="https://agentflow-hackathon.pages.dev">OPEN AGENTFLOW</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap foot">
+      <span>AGENTFLOW · MIT LICENSE</span>
+      <span>BUILT FOR THE WEBMCP HACKATHON</span>
+      <span>
+        <a href="https://github.com/Parithosh-Varma/agentflow-webmcp">SOURCE</a>
+        &nbsp;·&nbsp;
+        <a href="https://agentflow-hackathon.pages.dev">APP</a>
+      </span>
+    </div>
+  </footer>
+
+</body>
+</html>
