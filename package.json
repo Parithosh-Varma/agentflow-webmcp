@@ -1,0 +1,13 @@
+{
+  "name": "agentflow",
+  "version": "1.0.0",
+  "description": "Visual Workflow Builder × WebMCP",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build && cd ../backend && npm install",
+    "start": "cd backend && node index.js",
+    "dev:backend": "cd backend && node index.js",
+    "dev:frontend": "cd frontend && npm run dev"
+  },
+  "keywords": ["webmcp", "workflow", "automation"],
+  "license": "MIT"
+}
