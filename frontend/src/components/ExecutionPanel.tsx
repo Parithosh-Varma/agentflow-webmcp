@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { Node, Edge } from '@xyflow/react';
-
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { executeWorkflowClient, validateWorkflowClient } from '../engine';
 
 interface Props {
   executionResult: any;
@@ -13,7 +12,34 @@ interface Props {
   setIsExecuting: (v: boolean) => void;
 }
 
-export function ExecutionPanel({ executionResult, isExecuting, nodes, edges, addToolLog, setExecutionResult, setIsExecuting }: Props) {
+function toEngineNodes(nodes: Node[]) {
+  return nodes.map((n) => ({
+    id: n.id,
+    type: (n.data?.nodeType as string) || 'api_call',
+    label: (n.data?.label as string) || 'Untitled',
+    config: (n.data?.config as any) || {},
+    position: n.position,
+  }));
+}
+
+function toEngineEdges(edges: Edge[]) {
+  return edges.map((e) => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    label: (e.label as string) || '',
+  }));
+}
+
+export function ExecutionPanel({
+  executionResult,
+  isExecuting,
+  nodes,
+  edges,
+  addToolLog,
+  setExecutionResult,
+  setIsExecuting,
+}: Props) {
   const [workflowInput, setWorkflowInput] = useState('{}');
 
   const executeWorkflow = async () => {
@@ -21,12 +47,8 @@ export function ExecutionPanel({ executionResult, isExecuting, nodes, edges, add
     setIsExecuting(true);
     try {
       const input = JSON.parse(workflowInput || '{}');
-      const res = await fetch(`${API_URL}/api/execute-tool`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: 'execute_workflow', input: { input } }),
-      });
-      const result = await res.json();
+      await new Promise((r) => setTimeout(r, 300));
+      const result = executeWorkflowClient(toEngineNodes(nodes), toEngineEdges(edges), input);
       setExecutionResult(result);
       addToolLog('execute_workflow', { input }, result);
     } catch (e: any) {
@@ -35,18 +57,9 @@ export function ExecutionPanel({ executionResult, isExecuting, nodes, edges, add
     setIsExecuting(false);
   };
 
-  const validateWorkflow = async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/execute-tool`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: 'validate_workflow', input: {} }),
-      });
-      const result = await res.json();
-      addToolLog('validate_workflow', {}, result);
-    } catch (e: any) {
-      addToolLog('validate_workflow', {}, { error: e.message });
-    }
+  const validateWorkflow = () => {
+    const result = validateWorkflowClient(toEngineNodes(nodes), toEngineEdges(edges));
+    addToolLog('validate_workflow', {}, result);
   };
 
   return (
@@ -68,12 +81,16 @@ export function ExecutionPanel({ executionResult, isExecuting, nodes, edges, add
         className="exec-input"
         placeholder='{"key": "value"}'
         value={workflowInput}
-        onChange={e => setWorkflowInput(e.target.value)}
+        onChange={(e) => setWorkflowInput(e.target.value)}
         rows={3}
       />
 
       <div className="exec-actions">
-        <button className="exec-btn primary" onClick={executeWorkflow} disabled={isExecuting || nodes.length === 0}>
+        <button
+          className="exec-btn primary"
+          onClick={executeWorkflow}
+          disabled={isExecuting || nodes.length === 0}
+        >
           {isExecuting ? '⏳ Running...' : '▶ Run Workflow'}
         </button>
         <button className="exec-btn secondary" onClick={validateWorkflow}>
