@@ -16,7 +16,7 @@ interface Props {
   setNodes: any;
   setEdges: any;
   edges: Edge[];
-  addToolLog: (tool: string, input: any, result: any) => void;
+  addToolLog: (tool: string, input: any, result: any, actor?: 'agent' | 'you') => void;
 }
 
 export function Sidebar({ nodes, setNodes, addToolLog }: Props) {
@@ -31,27 +31,27 @@ export function Sidebar({ nodes, setNodes, addToolLog }: Props) {
       data: { label: nodeLabel, config: {}, nodeType: type },
     };
     setNodes((nds: Node[]) => [...nds, newNode]);
-    addToolLog('add_node', { type, label: nodeLabel }, { success: true, nodeId: newNode.id });
+    addToolLog('add_node', { type, label: nodeLabel }, { success: true, nodeId: newNode.id }, 'you');
     setLabel('');
   };
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-section">
-        <h3>Add Node</h3>
+      <div className="panel-section">
+        <h3>Modules</h3>
         <input
           className="sidebar-input"
-          placeholder="Node label..."
+          placeholder="module name"
           value={label}
-          onChange={e => setLabel(e.target.value)}
+          onChange={(e) => setLabel(e.target.value)}
         />
         <div className="node-grid">
-          {NODE_TYPES.map(nt => (
+          {NODE_TYPES.map((nt) => (
             <button
               key={nt.type}
               className="node-btn"
-              style={{ borderColor: nt.color + '40' }}
               onClick={() => addNode(nt.type, nt.nodeType)}
+              title={`Add ${nt.label}`}
             >
               <span style={{ display: 'inline-flex', color: nt.color }}>{nt.icon}</span>
               <span>{nt.label}</span>
@@ -60,18 +60,23 @@ export function Sidebar({ nodes, setNodes, addToolLog }: Props) {
         </div>
       </div>
 
-      <div className="sidebar-section">
-        <h3>Canvas ({nodes.length} nodes)</h3>
+      <div className="panel-section">
+        <h3>On Canvas</h3>
         <div className="node-list">
-          {nodes.map(n => (
+          {nodes.map((n) => (
             <div key={n.id} className="node-item">
-              <span className="node-dot" style={{ background: '#6366f1' }} />
+              <span className="node-dot" style={{ background: '#8f867a' }} />
               <span>{String(n.data?.label)}</span>
-              <span className="node-id">{n.id.slice(0, 12)}</span>
+              <span className="node-id">{n.id.slice(0, 10)}</span>
             </div>
           ))}
         </div>
       </div>
+
+      <p className="hint">
+        Drag wires between pins to route data — or let your agent do it:{' '}
+        <code>add_node</code> <code>connect_nodes</code> <code>run</code>.
+      </p>
     </aside>
   );
 }

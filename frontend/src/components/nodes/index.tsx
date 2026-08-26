@@ -1,95 +1,52 @@
 import { type NodeProps, Handle, Position } from '@xyflow/react';
+import type { ReactNode } from 'react';
 import { PlayIcon, GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon } from '../icons';
 
-const baseStyle = (color: string) => ({
-  padding: '12px 16px',
-  borderRadius: 10,
-  border: `1px solid ${color}40`,
-  background: `linear-gradient(135deg, ${color}15, ${color}08)`,
-  minWidth: 140,
-  fontSize: 13,
-  color: '#e2e8f0',
-  boxShadow: `0 2px 8px ${color}20`,
-});
+const TYPE_META: Record<string, { tint: string; icon: ReactNode }> = {
+  start: { tint: '#9ba657', icon: <PlayIcon size={11} /> },
+  api_call: { tint: '#8f9fdd', icon: <GlobeIcon size={12} /> },
+  transform: { tint: '#e0b45c', icon: <TransformIcon size={12} /> },
+  condition: { tint: '#d98aa6', icon: <BranchIcon size={12} /> },
+  output: { tint: '#6cc7ba', icon: <SendIcon size={12} /> },
+  delay: { tint: '#ab97d4', icon: <ClockIcon size={12} /> },
+};
 
-function NodeWrapper({ children, color, hasInput = true, hasOutput = true }: any) {
+function Module(props: NodeProps) {
+  const { data, type } = props;
+  const key = (data?.nodeType as string) || (type === 'startNode' ? 'start' : 'api_call');
+  const meta = TYPE_META[key] || TYPE_META.api_call;
+  const typeLabel = key === 'start' ? 'start' : key.replace('_', ' ');
+  const status = (data?.status as string) || 'idle';
+
   return (
-    <div style={baseStyle(color)}>
-      {hasInput && <Handle type="target" position={Position.Left} style={{ background: color, width: 10, height: 10 }} />}
-      {children}
-      {hasOutput && <Handle type="source" position={Position.Right} style={{ background: color, width: 10, height: 10 }} />}
+    <div className="module" style={{ ['--tint' as any]: meta.tint }}>
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="pin"
+        style={{ background: 'var(--line)' }}
+      />
+      <span className="module-chip">{meta.icon}</span>
+      <div className="module-body">
+        <span className="module-type">{typeLabel}</span>
+        <span className="module-label">{String(data?.label)}</span>
+      </div>
+      <span className="module-led" data-status={status} title={status} />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="pin"
+        style={{ background: 'var(--line)' }}
+      />
     </div>
-  );
-}
-
-function NodeTitle({ icon, color, label }: { icon: React.ReactNode; color: string; label: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-      <span style={{ display: 'inline-flex', color, flexShrink: 0 }}>{icon}</span>
-      <span style={{ fontWeight: 600, color }}>{label}</span>
-    </div>
-  );
-}
-
-export function StartNode({ data }: NodeProps) {
-  return (
-    <NodeWrapper color="#10b981" hasInput={false}>
-      <NodeTitle icon={<PlayIcon size={12} />} color="#10b981" label="Start" />
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
-    </NodeWrapper>
-  );
-}
-
-export function ApiCallNode({ data }: NodeProps) {
-  return (
-    <NodeWrapper color="#6366f1">
-      <NodeTitle icon={<GlobeIcon size={13} />} color="#818cf8" label="API Call" />
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
-    </NodeWrapper>
-  );
-}
-
-export function TransformNode({ data }: NodeProps) {
-  return (
-    <NodeWrapper color="#f59e0b">
-      <NodeTitle icon={<TransformIcon size={13} />} color="#fbbf24" label="Transform" />
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
-    </NodeWrapper>
-  );
-}
-
-export function ConditionNode({ data }: NodeProps) {
-  return (
-    <NodeWrapper color="#ec4899">
-      <NodeTitle icon={<BranchIcon size={13} />} color="#f472b6" label="Condition" />
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
-    </NodeWrapper>
-  );
-}
-
-export function OutputNode({ data }: NodeProps) {
-  return (
-    <NodeWrapper color="#14b8a6" hasOutput={false}>
-      <NodeTitle icon={<SendIcon size={13} />} color="#2dd4bf" label="Output" />
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
-    </NodeWrapper>
-  );
-}
-
-export function DelayNode({ data }: NodeProps) {
-  return (
-    <NodeWrapper color="#8b5cf6">
-      <NodeTitle icon={<ClockIcon size={13} />} color="#a78bfa" label="Delay" />
-      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 3 }}>{String(data.label)}</div>
-    </NodeWrapper>
   );
 }
 
 export const nodeTypes = {
-  startNode: StartNode,
-  apiCallNode: ApiCallNode,
-  transformNode: TransformNode,
-  conditionNode: ConditionNode,
-  outputNode: OutputNode,
-  delayNode: DelayNode,
+  startNode: Module,
+  apiCallNode: Module,
+  transformNode: Module,
+  conditionNode: Module,
+  outputNode: Module,
+  delayNode: Module,
 };

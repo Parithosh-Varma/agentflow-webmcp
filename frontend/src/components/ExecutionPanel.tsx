@@ -7,7 +7,7 @@ interface Props {
   isExecuting: boolean;
   nodes: Node[];
   edges: Edge[];
-  addToolLog: (tool: string, input: any, result: any) => void;
+  addToolLog: (tool: string, input: any, result: any, actor?: 'agent' | 'you') => void;
   setExecutionResult: (r: any) => void;
   setIsExecuting: (v: boolean) => void;
 }
@@ -50,7 +50,7 @@ export function ExecutionPanel({
       await new Promise((r) => setTimeout(r, 300));
       const result = executeWorkflowClient(toEngineNodes(nodes), toEngineEdges(edges), input);
       setExecutionResult(result);
-      addToolLog('execute_workflow', { input }, result);
+      addToolLog('execute_workflow', { input }, result, 'you');
     } catch (e: any) {
       addToolLog('execute_workflow', {}, { error: e.message });
     }
@@ -59,48 +59,51 @@ export function ExecutionPanel({
 
   const validateWorkflow = () => {
     const result = validateWorkflowClient(toEngineNodes(nodes), toEngineEdges(edges));
-    addToolLog('validate_workflow', {}, result);
+    addToolLog('validate_workflow', {}, result, 'you');
   };
 
   return (
-    <div className="execution-panel">
-      <h3>⚡ Execute</h3>
+    <div className="run-console">
+      <div className="panel-section">
+        <h3>Run Console</h3>
+      </div>
 
       <div className="exec-stats">
         <div className="stat">
-          <span className="stat-value">{nodes.length}</span>
-          <span className="stat-label">Nodes</span>
+          <b>{nodes.length}</b>
+          <span>Modules</span>
         </div>
         <div className="stat">
-          <span className="stat-value">{edges.length}</span>
-          <span className="stat-label">Edges</span>
+          <b>{edges.length}</b>
+          <span>Wires</span>
         </div>
       </div>
 
       <textarea
         className="exec-input"
-        placeholder='{"key": "value"}'
+        placeholder='{" key ": " input data "}'
         value={workflowInput}
         onChange={(e) => setWorkflowInput(e.target.value)}
         rows={3}
+        aria-label="Workflow input JSON"
       />
 
       <div className="exec-actions">
         <button
-          className="exec-btn primary"
+          className="btn-run"
           onClick={executeWorkflow}
           disabled={isExecuting || nodes.length === 0}
         >
-          {isExecuting ? '⏳ Running...' : '▶ Run Workflow'}
+          {isExecuting ? 'RUNNING' : 'RUN'}
         </button>
-        <button className="exec-btn secondary" onClick={validateWorkflow}>
-          ✓ Validate
+        <button className="btn-ghost" onClick={validateWorkflow}>
+          validate
         </button>
       </div>
 
       {executionResult && (
         <div className="exec-result">
-          <h4>Result</h4>
+          <h4>Output</h4>
           <pre>{JSON.stringify(executionResult, null, 2)}</pre>
         </div>
       )}
