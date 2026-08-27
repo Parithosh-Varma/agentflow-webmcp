@@ -13,8 +13,10 @@ interface Props {
 export function ToolLog({ logs }: Props) {
   return (
     <div className="tool-log">
-      <div className="panel-section" style={{ marginBottom: 10 }}>
-        <h3>Telemetry{logs.length > 0 ? ` · ${logs.length}` : ''}</h3>
+      <div className="sidebar-section" style={{ padding: '12px 12px 8px', borderBottom: '1px solid var(--border-faint)' }}>
+        <div className="sidebar-section-title">
+          Telemetry{logs.length > 0 ? ` · ${logs.length}` : ''}
+        </div>
       </div>
 
       {logs.length === 0 ? (

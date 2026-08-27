@@ -75,13 +75,24 @@ export function ExecutionPanel({
 
   return (
     <div className="run-console">
-      <div className="panel-section">
-        <h3>Run Console</h3>
+      <div className="exec-stats">
+        <div className="stat">
+          <b>{nodes.length}</b>
+          <span>Modules</span>
+        </div>
+        <div className="stat">
+          <b>{edges.length}</b>
+          <span>Wires</span>
+        </div>
+        <div className="stat">
+          <b>{isExecuting ? '…' : executionResult ? (executionResult.success ? '✓' : '✗') : '—'}</b>
+          <span>Status</span>
+        </div>
       </div>
 
       <textarea
         className="exec-input"
-        placeholder='{" key ": " input data "}'
+        placeholder='{"key": "value"}'
         value={workflowInput}
         onChange={(e) => setWorkflowInput(e.target.value)}
         rows={3}
@@ -101,13 +112,17 @@ export function ExecutionPanel({
         </button>
       </div>
 
-      {executionResult && (
+      {executionResult ? (
         <div className="exec-result">
           <h4>
             Output{executionResult.durationMs !== undefined ? ` · ${executionResult.durationMs}ms` : ''}
           </h4>
           <pre>{JSON.stringify(executionResult.outputs ?? executionResult, null, 2)}</pre>
         </div>
+      ) : (
+        <p className="hint" style={{ marginTop: 10 }}>
+          No run yet — press RUN to execute the workflow.
+        </p>
       )}
     </div>
   );

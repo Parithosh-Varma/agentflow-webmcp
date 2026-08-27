@@ -178,6 +178,141 @@ async function runOutput(data: any, cfg: any): Promise<any> {
   throw new Error(`unknown output kind: ${kind}`);
 }
 
+function runFilter(data: any, cfg: any): any {
+  const expr = cfg?.expression;
+  if (!expr) throw new Error('filter requires an expression');
+  const fn = new Function('data', `"use strict"; return Boolean((${expr})(data));`);
+  const pass = fn(data);
+  return { passed: pass, data };
+}
+
+function runSplit(data: any, cfg: any): any {
+  if (Array.isArray(data)) {
+    const batchSize = Number(cfg?.batchSize ?? 1);
+    const batches: any[][] = [];
+    for (let i = 0; i < data.length; i += batchSize) {
+      batches.push(data.slice(i, i + batchSize));
+    }
+    return { batches, count: batches.length };
+  }
+  if (typeof data === 'object' && data !== null) {
+    const keys = Object.keys(data);
+    return { items: keys.map((k) => ({ key: k, value: data[k] })), count: keys.length };
+  }
+  return { items: [data], count: 1 };
+}
+
+function runMerge(data: any, _cfg: any): any {
+  if (Array.isArray(data)) {
+    return data.reduce((acc, item) => {
+      if (Array.isArray(item)) return acc.concat(item);
+      if (typeof item === 'object' && item !== null) return { ...acc, ...item };
+      return acc;
+    }, {});
+  }
+  return data;
+}
+
+function runLoop(data: any, cfg: any): any {
+  const items = Array.isArray(data) ? data : data?.items || data?.batches || [data];
+  const maxIter = Number(cfg?.maxIterations ?? 10);
+  const results: any[] = [];
+  const count = Math.min(items.length, maxIter);
+  for (let i = 0; i < count; i++) {
+    results.push({ index: i, value: items[i] });
+  }
+  return { iterations: results, total: items.length };
+}
+
+function runCode(data: any, cfg: any): any {
+  const code = cfg?.code || cfg?.expression;
+  if (!code) throw new Error('code node requires a code expression');
+  const fn = new Function('data', `"use strict"; ${code}`);
+  return fn(data);
+}
+
+async function runWebhook(data: any, cfg: any): Promise<any> {
+  const url = cfg?.url;
+  if (!url) throw new Error('webhook requires a URL');
+  const method = String(cfg?.method || 'POST').toUpperCase();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(cfg?.headers || {}) };
+  const res = await fetch(url, { method, headers, body: JSON.stringify(data) });
+  const text = await res.text();
+  const parsed = parseMaybeJson(text);
+  if (!res.ok) throw new Error(`webhook responded HTTP ${res.status}`);
+  return { status: res.status, data: parsed };
+}
+
+async function runAi(data: any, cfg: any): Promise<any> {
+  const prompt = cfg?.prompt || 'Summarize the input data';
+  const model = cfg?.model || 'gpt-3.5-turbo';
+  const apiKey = cfg?.apiKey;
+  if (!apiKey) {
+    // Fallback: just echo the prompt with data context
+    return { model, prompt, response: `[AI] Prompt: ${prompt} | Data: ${JSON.stringify(data).slice(0, 200)}`, note: 'No API key — simulated' };
+  }
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant in a data workflow.' },
+        { role: 'user', content: `${prompt}\n\nInput data:\n${JSON.stringify(data, null, 2)}` },
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error(`AI API error: ${res.status}`);
+  const json = await res.json();
+  return { model, response: json.choices?.[0]?.message?.content || 'no response' };
+}
+
+function runValidator(data: any, cfg: any): any {
+  const rules = cfg?.rules || cfg?.expression;
+  if (rules) {
+    const fn = new Function('data', `"use strict"; return (${rules})(data);`);
+    const valid = fn(data);
+    return { valid: Boolean(valid), data };
+  }
+  // Default: check data is truthy and not empty
+  const valid = data !== null && data !== undefined && data !== '' &&
+    !(Array.isArray(data) && data.length === 0) &&
+    !(typeof data === 'object' && Object.keys(data).length === 0);
+  return { valid, data };
+}
+
+function runLogger(data: any, cfg: any): any {
+  const level = cfg?.level || 'info';
+  const msg = cfg?.message || '';
+  const entry = { level, message: msg, data, timestamp: new Date().toISOString() };
+  if (level === 'error') console.error('[AgentFlow]', msg, data);
+  else if (level === 'warn') console.warn('[AgentFlow]', msg, data);
+  else console.log('[AgentFlow]', msg, data);
+  return entry;
+}
+
+async function runFile(data: any, cfg: any): Promise<any> {
+  const operation = cfg?.operation || 'read';
+  const path = cfg?.path || 'output.json';
+
+  if (operation === 'write') {
+    // In-browser: trigger download
+    const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    const blob = new Blob([content], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = path;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return { operation: 'write', path, bytes: content.length };
+  }
+
+  // read: return the data as-is (can't read local files in browser)
+  return { operation: 'read', path, data };
+}
+
 // ---- executor -------------------------------------------------------------
 
 function topologicalOrder(nodes: WorkflowNode[], edges: WorkflowEdge[]): string[] {
@@ -290,6 +425,36 @@ export async function executeWorkflow(
           break;
         case 'output':
           result = await runOutput(data, node.config);
+          break;
+        case 'filter':
+          result = runFilter(data, node.config);
+          break;
+        case 'split':
+          result = runSplit(data, node.config);
+          break;
+        case 'merge':
+          result = runMerge(data, node.config);
+          break;
+        case 'loop':
+          result = runLoop(data, node.config);
+          break;
+        case 'code':
+          result = runCode(data, node.config);
+          break;
+        case 'webhook':
+          result = await runWebhook(data, node.config);
+          break;
+        case 'ai':
+          result = await runAi(data, node.config);
+          break;
+        case 'validator':
+          result = runValidator(data, node.config);
+          break;
+        case 'logger':
+          result = runLogger(data, node.config);
+          break;
+        case 'file':
+          result = await runFile(data, node.config);
           break;
         default:
           throw new Error(`unknown module type: ${node.type}`);

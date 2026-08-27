@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AgentFlow — One canvas. Two operators.</title>
   <meta name="description" content="A visual workflow instrument where you and your AI agent build the same machine. Sketch modules, wire them up, then let your agent drive the canvas through browser-native WebMCP tools." />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" href="./favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -14,13 +14,13 @@
   />
   <style>
     :root {
-      --bg: #151310;
-      --panel: #1d1915;
-      --panel-2: #241f19;
-      --line: #322b23;
-      --line-soft: #282219;
-      --ink: #ece7dc;
-      --dim: #8f867a;
+      --bg: #121110;
+      --panel: #1e1b18;
+      --panel-2: #262220;
+      --line: #3a342e;
+      --line-soft: #2e2923;
+      --ink: #ede8dc;
+      --dim: #8a806f;
       --amber: #e8a33d;
       --cyan: #56cdbd;
       --red: #e05d44;
@@ -57,7 +57,7 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: rgba(21,19,16,0.92);
+      background: rgba(18,17,16,0.92);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--line);
     }
@@ -73,6 +73,7 @@
     }
     .wordmark { display: flex; align-items: baseline; gap: 10px; text-decoration: none; color: var(--ink); }
     .wordmark svg { transform: translateY(2px); color: var(--amber); }
+.wordmark-logo { width: 26px; height: 26px; transform: translateY(2px); }
     .wordmark b {
       font-family: var(--display);
       font-weight: 600;
@@ -178,7 +179,7 @@
     .schematic svg { width: 100%; height: auto; display: block; }
 
     .wire {
-      stroke: #3a342c;
+      stroke: var(--line);
       stroke-width: 1.6;
       fill: none;
     }
@@ -194,6 +195,7 @@
 
     .mod-label { font-family: var(--mono); font-size: 11px; fill: var(--ink); letter-spacing: .08em; }
     .mod-type  { font-family: var(--mono); font-size: 7.5px; letter-spacing: .18em; fill: var(--dim); }
+    .mod-rect  { fill: var(--panel-2); stroke: var(--line); }
 
     .led-ring { fill: none; stroke: var(--line); stroke-width: 1.5; }
     @media (prefers-reduced-motion: no-preference) {
@@ -204,7 +206,7 @@
     }
     @keyframes ledstep {
       0%, 25% { fill: var(--amber); filter: drop-shadow(0 0 3px var(--amber)); }
-      30%, 100% { fill: #3a342c; filter: none; }
+      30%, 100% { fill: var(--line); filter: none; }
     }
 
     /* ---------- sections ---------- */
@@ -333,13 +335,14 @@
   <nav class="rail">
     <div class="rail-inner">
       <a class="wordmark" href="#top">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12L13 2z"/></svg>
+        <img class="wordmark-logo" src="./logo.png" alt="AgentFlow" width="18" height="18" />
         <b>AGENTFLOW</b>
       </a>
       <div class="rail-links">
         <a class="hide-sm" href="#operators">Operators</a>
         <a class="hide-sm" href="#tools">Tools</a>
         <a class="hide-sm" href="#how">How it runs</a>
+        <a class="hide-sm" href="./dashboard.html">Stats</a>
         <a class="btn btn-amber" href="https://agentflow-hackathon.pages.dev">OPEN APP</a>
       </div>
     </div>
@@ -376,7 +379,7 @@
 
           <!-- module: fetch -->
           <g>
-            <rect x="42" y="48" width="76" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <rect x="42" y="48" width="76" height="44" rx="7" fill="#262220" stroke="#3a342e"/>
             <circle class="led-ring led-a" cx="104" cy="58" r="3"/>
             <text class="mod-type" x="54" y="66">API CALL</text>
             <text class="mod-label" x="54" y="82">fetch</text>
@@ -384,7 +387,7 @@
 
           <!-- module: transform -->
           <g>
-            <rect x="182" y="48" width="96" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <rect x="182" y="48" width="96" height="44" rx="7" fill="#262220" stroke="#3a342e"/>
             <circle class="led-ring led-b" cx="264" cy="58" r="3"/>
             <text class="mod-type" x="194" y="66">TRANSFORM</text>
             <text class="mod-label" x="194" y="82">reshape</text>
@@ -392,7 +395,7 @@
 
           <!-- module: output (center right) -->
           <g>
-            <rect x="202" y="128" width="76" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <rect x="202" y="128" width="76" height="44" rx="7" fill="#262220" stroke="#3a342e"/>
             <circle class="led-ring led-c" cx="264" cy="138" r="3"/>
             <text class="mod-type" x="214" y="146">OUTPUT</text>
             <text class="mod-label" x="214" y="162">webhook</text>
@@ -400,7 +403,7 @@
 
           <!-- module: delay -->
           <g>
-            <rect x="42" y="208" width="76" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <rect x="42" y="208" width="76" height="44" rx="7" fill="#262220" stroke="#3a342e"/>
             <circle class="led-ring led-d" cx="104" cy="218" r="3"/>
             <text class="mod-type" x="54" y="226">DELAY</text>
             <text class="mod-label" x="54" y="242">wait 5s</text>
@@ -408,7 +411,7 @@
 
           <!-- module: condition -->
           <g>
-            <rect x="182" y="208" width="96" height="44" rx="7" fill="#241f19" stroke="#322b23"/>
+            <rect x="182" y="208" width="96" height="44" rx="7" fill="#262220" stroke="#3a342e"/>
             <circle class="led-ring led-a" cx="264" cy="218" r="3"/>
             <text class="mod-type" x="194" y="226">CONDITION</text>
             <text class="mod-label" x="194" y="242">if ready</text>
@@ -452,7 +455,7 @@
   </section>
 
   <!-- ================= TOOLS ================= -->
-  <section id="tools">
+        <section id="tools">
     <div class="wrap">
       <div class="sec-head">
         <span class="sec-kicker">WHAT THE AGENT CAN TOUCH</span>
@@ -463,10 +466,17 @@
         <div class="tool"><code>connect_nodes</code><span>Routes a wire from one pin to another</span></div>
         <div class="tool"><code>execute_workflow</code><span>Runs the whole flow in dependency order</span></div>
         <div class="tool"><code>get_available_tools</code><span>Discovers everything on offer</span></div>
+        <div class="tool">
+            <code>AI Node</code>
+            <div style="display: flex; gap: 8px; margin-top: 5px;">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg" alt="ChatGPT" width="16" height="16">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" alt="Gemini" width="16" height="16">
+            </div>
+            <span style="margin-top: 5px;">LLM node: Chat, Reasoning, Code generation</span>
+        </div>
         <div class="tool"><code>get_node_details</code><span>Inspects any module's wiring and config</span></div>
         <div class="tool"><code>update_node_config</code><span>Retunes a module without rebuilding it</span></div>
         <div class="tool"><code>get_workflow_status</code><span>Reads the board: modules, wires, counts</span></div>
-        <div class="tool"><code>validate_workflow</code><span>Catches broken wiring before a run</span></div>
       </div>
     </div>
   </section>

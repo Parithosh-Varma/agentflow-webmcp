@@ -1,0 +1,290 @@
+/* ================================================================
+   Dashboard — landing with Go to tool → /auth, Skip → /tool
+   ================================================================ */
+.dash-page {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.dash-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+}
+.dash-logo { height: 28px; width: auto; display: block; }
+.dash-brand span {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+}
+.dash-tag {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  border: 1px solid var(--border-faint);
+  padding: 3px 8px;
+  border-radius: 99px;
+  margin-left: 4px;
+}
+.dash-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dash-header-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+  text-decoration: none;
+  padding: 7px 10px;
+  border-radius: 8px;
+}
+.dash-header-link:hover { color: var(--ink); background: var(--bg); }
+.dash-header-cta { padding: 8px 14px; font-size: 11px; }
+
+.dash-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px 32px;
+}
+
+.dash-hero {
+  padding: 36px 0 28px;
+  text-align: center;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.dash-hero-kicker {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 12px;
+}
+
+.dash-hero-title {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0 0 14px;
+}
+
+.dash-hero-sub {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 640px;
+  margin: 0 auto 22px;
+}
+.dash-hero-sub b { color: var(--ink); font-weight: 600; }
+.dash-hero-sub code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--cyan);
+  background: var(--panel);
+  border: 1px solid var(--border-faint);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.dash-hero-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dash-cta-primary {
+  padding: 12px 22px;
+  font-size: 13px;
+}
+.dash-cta-skip {
+  padding: 11px 18px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.dash-hero-hint {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.dash-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+@media (max-width: 720px) {
+  .dash-features { grid-template-columns: 1fr; }
+  .dash-hero-title { font-size: 28px; }
+  .dash-header { padding: 0 12px; }
+  .dash-tag { display: none; }
+}
+
+.dash-feature-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 16px 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+.dash-feature-card.highlight {
+  border-color: rgba(232,163,61,0.35);
+  background: linear-gradient(180deg, var(--panel) 0%, rgba(232,163,61,0.06) 100%);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2), 0 0 0 1px rgba(232,163,61,0.08);
+}
+
+.dash-feature-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(232,163,61,0.14), rgba(86,205,189,0.1));
+  border: 1px solid rgba(232,163,61,0.16);
+  color: var(--amber);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.dash-feature-card h3 {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+
+.dash-feature-card p {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  margin: 0;
+}
+.dash-feature-card p b { color: var(--ink); }
+.dash-feature-card p code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--cyan);
+  background: var(--bg);
+  border: 1px solid var(--border-faint);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.dash-feature-badge {
+  display: inline-block;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: rgba(232,163,61,0.1);
+  border: 1px solid rgba(232,163,61,0.16);
+  padding: 3px 7px;
+  border-radius: 99px;
+}
+
+.dash-how {
+  margin-top: 28px;
+  padding: 18px 18px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.dash-how h2 {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 12px;
+}
+
+.dash-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 720px) { .dash-steps { grid-template-columns: 1fr 1fr; } }
+
+.dash-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border-faint);
+  border-radius: 10px;
+  padding: 12px 12px;
+}
+.dash-step b {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--amber);
+}
+.dash-step span {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.dash-step i {
+  font-family: var(--font-body);
+  font-style: normal;
+  font-size: 11px;
+  color: var(--dim);
+  line-height: 1.4;
+}
+
+.dash-footer {
+  margin-top: auto;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-faint);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+.dash-footer-links { display: flex; gap: 14px; }
+.dash-footer-links a { color: var(--dim); text-decoration: none; }
+.dash-footer-links a:hover { color: var(--ink); text-decoration: underline; }

@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentFlow — Mission Control</title>
+  <meta name="description" content="Real-time operations dashboard for AgentFlow." />
+  <link rel="icon" type="image/png" href="./favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #0e0c0a;
+      --panel: #161310;
+      --panel-2: #1c1814;
+      --edge: #2a241c;
+      --edge-soft: #1f1b16;
+      --ink: #ece7dc;
+      --dim: #6d6458;
+      --muted: #4a4238;
+      --amber: #e8a33d;
+      --amber-dim: #e8a33d33;
+      --cyan: #56cdbd;
+      --cyan-dim: #56cdbd22;
+      --red: #e05d44;
+      --red-dim: #e05d4422;
+      --green: #5dba6a;
+      --green-dim: #5dba6a22;
+      --display: 'Chakra Petch', sans-serif;
+      --body: 'Archivo', sans-serif;
+      --mono: 'IBM Plex Mono', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--body);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ---------- ambient scan line ---------- */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--amber-dim), transparent);
+      z-index: 100;
+      animation: scanline 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes scanline {
+      0%, 100% { top: 0; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      50% { top: 100%; }
+    }
+
+    /* ---------- rail ---------- */
+    .rail {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(14,12,10,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--edge);
+    }
+    .rail-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 28px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .wordmark { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+    .wordmark-logo { width: 22px; height: 22px; }
+    .wordmark b {
+      font-family: var(--display);
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      font-size: 13px;
+    }
+    .wordmark .sep {
+      color: var(--muted);
+      font-weight: 400;
+      margin: 0 2px;
+    }
+    .wordmark .page {
+      font-family: var(--mono);
+      font-weight: 400;
+      font-size: 11px;
+      color: var(--dim);
+      letter-spacing: 0.06em;
+    }
+    .rail-right { display: flex; align-items: center; gap: 16px; }
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: var(--green-dim);
+      border: 1px solid #5dba6a33;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 4px var(--green); }
+      50% { box-shadow: 0 0 10px var(--green), 0 0 20px var(--green-dim); }
+    }
+    .live-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      color: var(--green);
+      text-transform: uppercase;
+    }
+    .ts {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .nav-link {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--dim);
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .nav-link:hover { color: var(--ink); }
+
+    /* ---------- layout ---------- */
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 0 28px; }
+
+    .mission { padding: 36px 0 72px; }
+
+    /* ---------- hero: the big counter ---------- */
+    .hero-counter {
+      display: flex;
+      align-items: flex-end;
+      gap: 28px;
+      margin-bottom: 44px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--edge-soft);
+    }
+    .hero-left { flex: 1; }
+    .hero-eyebrow {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      color: var(--dim);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      width: 12px;
+      height: 1px;
+      background: var(--amber);
+    }
+    .hero-number {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: clamp(56px, 8vw, 88px);
+      line-height: 0.9;
+      letter-spacing: -0.02em;
+      color: var(--amber);
+      position: relative;
+      display: inline-block;
+    }
+    .hero-number.flash {
+      animation: numflash .4s ease-out;
+    }
+    @keyframes numflash {
+      0% { text-shadow: 0 0 30px var(--amber), 0 0 60px var(--amber-dim); }
+      100% { text-shadow: none; }
+    }
+    .hero-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--dim);
+      margin-top: 8px;
+      letter-spacing: 0.06em;
+    }
+    .hero-label strong { color: var(--ink); font-weight: 500; }
+    .hero-right {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .hero-mini {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 22px;
+      line-height: 1;
+    }
+    .hero-mini.cyan { color: var(--cyan); }
+    .hero-mini.green { color: var(--green); }
+    .hero-mini-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    /* ---------- instrument strip ---------- */
+    .instruments {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--edge-soft);
+      border: 1px solid var(--edge);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 28px;
+    }
+    .instrument {
+      background: var(--panel);
+      padding: 20px 22px;
+      position: relative;
+    }
+    .instrument::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 22px; right: 22px;
+      height: 1px;
+      background: var(--edge-soft);
+    }
+    .instrument:last-child::after { display: none; }
+    .inst-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .inst-value {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: 0.01em;
+    }
+    .inst-value.amber { color: var(--amber); }
+    .inst-value.cyan { color: var(--cyan); }
+    .inst-value.green { color: var(--green); }
+    .inst-value.red { color: var(--red); }
+    .inst-sub {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 6px;
+    }
+
+    /* ---------- two-zone panel ---------- */
+    .zones {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 1px;
+      background: var(--edge-soft);
+      border: 1px solid var(--edge);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 28px;
+    }
+    .zone {
+      background: var(--panel);
+      padding: 24px;
+    }
+    .zone-head {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .zone-head::before {
+      content: '';
+      width: 8px; height: 8px;
+      border-radius: 2px;
+    }
+    .zone-head.health::before { background: var(--green); }
+    .zone-head.feed::before { background: var(--cyan); }
+
+    /* health zone */
+    .health-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--edge-soft);
+    }
+    .health-row:last-child { border-bottom: none; }
+    .health-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .health-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green-dim); }
+    .health-dot.warn { background: var(--amber); box-shadow: 0 0 6px var(--amber-dim); }
+    .health-dot.err { background: var(--red); box-shadow: 0 0 6px var(--red-dim); }
+    .health-text {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--ink);
+    }
+    .health-val {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--dim);
+    }
+
+    /* rate gauge */
+    .gauge-wrap { margin: 16px 0; }
+    .gauge-track {
+      width: 100%;
+      height: 6px;
+      background: var(--panel-2);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .gauge-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+    .gauge-fill.good { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+    .gauge-fill.warn { background: linear-gradient(90deg, var(--amber), var(--red)); }
+    .gauge-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
+    .gauge-lbl {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .gauge-lbl b { color: var(--ink); font-weight: 500; }
+
+    /* bar sparkline */
+    .spark-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 48px;
+      margin-top: 16px;
+    }
+    .spark-bar {
+      flex: 1;
+      border-radius: 2px 2px 0 0;
+      min-height: 2px;
+      transition: height .3s ease;
+    }
+    .spark-bar.ok { background: var(--cyan); opacity: 0.6; }
+    .spark-bar.ok:hover { opacity: 1; }
+    .spark-bar.err { background: var(--red); opacity: 0.8; }
+
+    /* feed zone */
+    .feed { list-style: none; }
+    .feed-item {
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      gap: 12px;
+      align-items: start;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--edge-soft);
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-pip {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      margin-top: 5px;
+    }
+    .feed-pip.ok { background: var(--green); }
+    .feed-pip.err { background: var(--red); }
+    .feed-body {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .feed-body .wf-id { color: var(--cyan); }
+    .feed-body .dur { color: var(--dim); }
+    .feed-time {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+    .feed-empty {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      padding: 32px 0;
+      letter-spacing: 0.04em;
+    }
+
+    /* ---------- footer ---------- */
+    footer {
+      border-top: 1px solid var(--edge);
+      padding: 20px 0;
+    }
+    .foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+    .foot a { color: var(--muted); text-decoration: none; }
+    .foot a:hover { color: var(--dim); }
+
+    /* ---------- error ---------- */
+    .err-banner {
+      background: var(--red-dim);
+      border: 1px solid #e05d4433;
+      border-radius: 6px;
+      padding: 12px 18px;
+      margin-bottom: 28px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--red);
+      display: none;
+    }
+    .err-banner.show { display: flex; align-items: center; gap: 8px; }
+
+    /* ---------- skeleton ---------- */
+    .skel {
+      background: linear-gradient(90deg, var(--panel-2) 25%, var(--edge-soft) 50%, var(--panel-2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 3px;
+      display: inline-block;
+    }
+    .skel-num { width: 64px; height: 28px; }
+    .skel-lg { width: 120px; height: 64px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    @media (max-width: 900px) {
+      .instruments { grid-template-columns: repeat(2, 1fr); }
+      .zones { grid-template-columns: 1fr; }
+      .hero-counter { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .hero-right { text-align: left; }
+    }
+    @media (max-width: 520px) {
+      .instruments { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="rail">
+    <div class="rail-inner">
+      <a class="wordmark" href="./index.html">
+        <img class="wordmark-logo" src="./logo.png" alt="" width="18" height="18" />
+        <b>AGENTFLOW</b>
+        <span class="sep">/</span>
+        <span class="page">mission control</span>
+      </a>
+      <div class="rail-right">
+        <div class="live-badge">
+          <span class="live-dot"></span>
+          <span class="live-label" id="statusLabel">connecting</span>
+        </div>
+        <span class="ts" id="clock"></span>
+        <a class="nav-link" href="https://agentflow-hackathon.pages.dev">app</a>
+        <a class="nav-link" href="./index.html">home</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="mission">
+    <div class="wrap">
+
+      <div class="err-banner" id="errBanner">
+        <span>&#9888;</span>
+        <span id="errMsg"></span>
+      </div>
+
+      <!-- HERO: the big execution counter -->
+      <div class="hero-counter">
+        <div class="hero-left">
+          <div class="hero-eyebrow">signals sent</div>
+          <div class="hero-number" id="heroExec"><span class="skel skel-lg"></span></div>
+          <div class="hero-label">total executions across <strong id="heroWfCount">--</strong> pipelines</div>
+        </div>
+        <div class="hero-right">
+          <div>
+            <div class="hero-mini cyan" id="heroRate"><span class="skel skel-num"></span></div>
+            <div class="hero-mini-label">success rate</div>
+          </div>
+          <div>
+            <div class="hero-mini green" id="heroAvg"><span class="skel skel-num"></span></div>
+            <div class="hero-mini-label">avg duration</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSTRUMENT STRIP -->
+      <div class="instruments">
+        <div class="instrument">
+          <div class="inst-label">systems online</div>
+          <div class="inst-value amber" id="iUsers"><span class="skel skel-num"></span></div>
+          <div class="inst-sub" id="iUsersSub"></div>
+        </div>
+        <div class="instrument">
+          <div class="inst-label">pipelines built</div>
+          <div class="inst-value cyan" id="iWf"><span class="skel skel-num"></span></div>
+          <div class="inst-sub" id="iWfSub"></div>
+        </div>
+        <div class="instrument">
+          <div class="inst-label">signals succeeded</div>
+          <div class="inst-value green" id="iOk"><span class="skel skel-num"></span></div>
+          <div class="inst-sub" id="iOkSub"></div>
+        </div>
+        <div class="instrument">
+          <div class="inst-label">signals failed</div>
+          <div class="inst-value red" id="iErr"><span class="skel skel-num"></span></div>
+          <div class="inst-sub" id="iErrSub"></div>
+        </div>
+      </div>
+
+      <!-- TWO-ZONE PANEL -->
+      <div class="zones">
+        <!-- left: health -->
+        <div class="zone">
+          <div class="zone-head health">system health</div>
+
+          <div class="health-row">
+            <span class="health-dot" id="hApi"></span>
+            <span class="health-text">Worker API</span>
+            <span class="health-val" id="hApiVal">checking</span>
+          </div>
+          <div class="health-row">
+            <span class="health-dot" id="hDb"></span>
+            <span class="health-text">D1 Database</span>
+            <span class="health-val" id="hDbVal">checking</span>
+          </div>
+          <div class="health-row">
+            <span class="health-dot" id="hAuth"></span>
+            <span class="health-text">Auth Service</span>
+            <span class="health-val" id="hAuthVal">checking</span>
+          </div>
+          <div class="health-row">
+            <span class="health-dot" id="hFront"></span>
+            <span class="health-text">Pages (Frontend)</span>
+            <span class="health-val" id="hFrontVal">checking</span>
+          </div>
+
+          <div class="gauge-wrap">
+            <div class="zone-head" style="margin-bottom:10px">execution health</div>
+            <div class="gauge-track">
+              <div class="gauge-fill good" id="gaugeFill" style="width:0%"></div>
+            </div>
+            <div class="gauge-labels">
+              <span class="gauge-lbl"><b id="gOk">0</b> succeeded</span>
+              <span class="gauge-lbl"><b id="gRate">0%</b></span>
+              <span class="gauge-lbl"><b id="gErr">0</b> failed</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="zone-head" style="margin-bottom:8px; margin-top:8px">recent signal trace</div>
+            <div class="spark-row" id="sparkRow"></div>
+          </div>
+        </div>
+
+        <!-- right: feed -->
+        <div class="zone">
+          <div class="zone-head feed">activity feed</div>
+          <ul class="feed" id="feed">
+            <li class="feed-empty">awaiting signals&hellip;</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap foot">
+      <span>AGENTFLOW &middot; MISSION CONTROL</span>
+      <span>WEBMCP HACKATHON 2026</span>
+      <span>
+        <a href="https://agentflow-hackathon.pages.dev">app</a>
+        &nbsp;&middot;&nbsp;
+        <a href="https://github.com/Parithosh-Varma/agentflow-webmcp">source</a>
+      </span>
+    </div>
+  </footer>
+
+  <script>
+    const API = 'https://agentflow.parithosh.workers.dev';
+    const POLL = 5000;
+    let prev = null;
+
+    const $ = id => document.getElementById(id);
+
+    /* ---- clock ---- */
+    function tickClock() {
+      const now = new Date();
+      $('clock').textContent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    setInterval(tickClock, 1000);
+    tickClock();
+
+    /* ---- format ---- */
+    function fmt(n) {
+      if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+      if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+      return String(n);
+    }
+    function ago(iso) {
+      const s = (Date.now() - new Date(iso).getTime()) / 1000;
+      if (s < 5) return 'now';
+      if (s < 60) return Math.floor(s) + 's';
+      if (s < 3600) return Math.floor(s / 60) + 'm';
+      if (s < 86400) return Math.floor(s / 3600) + 'h';
+      return Math.floor(s / 86400) + 'd';
+    }
+    function delta(el, curr, p) {
+      if (!el || p == null) { if (el) el.textContent = ''; return; }
+      const d = curr - p;
+      if (d === 0) { el.textContent = ''; return; }
+      el.textContent = (d > 0 ? '+' : '') + d;
+      el.style.color = d > 0 ? 'var(--green)' : 'd > 0 ? \'var(--green)\' : \'var(--red)\'';
+    }
+
+    /* ---- hero number animation ---- */
+    let lastHeroVal = null;
+    function setHero(n) {
+      const el = $('heroExec');
+      if (lastHeroVal !== null && n !== lastHeroVal) {
+        el.classList.remove('flash');
+        void el.offsetWidth;
+        el.classList.add('flash');
+      }
+      el.textContent = fmt(n);
+      lastHeroVal = n;
+    }
+
+    /* ---- health probes ---- */
+    async function checkHealth() {
+      const checks = [
+        { id: 'hApi', val: 'hApiVal', url: `${API}/api/health` },
+        { id: 'hDb', val: 'hDbVal', url: `${API}/api/stats` },
+        { id: 'hAuth', val: 'hAuthVal', url: `${API}/api/health` },
+        { id: 'hFront', val: 'hFrontVal', url: `https://agentflow-hackathon.pages.dev` },
+      ];
+      for (const c of checks) {
+        try {
+          const r = await fetch(c.url, { method: 'GET' });
+          if (r.ok || r.status === 403) {
+            $(c.id).className = 'health-dot ok';
+            $(c.val).textContent = 'operational';
+          } else {
+            $(c.id).className = 'health-dot warn';
+            $(c.val).textContent = 'degraded';
+          }
+        } catch {
+          $(c.id).className = 'health-dot err';
+          $(c.val).textContent = 'unreachable';
+        }
+      }
+    }
+
+    /* ---- main fetch ---- */
+    async function fetchStats() {
+      try {
+        const r = await fetch(`${API}/api/stats`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const d = await r.json();
+
+        $('errBanner').classList.remove('show');
+        $('statusLabel').textContent = 'live';
+
+        // hero
+        setHero(d.executions);
+        $('heroWfCount').textContent = d.workflows;
+        $('heroRate').textContent = d.successRate + '%';
+        $('heroAvg').textContent = d.avgDurationMs + 'ms';
+
+        // instruments
+        $('iUsers').textContent = fmt(d.users);
+        $('iWf').textContent = fmt(d.workflows);
+        $('iOk').textContent = fmt(d.successCount);
+        $('iErr').textContent = fmt(d.errorCount);
+
+        // deltas
+        if (prev) {
+          delta($('iUsersSub'), d.users, prev.users);
+          delta($('iWfSub'), d.workflows, prev.workflows);
+          delta($('iOkSub'), d.successCount, prev.successCount);
+          delta($('iErrSub'), d.errorCount, prev.errorCount);
+        }
+
+        // gauge
+        const rate = d.successRate;
+        const gauge = $('gaugeFill');
+        gauge.style.width = rate + '%';
+        gauge.className = 'gauge-fill ' + (rate >= 80 ? 'good' : 'warn');
+        $('gOk').textContent = d.successCount;
+        $('gErr').textContent = d.errorCount;
+        $('gRate').textContent = rate + '%';
+
+        // sparkline
+        renderSpark(d.recentExecutions.slice(0, 20));
+
+        // feed
+        renderFeed(d.recentExecutions);
+
+        prev = d;
+      } catch (e) {
+        $('statusLabel').textContent = 'offline';
+        $('statusLabel').style.color = 'var(--red)';
+        $('errBanner').classList.add('show');
+        $('errMsg').textContent = 'Cannot reach API — ' + e.message;
+      }
+    }
+
+    function renderSpark(execs) {
+      const row = $('sparkRow');
+      if (!execs.length) { row.innerHTML = ''; return; }
+      const max = Math.max(...execs.map(e => e.duration_ms || 1), 1);
+      row.innerHTML = execs.map(e => {
+        const h = Math.max(3, (e.duration_ms / max) * 44);
+        const cls = e.status === 'error' ? 'spark-bar err' : 'spark-bar ok';
+        return `<div class="${cls}" style="height:${h}px" title="${e.status} ${e.duration_ms}ms ${ago(e.executed_at)}"></div>`;
+      }).join('');
+    }
+
+    function renderFeed(execs) {
+      const el = $('feed');
+      if (!execs.length) { el.innerHTML = '<li class="feed-empty">no signals yet</li>'; return; }
+      el.innerHTML = execs.slice(0, 8).map(e => {
+        const cls = e.status === 'success' ? 'ok' : 'err';
+        const label = e.status === 'success' ? 'executed' : 'failed';
+        return `<li class="feed-item">
+          <span class="feed-pip ${cls}"></span>
+          <span class="feed-body">${label} <span class="wf-id">${e.workflow_id.slice(0, 8)}</span> <span class="dur">${e.duration_ms}ms</span></span>
+          <span class="feed-time">${ago(e.executed_at)}</span>
+        </li>`;
+      }).join('');
+    }
+
+    /* ---- boot ---- */
+    fetchStats();
+    checkHealth();
+    setInterval(fetchStats, POLL);
+    setInterval(checkHealth, 30000);
+  </script>
+</body>
+</html>

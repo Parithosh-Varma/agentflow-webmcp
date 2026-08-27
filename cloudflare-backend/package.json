@@ -1,0 +1,20 @@
+{
+  "name": "agentflow-cloudflare-backend",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker backend for AgentFlow with D1 and Auth",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute agentflow-db --local --file=schema.sql",
+    "db:init:remote": "wrangler d1 execute agentflow-db --remote --file=schema.sql"
+  },
+  "dependencies": {
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "typescript": "^5.3.3",
+    "wrangler": "^3.22.4"
+  }
+}

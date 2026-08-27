@@ -17,8 +17,8 @@ export function ConfigPanel({ node, onChange, onDelete }: Props) {
   if (!node) {
     return (
       <div className="config-panel config-empty">
-        <div className="panel-section">
-          <h3>Tuning</h3>
+        <div className="sidebar-section">
+          <div className="sidebar-section-title">Tuning</div>
         </div>
         <p className="hint">Click a module on the canvas to tune it. Or let the agent call <code>update_node_config</code>.</p>
       </div>
@@ -31,8 +31,8 @@ export function ConfigPanel({ node, onChange, onDelete }: Props) {
 
   return (
     <div className="config-panel">
-      <div className="panel-section">
-        <h3>Tuning · {label}</h3>
+      <div className="sidebar-section">
+        <div className="sidebar-section-title">Tuning · {label}</div>
       </div>
 
       {nodeType === 'api_call' && (
@@ -127,7 +127,7 @@ export function ConfigPanel({ node, onChange, onDelete }: Props) {
               onChange={(e) => set('expression', e.target.value)}
             />
           </label>
-          <p className="hint" style={{ fontSize: 11 }}>
+          <p className="hint">
             Label wires from this module <code>true</code> / <code>false</code> to route branches.
           </p>
         </>
@@ -186,8 +186,190 @@ export function ConfigPanel({ node, onChange, onDelete }: Props) {
         </>
       )}
 
-      {(nodeType === 'start') && (
-        <p className="hint" style={{ fontSize: 11 }}>
+      {nodeType === 'filter' && (
+        <label className="cfg-row">
+          <span>(data) =&gt; boolean</span>
+          <textarea
+            className="cfg-input cfg-area"
+            rows={4}
+            placeholder="(data) => data.status === 'active'"
+            value={draft.expression || ''}
+            onChange={(e) => set('expression', e.target.value)}
+          />
+        </label>
+      )}
+
+      {nodeType === 'split' && (
+        <label className="cfg-row">
+          <span>Batch size</span>
+          <input
+            className="cfg-input"
+            type="number"
+            min={1}
+            value={draft.batchSize ?? 10}
+            onChange={(e) => set('batchSize', Number(e.target.value))}
+          />
+        </label>
+      )}
+
+      {nodeType === 'merge' && (
+        <p className="hint">
+          Combines all inputs into one object. No config needed.
+        </p>
+      )}
+
+      {nodeType === 'loop' && (
+        <label className="cfg-row">
+          <span>Max iterations</span>
+          <input
+            className="cfg-input"
+            type="number"
+            min={1}
+            value={draft.maxIterations ?? 10}
+            onChange={(e) => set('maxIterations', Number(e.target.value))}
+          />
+        </label>
+      )}
+
+      {nodeType === 'code' && (
+        <label className="cfg-row">
+          <span>JavaScript code</span>
+          <textarea
+            className="cfg-input cfg-area"
+            rows={6}
+            placeholder={"return data.map(x => x * 2);"}
+            value={draft.code || ''}
+            onChange={(e) => set('code', e.target.value)}
+          />
+        </label>
+      )}
+
+      {nodeType === 'webhook' && (
+        <>
+          <label className="cfg-row">
+            <span>URL</span>
+            <input
+              className="cfg-input"
+              placeholder="https://api.example.com/hook"
+              value={draft.url || ''}
+              onChange={(e) => set('url', e.target.value)}
+            />
+          </label>
+          <label className="cfg-row">
+            <span>Method</span>
+            <select
+              className="cfg-input"
+              value={draft.method || 'POST'}
+              onChange={(e) => set('method', e.target.value)}
+            >
+              {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
+
+      {nodeType === 'ai' && (
+        <>
+          <label className="cfg-row">
+            <span>Prompt</span>
+            <textarea
+              className="cfg-input cfg-area"
+              rows={3}
+              placeholder="Summarize the input data"
+              value={draft.prompt || ''}
+              onChange={(e) => set('prompt', e.target.value)}
+            />
+          </label>
+          <label className="cfg-row">
+            <span>Model</span>
+            <input
+              className="cfg-input"
+              placeholder="gpt-3.5-turbo"
+              value={draft.model || ''}
+              onChange={(e) => set('model', e.target.value)}
+            />
+          </label>
+          <label className="cfg-row">
+            <span>API Key</span>
+            <input
+              className="cfg-input"
+              type="password"
+              placeholder="sk-..."
+              value={draft.apiKey || ''}
+              onChange={(e) => set('apiKey', e.target.value)}
+            />
+          </label>
+        </>
+      )}
+
+      {nodeType === 'validator' && (
+        <label className="cfg-row">
+          <span>(data) =&gt; boolean</span>
+          <textarea
+            className="cfg-input cfg-area"
+            rows={4}
+            placeholder="(data) => data.length > 0"
+            value={draft.expression || ''}
+            onChange={(e) => set('expression', e.target.value)}
+          />
+        </label>
+      )}
+
+      {nodeType === 'logger' && (
+        <>
+          <label className="cfg-row">
+            <span>Level</span>
+            <select
+              className="cfg-input"
+              value={draft.level || 'info'}
+              onChange={(e) => set('level', e.target.value)}
+            >
+              <option value="info">info</option>
+              <option value="warn">warn</option>
+              <option value="error">error</option>
+            </select>
+          </label>
+          <label className="cfg-row">
+            <span>Message</span>
+            <input
+              className="cfg-input"
+              placeholder="Checkpoint label"
+              value={draft.message || ''}
+              onChange={(e) => set('message', e.target.value)}
+            />
+          </label>
+        </>
+      )}
+
+      {nodeType === 'file' && (
+        <>
+          <label className="cfg-row">
+            <span>Operation</span>
+            <select
+              className="cfg-input"
+              value={draft.operation || 'write'}
+              onChange={(e) => set('operation', e.target.value)}
+            >
+              <option value="write">write (download)</option>
+              <option value="read">read (pass-through)</option>
+            </select>
+          </label>
+          <label className="cfg-row">
+            <span>Filename</span>
+            <input
+              className="cfg-input"
+              placeholder="output.json"
+              value={draft.path || ''}
+              onChange={(e) => set('path', e.target.value)}
+            />
+          </label>
+        </>
+      )}
+
+      {nodeType === 'start' && (
+        <p className="hint">
           The entry module — nothing to tune. Input JSON from the Run Console flows from here.
         </p>
       )}
