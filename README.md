@@ -5,6 +5,7 @@
 [![Live: App](https://img.shields.io/badge/app-agentflow--hackathon.pages.dev-%23e8a33d?style=flat-square)](https://agentflow-hackathon.pages.dev)
 [![Live: Landing](https://img.shields.io/badge/landing-agentflow--landing.pages.dev-56cdbd?style=flat-square)](https://agentflow-landing.pages.dev)
 [![Paper](https://img.shields.io/badge/paper-PAPER.md%20(KaTeX)-8f9fdd?style=flat-square)](./PAPER.md)
+[![Paper PDF](https://img.shields.io/badge/paper-PAPER.pdf-ff6b9d?style=flat-square)](./PAPER.pdf)
 [![License: MIT](https://img.shields.io/badge/license-MIT-ede8dc?style=flat-square)](./LICENSE)
 
 <p align="center">
