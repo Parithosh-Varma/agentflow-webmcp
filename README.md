@@ -24,14 +24,14 @@ The agent calls the same 19 structured WebMCP tools you would — `add_node`, `c
 
 **Live:**
 
-| Surface | URL | Notes |
-|---|---|---|
-| **Landing** | `https://agentflow-landing.pages.dev` | Hero → `Go to the tool → /auth` + `Skip` + `Save to database — sign in required` + transparent challenge hero |
-| **Tool** | `https://agentflow-hackathon.pages.dev` (`/` = canvas, `/tool` alias) | Canvas + Sidebar + Run panel |
-| **Auth** | `https://agentflow-hackathon.pages.dev/auth` | Spacious 480px card, `Save your workflow in the database` callout, `Skip for now` |
-| **Stats** | `https://agentflow-stats.pages.dev` / `landing/dashboard.html` | Mission control (executions, success rate) |
+| Surface | URL | Cloudflare Pages | Notes |
+|---|---|---|---|
+| **Landing** | `https://agentflow-landing.pages.dev` | `agentflow-landing` | Hero → `Go to auth` (`agentflow-auth/auth` via bridge) + `Skip → tool` + transparent hero |
+| **Auth** | `https://agentflow-auth.pages.dev` (`/auth`, `/access`) | `agentflow-auth` **NEW — separate Pages** | Spacious 480px card, `Save your workflow…` callout, bridges `token`/`accessToken` to tool via `/auth/callback` |
+| **Tool** | `https://agentflow-hackathon.pages.dev` (`/`, `/tool` + `/auth/callback`) | `agentflow-hackathon` | Canvas + Sidebar + Run panel · gated via `accessToken` from auth Pages |
+| **Stats** | `https://agentflow-stats.pages.dev` / `landing/dashboard.html` | `agentflow-stats` | Mission control |
 
-**Flow:** `Landing (/)` —*Go to the tool*→ `Auth (/auth)` —*Sign in*→ `Tool (/)` **or** `Skip` → `Tool` anonymously. Anonymous can run; persistence requires sign-in (D1).
+**Flow:** `Landing (landing.pages.dev)` —*Go to auth*→ `Auth (auth.pages.dev/auth)` —*Sign in*→ `Tool (hackathon.pages.dev/auth/callback?token=…) → /tool` **or** `Skip` → `Tool` anonymously. Anonymous can run; persistence requires sign-in (D1). Auth and tool are **2 separate Cloudflare Pages** bridged cross-origin via `/auth/callback` (tool stores `agentflow_token`/`agentflow_access_token` in its own localStorage).
 
 ---
 
@@ -118,31 +118,41 @@ $$
 ## Architecture
 
 ```
-Landing (static, /) ──Go→/auth──→ Tool (React Flow, /) ──registerTool──→ Chrome / ChatGPT agent
-         │                        │  Sidebar + Canvas + Run panel      │
-         │                        └──────────┬─────────────────────────┘
-         │                                   │ document.modelContext
-         └──────────────────────────────▶ Engine (topo) ──→ Workers/D1 (/api/*)
+Landing (static)                Auth (separate Pages)              Tool (React Flow)
+agentflow-landing.pages.dev ──→ agentflow-auth.pages.dev ──/callback?token──→ agentflow-hackathon.pages.dev ──registerTool──→ Chrome / ChatGPT
+     │  Go→auth (auth host)          │ /auth + /access · JWT            │ Sidebar + Canvas + Run panel
+     │  Skip→tool                    │ bridges via /auth/callback ──────┘
+     └───────────────────────────────┴────→ Engine (topo) ──→ Workers/D1 (/api/*)
+                                    ↑ separate deploy, shared API, CORS allows X-Access-Token
 ```
 
-*Frontend* `frontend/` — React 19 + TypeScript + `@xyflow/react` 12 + `react-router-dom` 7 + `uuid` + `webmcp-types`.  
-*Backend* `cloudflare-backend/` — Cloudflare Workers + D1 (`/api/auth`, `/api/workflows`, `/api/templates`, `/api/stats`, `/api/execute`).  
-*Deploy* — `frontend/dist` → `agentflow-hackathon.pages.dev`, `landing/` → `agentflow-landing.pages.dev`, both SPA fallback `/* /index.html 200` (`public/_redirects`).
+*Frontend (tool)* `frontend/` — React 19 + TypeScript + `@xyflow/react` 12 + `react-router-dom` 7 + `uuid` + `webmcp-types` → deploys to `agentflow-hackathon.pages.dev` (tool-only, `/auth` redirects to auth Pages, gated via `RequireAccess` → external `agentflow-auth/access`).  
+*Auth* `auth/` **NEW** — React 19 + TypeScript + `react-router-dom` → deploys to `agentflow-auth.pages.dev` (auth-only, `/auth` + `/access`, bridges `token`/`accessToken` via `TOOL_URL/auth/callback`).  
+*Backend* `cloudflare-backend/` — Cloudflare Workers + D1 (`/api/auth` public: `/verify-access` + `/check-access` added, `/api/workflows` etc).  
+*Deploy* — `frontend/dist` → `agentflow-hackathon.pages.dev`, `auth/dist` → `agentflow-auth.pages.dev`, `landing/` → `agentflow-landing.pages.dev`, each SPA fallback `/* /index.html 200`.
 
 ---
 
 ## Getting Started
 
 ```bash
-# Tool
-cd frontend
+# Auth — separate Cloudflare Pages (NEW)
+cd auth
 npm install
-npm run dev          # http://localhost:5173/  (canvas at /, auth at /auth)
+npm run dev          # http://localhost:5174/  (auth at /auth, gate at /access)
 npm run build        # tsc -b && vite build → dist/
-npx wrangler pages deploy dist --project-name=agentflow-hackathon
+npx wrangler pages deploy dist --project-name=agentflow-auth  # → https://agentflow-auth.pages.dev
 
-# Landing (static)
-npx wrangler pages deploy landing --project-name=agentflow-landing
+# Tool — standalone (auth redirects externally, no internal /auth UI)
+cd ../frontend
+npm install
+npm run dev          # http://localhost:5173/  (canvas at / and /tool, /auth/callback for bridging)
+npm run build
+npx wrangler pages deploy dist --project-name=agentflow-hackathon  # → https://agentflow-hackathon.pages.dev
+
+# Landing (static, now links to auth host)
+npx wrangler pages deploy landing --project-name=agentflow-landing  # → https://agentflow-landing.pages.dev
+# Landing Go→auth now points to https://agentflow-auth.pages.dev/auth, Skip→ https://agentflow-hackathon.pages.dev/tool
 
 # Enable WebMCP in Chrome (for agent demo)
 # 1. chrome://flags → search "WebMCP" → Enabled → Relaunch

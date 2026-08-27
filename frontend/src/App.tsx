@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import {
   ReactFlow,
   addEdge,
@@ -31,7 +31,6 @@ import { OnboardingTour } from './components/OnboardingTour';
 import { HelpDrawer, HelpButton } from './components/HelpDrawer';
 import { AgentToast } from './components/AgentToast';
 import { ChallengeBanner } from './components/ChallengeBanner';
-import { AuthPage } from './pages/AuthPage';
 import { v4 as uuidv4 } from 'uuid';
 
 // Local judge-demo builder — duplicated from Sidebar.tsx to avoid circular import
@@ -167,7 +166,6 @@ const initialNodes: Node[] = [
 
 function CanvasPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as any[]);
   const [executionResult, setExecutionResult] = useState<any>(null);
@@ -554,17 +552,6 @@ function CanvasPage() {
           >
             ?
           </button>
-          <button
-            className="auth-toggle-btn"
-            onClick={() => navigate('/auth')}
-            title={user ? `${user.username} — account` : 'Sign in'}
-          >
-            {user ? (
-              <span className="auth-avatar">{user.username[0].toUpperCase()}</span>
-            ) : (
-              <span className="auth-icon">↗</span>
-            )}
-          </button>
         </div>
       </header>
 
@@ -708,9 +695,9 @@ function CanvasPage() {
 export default function App() {
   return (
     <Routes>
+      {/* TOOL is public — single demo key */}
       <Route path="/" element={<CanvasPage />} />
       <Route path="/tool" element={<CanvasPage />} />
-      <Route path="/auth" element={<AuthPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

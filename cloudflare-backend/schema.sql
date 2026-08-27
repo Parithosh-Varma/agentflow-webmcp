@@ -46,8 +46,20 @@ CREATE TABLE IF NOT EXISTS templates (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- Temp judge keys (self-serve)
+CREATE TABLE IF NOT EXISTS temp_keys (
+  id TEXT PRIMARY KEY,
+  key_hash TEXT UNIQUE NOT NULL,
+  label TEXT DEFAULT 'judge-temp',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME NOT NULL,
+  uses INTEGER DEFAULT 0
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_workflow_id ON execution_logs(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_user_id ON execution_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_templates_user_id ON templates(user_id);
+CREATE INDEX IF NOT EXISTS idx_temp_keys_hash ON temp_keys(key_hash);
+CREATE INDEX IF NOT EXISTS idx_temp_keys_expires ON temp_keys(expires_at);

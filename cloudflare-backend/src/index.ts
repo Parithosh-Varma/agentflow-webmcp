@@ -2,6 +2,11 @@
 
 const ALLOWED_IPS = ['122.171.20.180', '2401:4900:894c:d56d:6db7:9211:c0ae:ec56'];
 
+// Tool access gate — only clients who present this code may access the tool.
+// Routed via Cloudflare auth: POST /api/auth/verify-access validates the code
+// and issues a signed access token. Frontend gates /tool behind this.
+const ACCESS_CODE = '7c29f34ff320ed1dd8be77c9b0fa2c9e671062f7c613b0178b3e94ce0a132316';
+
 interface Env {
   DB: D1Database;
   AUTH: Fetcher;
@@ -47,7 +52,7 @@ export default {
     const headers = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Access-Token',
     };
 
     // Handle CORS preflight
@@ -56,8 +61,8 @@ export default {
     }
 
     try {
-      // Auth middleware - skip for public routes
-      const publicRoutes = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/stats'];
+      // Auth middleware - skip for public routes (verify-access + check-access are public — they use X-Access-Token, not Bearer)
+      const publicRoutes = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/verify-access', '/api/auth/check-access', '/api/stats', '/demo-key.json'];
       const isPublicRoute = publicRoutes.some(route => path.startsWith(route));
 
       let userId: string | null = null;
@@ -76,6 +81,11 @@ export default {
       }
 
       // Route handling
+      if (path === '/' || path === '') {
+        return new Response(JSON.stringify({ status: 'ok', message: 'AgentFlow Worker running', timestamp: new Date().toISOString() }), {
+          headers: { ...headers, 'Content-Type': 'application/json' },
+        });
+      }
       if (path === '/api/health') {
         return new Response(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }), {
           headers: { ...headers, 'Content-Type': 'application/json' },
@@ -94,7 +104,15 @@ export default {
         return await getStats(env, headers);
       }
 
-      // Auth routes
+      // Judge temp-key routes removed — single demo key only
+
+      // Auth routes — Cloudflare-routed access gate
+      if (path === '/api/auth/verify-access' && request.method === 'POST') {
+        return await handleVerifyAccess(request, env, headers);
+      }
+      if (path === '/api/auth/check-access' && request.method === 'GET') {
+        return await handleCheckAccess(request, env, headers);
+      }
       if (path === '/api/auth/register' && request.method === 'POST') {
         return await handleRegister(request, env, headers);
       }
@@ -204,6 +222,80 @@ async function createToken(userId: string, secret: string): Promise<string> {
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${header}.${payload}`));
   return `${header}.${payload}.${btoa(String.fromCharCode(...new Uint8Array(signature)))}`;
 }
+
+// ---- Tool Access Gate (Cloudflare Auth) ----
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+async function createAccessToken(secret: string): Promise<string> {
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = btoa(JSON.stringify({ typ: 'access', exp: Math.floor(Date.now() / 1000) + 86400 * 7, iat: Math.floor(Date.now() / 1000) }));
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${header}.${payload}`));
+  return `${header}.${payload}.${btoa(String.fromCharCode(...new Uint8Array(signature)))}`;
+}
+
+async function verifyAccessToken(token: string, secret: string): Promise<boolean> {
+  try {
+    const [header, payload, signature] = token.split('.');
+    if (!header || !payload || !signature) return false;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+    const valid = await crypto.subtle.verify('HMAC', key, Uint8Array.from(atob(signature), c => c.charCodeAt(0)), encoder.encode(`${header}.${payload}`));
+    if (!valid) return false;
+    const data = JSON.parse(atob(payload));
+    if (data.typ !== 'access') return false;
+    if (data.exp < Date.now() / 1000) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function handleVerifyAccess(request: Request, env: Env, headers: Record<string, string>): Promise<Response> {
+  const body = (await request.json().catch(() => ({} as any))) as any;
+  const code = String(body.code ?? body.accessCode ?? '').trim();
+  // Also accept SHA-256 hex of code matching ACCESS_CODE (supports both plain and pre-hashed entry)
+  let ok = timingSafeEqual(code, ACCESS_CODE);
+  if (!ok && code.length > 0) {
+    try {
+      const encoder = new TextEncoder();
+      const hash = await crypto.subtle.digest('SHA-256', encoder.encode(code));
+      const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+      if (timingSafeEqual(hex, ACCESS_CODE)) ok = true;
+    } catch {}
+  }
+  if (!ok) {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid access code' }), {
+      status: 401,
+      headers: { ...headers, 'Content-Type': 'application/json' },
+    });
+  }
+  const accessToken = await createAccessToken(env.JWT_SECRET);
+  return new Response(JSON.stringify({ success: true, accessToken, message: 'Access granted' }), {
+    headers: { ...headers, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handleCheckAccess(request: Request, env: Env, headers: Record<string, string>): Promise<Response> {
+  const token = request.headers.get('X-Access-Token') || request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') || '';
+  if (!token) {
+    return new Response(JSON.stringify({ hasAccess: false }), {
+      headers: { ...headers, 'Content-Type': 'application/json' },
+    });
+  }
+  const valid = await verifyAccessToken(token, env.JWT_SECRET);
+  return new Response(JSON.stringify({ hasAccess: valid }), {
+    headers: { ...headers, 'Content-Type': 'application/json' },
+  });
+}
+
+// ---- Judge Temp-Key removed — single demo key only ----
 
 // Auth handlers
 async function handleRegister(request: Request, env: Env, headers: Record<string, string>): Promise<Response> {

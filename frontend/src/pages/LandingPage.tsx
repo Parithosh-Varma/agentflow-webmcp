@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { ChallengeBanner } from '../components/ChallengeBanner';
+import { BoltIcon } from '../components/icons';
 import './LandingPage.css';
 
 export function LandingPage() {
@@ -134,7 +135,7 @@ export function LandingPage() {
           </div>
 
           <div className="dash-feature-card">
-            <div className="dash-feature-icon">⚡</div>
+            <div className="dash-feature-icon"><BoltIcon size={20} /></div>
             <h3>Chrome + ChatGPT</h3>
             <p>Enable one setting: <code>chrome://flags → WebMCP → Enabled</code>. Then ask your browser agent to build flows hands-free.</p>
           </div>

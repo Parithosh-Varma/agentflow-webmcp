@@ -1,0 +1,7 @@
+/* AccessGate reuses auth-page styles — extra bits here */
+.access-code-hint {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--faint);
+  margin-top: 4px;
+}

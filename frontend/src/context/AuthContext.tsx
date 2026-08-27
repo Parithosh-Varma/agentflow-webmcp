@@ -15,14 +15,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<api.User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const refreshUser = useCallback(async () => {
     const token = localStorage.getItem('agentflow_token');
-    if (!token) { setLoading(false); return; }
-    api.getMe()
-      .then(({ user }) => setUser(user))
-      .catch(() => localStorage.removeItem('agentflow_token'))
-      .finally(() => setLoading(false));
+    if (!token) { setUser(null); setLoading(false); return; }
+    setLoading(true);
+    try {
+      const { user } = await api.getMe();
+      setUser(user);
+    } catch {
+      localStorage.removeItem('agentflow_token');
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshUser();
+    const onCallback = () => refreshUser();
+    window.addEventListener('auth-callback', onCallback);
+    window.addEventListener('storage', onCallback);
+    return () => {
+      window.removeEventListener('auth-callback', onCallback);
+      window.removeEventListener('storage', onCallback);
+    };
+  }, [refreshUser]);
 
   const login = useCallback(async (email: string, password: string) => {
     const { user } = await api.login(email, password);

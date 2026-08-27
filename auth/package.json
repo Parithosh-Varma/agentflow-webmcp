@@ -1,0 +1,26 @@
+{
+  "name": "agentflow-auth",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AgentFlow Auth — separate Cloudflare Pages for authentication (Cloudflare Worker gated)",
+  "scripts": {
+    "dev": "vite --port 5174",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && npx wrangler pages deploy dist --project-name=agentflow-auth"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2",
+    "wrangler": "^4.126.0"
+  }
+}

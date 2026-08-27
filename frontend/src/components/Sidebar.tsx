@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon,
   FilterIcon, SplitIcon, MergeIcon, LoopIcon, CodeIcon, WebhookIcon,
-  AiIcon, ValidatorIcon, LoggerIcon, FileIcon,
+  AiIcon, ValidatorIcon, LoggerIcon, FileIcon, BoltIcon,
 } from './icons';
 import { getSmartPlacement, snapToGrid } from '../utils/grid';
 import type { NodeStatus } from '../engine';
@@ -553,7 +553,7 @@ export function Sidebar({
           </span>
         </button>
         <button className="btn-example sb-example-btn" onClick={loadExample}>
-          <span className="sb-example-icon">⚡</span>
+          <span className="sb-example-icon"><BoltIcon size={14} /></span>
           <span>
             <b>Load example flow</b>
             <i>GitHub → transform → condition → output</i>

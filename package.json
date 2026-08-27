@@ -4,9 +4,17 @@
   "description": "Visual Workflow Builder × WebMCP",
   "scripts": {
     "build": "cd frontend && npm install && npm run build && cd ../backend && npm install",
+    "build:tool": "cd frontend && npm install && npm run build",
+    "build:auth": "cd auth && npm install && npm run build",
+    "build:all": "npm run build:tool && npm run build:auth && cd cloudflare-backend && npm install",
+    "deploy:tool": "cd frontend && npx wrangler pages deploy dist --project-name=agentflow-hackathon",
+    "deploy:auth": "cd auth && npx wrangler pages deploy dist --project-name=agentflow-auth",
+    "deploy:landing": "npx wrangler pages deploy landing --project-name=agentflow-landing",
+    "deploy:all": "npm run deploy:auth && npm run deploy:tool && npm run deploy:landing",
     "start": "cd backend && node index.js",
     "dev:backend": "cd backend && node index.js",
-    "dev:frontend": "cd frontend && npm run dev"
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:auth": "cd auth && npm run dev"
   },
   "keywords": ["webmcp", "workflow", "automation"],
   "license": "MIT"

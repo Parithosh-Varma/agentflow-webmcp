@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentFlow — Judge Temp Key</title>
+  <meta name="description" content="Self-serve SHA-256 temp API key for judges — WebMCP demo. No signup." />
+  <link rel="icon" href="https://agentflow-hackathon.pages.dev/favicon.svg" />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root{--bg:#121110;--panel:#1e1b18;--panel2:#262220;--line:#3a342e;--lineSoft:#2e2923;--ink:#ede8dc;--dim:#8a806f;--amber:#e8a33d;--cyan:#56cdbd;--red:#e05d44;--display:'Chakra Petch',sans-serif;--body:'Archivo',sans-serif;--mono:'IBM Plex Mono',monospace}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+    a:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+    .wrap{max-width:860px;margin:0 auto;padding:0 24px}
+    .rail{position:sticky;top:0;z-index:10;background:rgba(18,17,16,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+    .rail-inner{max-width:860px;margin:0 auto;padding:0 24px;height:56px;display:flex;align-items:center;gap:12px}
+    .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+    .brand img{width:26px;height:26px}
+    .brand b{font-family:var(--display);letter-spacing:.09em;font-weight:600;font-size:14px}
+    .tag{font-family:var(--mono);font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);border:1px solid var(--line);padding:3px 8px;border-radius:99px;background:var(--panel)}
+    .rail-links{margin-left:auto;display:flex;gap:10px}
+    .rail-links a{font-family:var(--mono);font-size:11px;color:var(--dim);text-decoration:none;padding:7px 10px;border-radius:8px}
+    .rail-links a:hover{color:var(--ink);background:var(--panel)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border-radius:8px;font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.06em;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:filter .15s,transform .15s}
+    .btn-amber{background:var(--amber);border-color:var(--amber);color:#201a10}
+    .btn-amber:hover{filter:brightness(1.08);transform:translateY(-1px)}
+    .btn-ghost{background:transparent;border-color:var(--line);color:var(--dim);font-family:var(--mono);font-weight:400;font-size:12px}
+    .btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+    .kicker{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);margin:28px 0 10px}
+    h1{font-family:var(--display);font-size:34px;font-weight:600;line-height:1.08;letter-spacing:-.02em}
+    .sub{color:var(--dim);font-size:13px;line-height:1.6;max-width:640px;margin:10px 0 18px}
+    .sub code{font-family:var(--mono);font-size:11px;color:var(--cyan);background:var(--panel);border:1px solid var(--line);padding:1px 6px;border-radius:6px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+    .form{padding:18px;display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;border-bottom:1px solid var(--line)}
+    @media(max-width:720px){.form{grid-template-columns:1fr}}
+    .row{display:flex;flex-direction:column;gap:4px}
+    .row span{font-family:var(--mono);font-size:7px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+    .row input,.row select{padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-family:var(--mono);font-size:12px;outline:none}
+    .row input:focus,.row select:focus{border-color:var(--amber)}
+    .hint{grid-column:1/-1;font-family:var(--mono);font-size:10px;color:var(--dim)}
+    .hint code{color:var(--dim)}
+    .result{padding:16px 18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(180deg,var(--panel) 0%,rgba(86,205,189,.04) 100%)}
+    .result-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+    .result-title{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}
+    .expiry{font-family:var(--mono);font-size:10px;color:var(--dim)}
+    .keybox{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+    .keybox code{flex:1;font-family:var(--mono);font-size:11px;color:var(--amber);word-break:break-all}
+    .links{display:flex;flex-direction:column;gap:8px}
+    .linkrow{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:10px;color:var(--dim)}
+    .linkrow span{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);min-width:48px}
+    .linkrow code{flex:1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .verify{font-family:var(--mono);font-size:11px;padding:8px 10px;border-radius:8px;border:1px solid var(--line)}
+    .verify.valid{color:var(--cyan);background:rgba(86,205,189,.08);border-color:rgba(86,205,189,.22)}
+    .verify.invalid{color:var(--red);background:rgba(224,93,68,.08);border-color:rgba(224,93,68,.22)}
+    .foot{padding:10px 18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:10px;color:var(--dim)}
+    .foot code{color:var(--amber);font-size:10px}
+    .foot a{color:var(--cyan);text-decoration:none}
+    .how{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+    .how h3{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
+    .how ol{margin:0 0 0 18px;display:flex;flex-direction:column;gap:6px;font-size:12px;line-height:1.5;color:var(--ink)}
+    .how li b{color:var(--amber)}
+    .how code{font-family:var(--mono);font-size:11px;color:var(--cyan);background:var(--bg);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
+    footer{padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:18px}
+    footer a{color:var(--dim);text-decoration:none}
+  </style>
+</head>
+<body>
+  <nav class="rail">
+    <div class="rail-inner">
+      <a class="brand" href="https://agentflow-landing.pages.dev/"><img src="https://agentflow-hackathon.pages.dev/logo.png" alt="AgentFlow" /><b>AGENTFLOW</b></a>
+      <span class="tag">JUDGE KEY SERVICE — CLOUDFLARE PAGES</span>
+      <div class="rail-links">
+        <a href="https://agentflow-hackathon.pages.dev/">Tool →</a>
+        <a href="https://agentflow-landing.pages.dev/" target="_blank">Landing ↗</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <div class="kicker">Standalone Cloudflare Pages • SHA-256 • No signup</div>
+    <h1>Generate your temp API key</h1>
+    <p class="sub">Judges click once — unique <code>SHA-256</code> temp key valid for your TTL. Use as <code>?key=…</code> or <code>X-Demo-Key</code> header. Verify at <code>/api/judge/verify</code>. This is a <b>separate Cloudflare Pages</b> from the tool — <code>agentflow-judge-key.pages.dev</code>.</p>
+
+    <div class="card" id="card">
+      <div class="form">
+        <label class="row"><span>Label</span><input id="label" value="judge-temp" maxlength="32" /></label>
+        <label class="row"><span>TTL (hours) 1–72</span>
+          <select id="ttl">
+            <option value="2">2 hours (demo)</option>
+            <option value="8">8 hours</option>
+            <option value="24" selected>24 hours</option>
+            <option value="72">72 hours (hackathon)</option>
+          </select>
+        </label>
+        <button class="btn btn-amber" id="gen"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px;margin-right:4px"><path d="M13 2L3 14h7l-1 8 9-12h-7l1-8z"/></svg>Generate temp key</button>
+        <div class="hint">Stored in <code>agentflow-db temp_keys</code> via Worker <code>POST /api/judge/generate-temp-key</code>. Falls back to client-side SHA-256 if offline.</div>
+      </div>
+
+      <div class="result" id="result" style="display:none">
+        <div class="result-head"><span class="result-title">Your temp key</span><span class="expiry" id="expiry"></span></div>
+        <div class="keybox"><code id="key"></code><button class="btn btn-ghost" id="copyKey">Copy</button></div>
+        <div class="links">
+          <div class="linkrow"><span>Demo URL</span><code id="demoUrl"></code><button class="btn btn-ghost" id="copyDemo">Copy URL</button></div>
+          <div class="linkrow"><span>Verify</span><code id="verifyUrl"></code><button class="btn btn-ghost" id="copyVerify">Copy</button></div>
+          <div class="linkrow"><span>cURL</span><code id="curl"></code><button class="btn btn-ghost" id="copyCurl">Copy</button></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost" id="verifyBtn">Verify key →</button>
+          <a class="btn btn-ghost" id="openVerify" target="_blank">Open verify ↗</a>
+          <a class="btn btn-amber" id="openDemo" target="_blank">Open demo with this key →</a>
+        </div>
+        <div class="verify" id="verifyOut" style="display:none"></div>
+      </div>
+
+      <div class="foot"><span>Generate your own key — no hardcoded master key. Keys are SHA-256 and expiring.</span><a href="https://agentflow-hackathon.pages.dev/" target="_blank">Open tool ↗</a></div>
+    </div>
+
+    <div class="how">
+      <h3>How judges use it</h3>
+      <ol>
+        <li>Click <b>Generate temp key</b> — unique SHA-256, stored in Cloudflare D1 <code>temp_keys</code></li>
+        <li>Open <code>agentflow-hackathon.pages.dev?workflow=judge-demo&key=&lt;your-key&gt;</code> → <b>RUN</b></li>
+        <li>Verify: <code>GET https://agentflow-hackathon.pages.dev/api/judge/verify?key=...</code> → <code>{"{"} valid: true {"}"}</code></li>
+      </ol>
+      <p style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--dim)">Worker: <code>agentflow</code> (wrangler) • Pages: <code>agentflow-judge-key.pages.dev</code> (this service) • Tool: <code>agentflow-hackathon.pages.dev</code> — all separate Cloudflare services.</p>
+    </div>
+  </main>
+
+  <footer><span>© 2026 AgentFlow — Judge temp-key service • Cloudflare Pages</span><span><a href="https://agentflow-hackathon.pages.dev/">Tool</a> · <a href="https://agentflow-landing.pages.dev/">Landing</a></span></footer>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const sha256Hex = async (s) => {
+      const d = new TextEncoder().encode(s);
+      const h = await crypto.subtle.digest('SHA-256', d);
+      return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    };
+    const API_BASE = 'https://agentflow-hackathon.pages.dev'; // Cloudflare Worker + Pages tool origin (also serves /api/judge/*)
+    // For local dev, falls back to client-side generation
+
+    $('gen').onclick = async () => {
+      const label = $('label').value.trim() || 'judge-temp';
+      const ttlHours = Number($('ttl').value);
+      $('gen').textContent = 'Generating…';
+      $('gen').disabled = true;
+      let data = null;
+      try {
+        const r = await fetch(`${API_BASE}/api/judge/generate-temp-key`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label, ttlHours })
+        });
+        if (r.ok) data = await r.json();
+        if (!data || !data.key) throw new Error('fallback');
+      } catch (e) {
+        const raw = `${crypto.randomUUID()}-${Date.now()}-${Math.random()}-${label}`;
+        const key = await sha256Hex(raw);
+        const expiresAt = new Date(Date.now() + ttlHours*3600*1000).toISOString();
+        data = { key, label, ttlHours, expiresAt, verifyUrl: `/api/judge/verify?key=${key}`, demoUrl: `/?key=${key}&workflow=judge-demo` };
+      }
+      show(data);
+      $('gen').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px;margin-right:4px"><path d="M13 2L3 14h7l-1 8 9-12h-7l1-8z"/></svg>Generate temp key';
+      $('gen').disabled = false;
+      try { localStorage.setItem('agentflow_judge_key', JSON.stringify(data)); } catch {}
+    };
+
+    function show(d){
+      $('result').style.display = 'flex';
+      $('key').textContent = d.key;
+      $('expiry').textContent = 'expires ' + new Date(d.expiresAt).toLocaleString();
+      const origin = 'https://agentflow-hackathon.pages.dev';
+      $('demoUrl').textContent = origin + '/?key=' + d.key.slice(0,12) + '…&workflow=judge-demo';
+      $('demoUrl').title = origin + '/?key=' + d.key + '&workflow=judge-demo';
+      $('verifyUrl').textContent = API_BASE + '/api/judge/verify?key=' + d.key.slice(0,12) + '…';
+      $('verifyUrl').title = API_BASE + '/api/judge/verify?key=' + d.key;
+      $('curl').textContent = 'curl -H "X-Demo-Key: ' + d.key.slice(0,12) + '…" ' + API_BASE + '/api/judge/verify?key=' + d.key.slice(0,8) + '…';
+      $('curl').title = 'curl -H "X-Demo-Key: ' + d.key + '" ' + API_BASE + '/api/judge/verify?key=' + d.key;
+      $('openVerify').href = API_BASE + '/api/judge/verify?key=' + d.key;
+      $('openDemo').href = origin + '/?key=' + d.key + '&workflow=judge-demo';
+      $('openDemo').dataset.key = d.key;
+      $('verifyOut').style.display = 'none';
+      // preload from storage
+      window.__lastKey = d.key;
+    }
+
+    const copy = async (text, btn) => {
+      try { await navigator.clipboard.writeText(text); const o=btn.textContent; btn.textContent='✓ Copied'; setTimeout(()=>btn.textContent=o,1400);} catch { prompt('Copy:', text); }
+    };
+    $('copyKey').onclick = () => copy($('key').textContent, $('copyKey'));
+    $('copyDemo').onclick = () => copy('https://agentflow-hackathon.pages.dev/?key=' + window.__lastKey + '&workflow=judge-demo', $('copyDemo'));
+    $('copyVerify').onclick = () => copy('https://agentflow-hackathon.pages.dev/api/judge/verify?key=' + window.__lastKey, $('copyVerify'));
+    $('copyCurl').onclick = () => copy('curl -H "X-Demo-Key: ' + window.__lastKey + '" https://agentflow-hackathon.pages.dev/api/judge/verify?key=' + window.__lastKey, $('copyCurl'));
+    $('verifyBtn').onclick = async () => {
+      const k = window.__lastKey;
+      if(!k) return;
+      $('verifyBtn').textContent='Checking…';
+      $('verifyOut').style.display='block';
+      $('verifyOut').textContent='checking…';
+      $('verifyOut').className='verify';
+      try {
+        const r = await fetch(API_BASE + '/api/judge/verify?key=' + encodeURIComponent(k));
+        const j = await r.json();
+        if(j.valid){ $('verifyOut').textContent='✓ valid — ' + (j.label||'temp') + ' • expires ' + (j.expiresAt? new Date(j.expiresAt).toLocaleString() : 'master'); $('verifyOut').className='verify valid'; }
+        else { $('verifyOut').textContent='✗ ' + (j.error||'invalid'); $('verifyOut').className='verify invalid'; }
+      } catch { $('verifyOut').textContent='✓ generated locally — verify after deploy at /api/judge/verify'; $('verifyOut').className='verify valid'; }
+      $('verifyBtn').textContent='Verify key →';
+    };
+
+    // preload from storage or ?key= in URL
+    try {
+      const u = new URL(location.href);
+      const k = u.searchParams.get('key');
+      if(k && k.length===64){
+        show({key:k,label:'prefilled',ttlHours:24,expiresAt:new Date(Date.now()+24*3600*1000).toISOString(),verifyUrl:'/api/judge/verify?key='+k,demoUrl:'/?key='+k+'&workflow=judge-demo'});
+      } else {
+        const raw = localStorage.getItem('agentflow_judge_key');
+        if(raw){ const d=JSON.parse(raw); if(d.key && new Date(d.expiresAt) > new Date()) show(d); }
+      }
+    } catch {}
+  </script>
+</body>
+</html>
