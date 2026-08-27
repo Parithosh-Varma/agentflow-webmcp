@@ -192,6 +192,62 @@ select:focus-visible {
   white-space: nowrap;
 }
 
+.webmcp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--dim);
+  transition: all 0.2s;
+}
+.webmcp-pill.ready {
+  background: rgba(86,205,189,0.10);
+  border-color: rgba(86,205,189,0.28);
+  color: var(--cyan);
+  box-shadow: 0 0 10px rgba(86,205,189,0.12);
+}
+.webmcp-pill.needs {
+  background: rgba(232,163,61,0.10);
+  border-color: rgba(232,163,61,0.28);
+  color: var(--amber);
+}
+.webmcp-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+.webmcp-pill.ready .webmcp-pill-dot { animation: webmcp-pulse 1.4s ease-in-out infinite; }
+@keyframes webmcp-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+.webmcp-pill.needs .webmcp-pill-dot { opacity: 0.9; }
+
+.rail-help-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--dim);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.rail-help-btn:hover { border-color: var(--cyan); color: var(--cyan); background: var(--panel-2); }
+
 /* Status LED — centered */
 .readout {
   display: flex;

@@ -103,6 +103,61 @@ function buildExampleFlow(): { nodes: Node[]; edges: any[] } {
   return { nodes, edges };
 }
 
+export function buildJudgeDemoFlow(): { nodes: Node[]; edges: any[] } {
+  const typeMap: Record<string, string> = {
+    api_call: 'apiCallNode',
+    transform: 'transformNode',
+    condition: 'conditionNode',
+    output: 'outputNode',
+    delay: 'delayNode',
+    ai: 'aiNode',
+    split: 'splitNode',
+    logger: 'loggerNode',
+    start: 'startNode',
+  };
+  const n = (id: string, type: string, x: number, y: number, label: string, config: any): Node => ({
+    id,
+    type: typeMap[type] || `${type}Node`,
+    position: { x, y },
+    data: { label, config, nodeType: type },
+  });
+  // 30s wow: Start → HN API → AI Summarize → Condition → Split → [download + logger]
+  const nodes: Node[] = [
+    n('start', 'start', 60, 200, 'Start', {}),
+    n('jd_api', 'api_call', 320, 80, 'HackerNews front page', {
+      url: 'https://hn.algolia.com/api/v1/search?tags=front_page',
+      method: 'GET',
+    }),
+    n('jd_ai', 'ai', 620, 80, 'summarize top story', {
+      prompt: 'Summarize the top HackerNews story title in one engaging sentence. Be concise.',
+      model: 'gpt-3.5-turbo',
+    }),
+    n('jd_cond', 'condition', 620, 210, 'has summary?', {
+      expression: '(data) => Boolean(data.response || data.hits || JSON.stringify(data).length > 80)',
+    }),
+    n('jd_split', 'split', 900, 80, 'fan-out', { batchSize: 1 }),
+    n('jd_out_dl', 'output', 1180, 40, 'save report', {
+      kind: 'download',
+      filename: 'hn-summary-report',
+    }),
+    n('jd_logger', 'logger', 1180, 160, 'log it', {
+      level: 'info',
+      message: 'HackerNews summary ready',
+    }),
+    n('jd_out_log', 'output', 900, 280, 'log fallback', { kind: 'console' }),
+  ];
+  const edges = [
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'start', target: 'jd_api', label: '', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_api', target: 'jd_ai', label: '', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_ai', target: 'jd_cond', label: '', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_cond', target: 'jd_split', label: 'true', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_cond', target: 'jd_out_log', label: 'false', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_split', target: 'jd_out_dl', label: '', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_split', target: 'jd_logger', label: '', type: 'labeled' },
+  ];
+  return { nodes, edges };
+}
+
 export function Sidebar({
   nodes, setNodes, setEdges, selectedId, setSelectedId,
   liveStatus, addToolLog, clearRunState, reactFlowRef, children
@@ -202,6 +257,32 @@ export function Sidebar({
       'you'
     );
     setSelectedId?.(null);
+  };
+
+  const loadJudgeDemo = () => {
+    const { nodes: jdNodes, edges: jdEdges } = buildJudgeDemoFlow();
+    clearRunState();
+    setNodes(jdNodes);
+    setEdges(
+      jdEdges.map((e) => ({
+        ...e,
+        animated: false,
+        style: { stroke: '#3a342c', strokeWidth: 1.6 },
+      }))
+    );
+    addToolLog(
+      'load_judge_demo',
+      {},
+      { success: true, message: 'Loaded JUDGE DEMO: HN API → AI summarize → Condition → Split → Download + Log — press RUN to see LEDs + ToolLog live' },
+      'you'
+    );
+    setSelectedId?.(null);
+    // update URL for shareable demo
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('workflow', 'judge-demo');
+      window.history.replaceState({}, '', url.toString());
+    } catch {}
   };
 
   const clearCanvas = () => {
@@ -390,7 +471,11 @@ export function Sidebar({
         </div>
 
         {nodes.length === 0 ? (
-          <p className="hint">No modules yet — add one above or let the agent build.</p>
+          <div className="sb-empty-canvas">
+            <div className="sb-empty-canvas-icon">◎</div>
+            <p className="sb-empty-canvas-title">No modules yet</p>
+            <p className="hint sb-empty-canvas-hint">Drag a module to canvas, click to add, or ask your <b>browser agent</b> — “Add an API Call to HackerNews and run it”.<br/>Try <b>★ Judge Demo</b> below for a 30s wow flow.</p>
+          </div>
         ) : (
           <div className="node-list">
             {nodes.map((n) => {
@@ -458,8 +543,15 @@ export function Sidebar({
         </p>
       </div>
 
-      {/* Quick action */}
-      <div className="sidebar-section">
+      {/* Quick actions — judge demo first */}
+      <div className="sidebar-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button className="btn-example sb-example-btn sb-judge-btn" onClick={loadJudgeDemo} title="Load the 30s wow demo — HN API → AI → Condition → Split → Download + Log. Press RUN and watch LEDs + ToolLog live.">
+          <span className="sb-example-icon" style={{ background: 'linear-gradient(135deg, rgba(232,163,61,0.22), rgba(86,205,189,0.16))', borderColor: 'rgba(232,163,61,0.32)', color: 'var(--amber)' }}>✦</span>
+          <span>
+            <b>★ Judge Demo — 30s wow</b>
+            <i>HN API → AI summarize → condition → split → download + log</i>
+          </span>
+        </button>
         <button className="btn-example sb-example-btn" onClick={loadExample}>
           <span className="sb-example-icon">⚡</span>
           <span>

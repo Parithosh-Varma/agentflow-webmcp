@@ -33,11 +33,73 @@ import { AgentToast } from './components/AgentToast';
 import { ChallengeBanner } from './components/ChallengeBanner';
 import { AuthPage } from './pages/AuthPage';
 import { LandingPage } from './pages/LandingPage';
+import { buildJudgeDemoFlow } from './components/Sidebar';
 import { v4 as uuidv4 } from 'uuid';
 
 const ONBOARDING_KEY = 'agentflow_onboarded_v1';
 
 const edgeTypes = { labeled: LabeledEdge };
+
+const WEBMCP_TOOLS_19: Array<{ name: string; desc: string; group: 'core' | 'advanced' }> = [
+  // 8 core
+  { name: 'add_node', desc: 'Add workflow node', group: 'core' },
+  { name: 'connect_nodes', desc: 'Connect two nodes', group: 'core' },
+  { name: 'execute_workflow', desc: 'Run workflow (topological)', group: 'core' },
+  { name: 'get_available_tools', desc: 'List 19 tools + schemas', group: 'core' },
+  { name: 'get_node_details', desc: 'Get node info', group: 'core' },
+  { name: 'update_node_config', desc: 'Update node config', group: 'core' },
+  { name: 'get_workflow_status', desc: 'Get nodes/edges summary', group: 'core' },
+  { name: 'validate_workflow', desc: 'Validate workflow', group: 'core' },
+  // 11 advanced
+  { name: 'delete_node', desc: 'Remove node + wires', group: 'advanced' },
+  { name: 'clone_node', desc: 'Duplicate node', group: 'advanced' },
+  { name: 'get_node_connections', desc: 'Incoming/outgoing wires', group: 'advanced' },
+  { name: 'save_workflow', desc: 'Save to localStorage', group: 'advanced' },
+  { name: 'load_workflow', desc: 'Load from localStorage', group: 'advanced' },
+  { name: 'run_node', desc: 'Run single node isolate', group: 'advanced' },
+  { name: 'set_node_position', desc: 'Move node', group: 'advanced' },
+  { name: 'get_workflow_history', desc: 'Past runs', group: 'advanced' },
+  { name: 'create_template', desc: 'Save as template', group: 'advanced' },
+  { name: 'export_workflow', desc: 'Export JSON', group: 'advanced' },
+  { name: 'import_workflow', desc: 'Import JSON', group: 'advanced' },
+];
+
+function AvailableToolsDrawer({ hasWebMCP }: { hasWebMCP: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="available-tools">
+      <button className="available-tools-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span className="available-tools-title">Available Tools (19)</span>
+        <span className={`available-tools-badge ${hasWebMCP ? 'ready' : 'needs'}`}>{hasWebMCP ? '● ready' : '○ needs enable'}</span>
+        <span className="available-tools-caret">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="available-tools-body">
+          <div className="available-tools-hint">Exposed via <code>document.modelContext.registerTool()</code> — agent calls these, you see ToolLog live.</div>
+          <div className="available-tools-group">
+            <div className="available-tools-group-title">8 core</div>
+            {WEBMCP_TOOLS_19.filter((t) => t.group === 'core').map((t) => (
+              <div key={t.name} className="available-tool-row">
+                <code className="available-tool-name">{t.name}</code>
+                <span className="available-tool-desc">{t.desc}</span>
+              </div>
+            ))}
+          </div>
+          <div className="available-tools-group">
+            <div className="available-tools-group-title">11 advanced</div>
+            {WEBMCP_TOOLS_19.filter((t) => t.group === 'advanced').map((t) => (
+              <div key={t.name} className="available-tool-row">
+                <code className="available-tool-name">{t.name}</code>
+                <span className="available-tool-desc">{t.desc}</span>
+              </div>
+            ))}
+          </div>
+          <div className="available-tools-foot">See <code>webmcp.ts:40 registerTool</code> + <code>engine.ts</code> for execution.</div>
+        </div>
+      )}
+    </div>
+  );
+}
 import './App.css';
 import './components/Sidebar.css';
 
@@ -308,6 +370,21 @@ function CanvasPage() {
     setWelcomeOpen(true);
   }, []);
 
+  // WebMCP pill — persistent agent-ready indicator
+  const [hasWebMCP, setHasWebMCP] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      // @ts-ignore
+      const mc = (document as any).modelContext;
+      setHasWebMCP(!!mc && typeof mc.registerTool === 'function');
+    };
+    check();
+    const t1 = setTimeout(check, 800);
+    const t2 = setTimeout(check, 1800);
+    const iv = setInterval(check, 1500);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearInterval(iv); };
+  }, []);
+
   // Agent toast suppress while onboarding/help modals are open
   const suppressAgentToast = welcomeOpen || tourOpen || helpOpen;
 
@@ -327,6 +404,10 @@ function CanvasPage() {
             <h1>AGENTFLOW</h1>
           </div>
           <span className="rail-tag">HUMAN × AGENT CANVAS</span>
+          <div className={`webmcp-pill ${hasWebMCP ? 'ready' : 'needs'}`} title={hasWebMCP ? 'WebMCP: 19 tools ready — agent can call add_node, connect_nodes, execute_workflow' : 'Enable one setting: chrome://flags → WebMCP → Enabled → Relaunch (or launch with --enable-features=WebMCP)'}>
+            <span className="webmcp-pill-dot" />
+            {hasWebMCP ? 'WebMCP: 19 tools ready' : 'WebMCP: Enable one setting'}
+          </div>
         </div>
 
         <div className="readout" data-state={runState}>

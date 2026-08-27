@@ -20,7 +20,74 @@ export function LandingPage() {
         </div>
       </header>
 
+      {/* WebMCP in 10s — Problem → Solution → Human × Agent */}
+      <section className="dash-webmcp-hero" aria-label="WebMCP in 10 seconds">
+        <div className="dash-webmcp-inner">
+          <div className="dash-webmcp-kicker"><span>◎</span> WebMCP in 10 seconds — the new browser API</div>
+          <div className="dash-webmcp-grid">
+            <div className="dash-webmcp-card problem">
+              <div className="dash-webmcp-card-head"><span className="dash-webmcp-icon dim">✕</span> BEFORE</div>
+              <h3>Agents scrape DOM</h3>
+              <p>Fragile selectors, hallucinations, breaks on every redesign.</p>
+              <code className="dash-webmcp-code-faint">querySelector → click → hope</code>
+            </div>
+            <div className="dash-webmcp-arrow" aria-hidden>→</div>
+            <div className="dash-webmcp-card solution highlight">
+              <div className="dash-webmcp-card-head"><span className="dash-webmcp-icon amber">⬢</span> SOLUTION</div>
+              <h3>WebMCP: registerTool()</h3>
+              <p><code>document.modelContext.registerTool()</code> — 19 typed tools. No scraping.</p>
+              <code className="dash-webmcp-code">add_node · connect_nodes · execute_workflow</code>
+              <span className="dash-webmcp-badge">19 tools ready</span>
+            </div>
+            <div className="dash-webmcp-arrow" aria-hidden>→</div>
+            <div className="dash-webmcp-card result">
+              <div className="dash-webmcp-card-head"><span className="dash-webmcp-icon cyan">◎</span> RESULT</div>
+              <h3>Human × Agent — same canvas</h3>
+              <p>You drag. Agent calls <code>add_node</code>. Both see LEDs <span className="led-demo running" /> → <span className="led-demo done" /> + ToolLog live.</p>
+              <code className="dash-webmcp-code">YOU vs AGENT — real collaboration</code>
+            </div>
+          </div>
+          <div className="dash-webmcp-gif-row">
+            <div className="dash-webmcp-gif">
+              <div className="dash-webmcp-gif-header">
+                <span className="gif-dot" /> <span className="gif-dot" /> <span className="gif-dot" />
+                <span className="gif-title">Chrome agent — live</span>
+                <span className="gif-live">● LIVE</span>
+              </div>
+              <div className="dash-webmcp-gif-body">
+                <div className="gif-line"><span className="gif-actor">agent</span> <code>add_node({"{"} type: "api_call", label: "HackerNews" {"}"})</code></div>
+                <div className="gif-line"><span className="gif-actor you">you</span> drag <b>AI</b> → canvas</div>
+                <div className="gif-line"><span className="gif-actor">agent</span> <code>connect_nodes(...)</code> <span className="gif-ok">✓ wired</span></div>
+                <div className="gif-line"><span className="gif-actor">agent</span> <code>execute_workflow()</code> <span className="gif-running">● running</span> → <span className="gif-done">✓ done</span></div>
+                <div className="gif-canvas-mock">
+                  <span className="mock-node start">Start</span><span className="mock-edge">→</span>
+                  <span className="mock-node api">HN API</span><span className="mock-edge">→</span>
+                  <span className="mock-node ai">AI</span><span className="mock-edge">→</span>
+                  <span className="mock-node cond">◆</span><span className="mock-edge">→</span>
+                  <span className="mock-node split">⫼</span><span className="mock-edge">→</span>
+                  <span className="mock-node out">⬇ save</span>
+                </div>
+              </div>
+              <div className="dash-webmcp-gif-caption">Watch the canvas while the agent works — LEDs run → done, ToolLog streams live. No refresh.</div>
+            </div>
+            <div className="dash-webmcp-side">
+              <div className="dash-webmcp-side-title">Try the 30s wow</div>
+              <ol className="dash-webmcp-side-steps">
+                <li><b>1.</b> Open <b>/tool</b> → click <b>★ Judge Demo</b></li>
+                <li><b>2.</b> Press <b>RUN</b> — real HN API → AI → branch → download + log</li>
+                <li><b>3.</b> Ask Chrome agent: “clone the AI node and rerun”</li>
+              </ol>
+              <div className="dash-webmcp-side-note">Chrome: <code>chrome://flags → WebMCP → Enabled</code> · also ChatGPT in-app browser</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <ChallengeBanner variant="banner" />
+      <div className="dash-challenge-caption">
+        <span>Featured hackathon challenge — AgentFlow × WebMCP. Image above links to full challenge.</span>
+        <a href="https://d112y698adiu2z.cloudfront.net/photos/production/challenge_photos/005/137/486/datas/full_width.png" target="_blank" rel="noreferrer">View challenge ↗</a>
+      </div>
 
       <main className="dash-main">
         <section className="dash-hero">
