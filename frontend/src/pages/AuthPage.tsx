@@ -25,7 +25,7 @@ export function AuthPage() {
       } else {
         await register(username, email, password);
       }
-      navigate('/');
+      navigate('/tool');
     } catch (err: any) {
       setError(err?.message || 'Something went wrong');
     }
@@ -45,7 +45,7 @@ export function AuthPage() {
             <img src={logo} alt="AgentFlow" className="auth-page-logo" />
             <span>AGENTFLOW</span>
           </Link>
-          <Link to="/" className="auth-page-back">← Back to tool</Link>
+          <Link to="/tool" className="auth-page-back">← Back to tool</Link>
         </header>
 
         <div className="auth-page-container">
@@ -75,7 +75,7 @@ export function AuthPage() {
             </div>
 
             <div className="auth-card-actions">
-              <Link to="/" className="btn-run auth-card-primary">Go to Tool</Link>
+              <Link to="/tool" className="btn-run auth-card-primary">Go to Tool</Link>
               <button className="btn-ghost auth-card-secondary" onClick={handleLogout}>Sign out</button>
             </div>
           </div>
@@ -138,7 +138,7 @@ export function AuthPage() {
                 Create Account
               </button>
             </div>
-            <Link to="/" className="auth-card-close" aria-label="Back to canvas">×</Link>
+            <Link to="/tool" className="auth-card-close" aria-label="Back to canvas">×</Link>
           </div>
 
           <div className="auth-card-intro">
@@ -210,7 +210,7 @@ export function AuthPage() {
             <button className="btn-run auth-submit" type="submit" disabled={loading}>
               {loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
             </button>
-            <button type="button" className="btn-ghost auth-skip" onClick={() => navigate('/')}>
+            <button type="button" className="btn-ghost auth-skip" onClick={() => navigate('/tool')}>
               Skip for now
             </button>
           </form>
@@ -224,7 +224,7 @@ export function AuthPage() {
           </div>
 
           <div className="auth-foot">
-            <Link to="/" className="auth-foot-link">Skip → Go to tool without signing in</Link>
+            <Link to="/tool" className="auth-foot-link">Skip → Go to tool without signing in</Link>
             <span className="auth-foot-sep">·</span>
             <span className="auth-foot-note">Free • No credit card • Save requires sign in</span>
           </div>

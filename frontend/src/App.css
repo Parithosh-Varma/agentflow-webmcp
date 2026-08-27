@@ -248,6 +248,170 @@ select:focus-visible {
 }
 .rail-help-btn:hover { border-color: var(--cyan); color: var(--cyan); background: var(--panel-2); }
 
+.share-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--bg-raised);
+}
+.share-row .btn-ghost { flex: 1; justify-content: center; }
+
+.available-tools {
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--panel);
+}
+.available-tools-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+.available-tools-toggle:hover { background: var(--bg-raised); }
+.available-tools-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.available-tools-badge {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  padding: 2px 6px;
+  border-radius: 99px;
+  border: 1px solid var(--border-soft);
+}
+.available-tools-badge.ready { color: var(--cyan); background: rgba(86,205,189,0.10); border-color: rgba(86,205,189,0.22); }
+.available-tools-badge.needs { color: var(--amber); background: rgba(232,163,61,0.10); border-color: rgba(232,163,61,0.22); }
+.available-tools-caret { margin-left: auto; color: var(--faint); font-size: 10px; }
+.available-tools-body {
+  padding: 0 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.available-tools-hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--faint);
+  background: var(--bg);
+  border: 1px solid var(--border-faint);
+  border-radius: 6px;
+  padding: 7px 8px;
+}
+.available-tools-hint code { color: var(--cyan); font-family: var(--font-mono); font-size: 10px; }
+.available-tools-group { display: flex; flex-direction: column; gap: 4px; }
+.available-tools-group-title {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-top: 2px;
+}
+.available-tool-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border-faint);
+  border-radius: 6px;
+}
+.available-tool-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+.available-tool-desc {
+  font-size: 10px;
+  color: var(--dim);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.available-tools-foot {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--faint);
+  text-align: center;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-faint);
+}
+.available-tools-foot code { color: var(--dim); }
+
+.tool-log-highlight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: linear-gradient(90deg, rgba(232,163,61,0.06), rgba(86,205,189,0.06));
+  border-bottom: 1px solid var(--border-faint);
+  font-size: 10px;
+  color: var(--ink-2);
+}
+.tool-log-highlight-desc { color: var(--faint); font-size: 10px; }
+
+/* Canvas empty state — larger */
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+.canvas-empty-card {
+  pointer-events: auto;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 22px 18px;
+  max-width: 420px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.28);
+}
+.canvas-empty-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(232,163,61,0.14), rgba(86,205,189,0.10));
+  border: 1px solid rgba(232,163,61,0.18);
+  color: var(--amber);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+.canvas-empty-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.canvas-empty-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  margin: 0 0 12px;
+}
+.canvas-empty-desc b { color: var(--amber); }
+.canvas-empty-desc code { font-family: var(--font-mono); font-size: 11px; color: var(--cyan); background: var(--bg); border: 1px solid var(--border-faint); padding: 1px 5px; border-radius: 4px; }
+.canvas-empty-actions { display: flex; gap: 8px; justify-content: center; }
+
 /* Status LED — centered */
 .readout {
   display: flex;

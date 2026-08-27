@@ -32,9 +32,54 @@ import { HelpDrawer, HelpButton } from './components/HelpDrawer';
 import { AgentToast } from './components/AgentToast';
 import { ChallengeBanner } from './components/ChallengeBanner';
 import { AuthPage } from './pages/AuthPage';
-import { LandingPage } from './pages/LandingPage';
-import { buildJudgeDemoFlow } from './components/Sidebar';
 import { v4 as uuidv4 } from 'uuid';
+
+// Local judge-demo builder — duplicated from Sidebar.tsx to avoid circular import
+function buildJudgeDemoFlow(): { nodes: Node[]; edges: any[] } {
+  const typeMap: Record<string, string> = {
+    api_call: 'apiCallNode',
+    condition: 'conditionNode',
+    output: 'outputNode',
+    ai: 'aiNode',
+    split: 'splitNode',
+    logger: 'loggerNode',
+    start: 'startNode',
+  };
+  const n = (id: string, type: string, x: number, y: number, label: string, config: any): Node => ({
+    id,
+    type: typeMap[type] || `${type}Node`,
+    position: { x, y },
+    data: { label, config, nodeType: type },
+  });
+  const nodes: Node[] = [
+    n('start', 'start', 60, 200, 'Start', {}),
+    n('jd_api', 'api_call', 320, 80, 'HackerNews front page', {
+      url: 'https://hn.algolia.com/api/v1/search?tags=front_page',
+      method: 'GET',
+    }),
+    n('jd_ai', 'ai', 620, 80, 'summarize top story', {
+      prompt: 'Summarize the top HackerNews story title in one engaging sentence. Be concise.',
+      model: 'gpt-3.5-turbo',
+    }),
+    n('jd_cond', 'condition', 620, 210, 'has summary?', {
+      expression: '(data) => Boolean(data.response || data.hits || JSON.stringify(data).length > 80)',
+    }),
+    n('jd_split', 'split', 900, 80, 'fan-out', { batchSize: 1 }),
+    n('jd_out_dl', 'output', 1180, 40, 'save report', { kind: 'download', filename: 'hn-summary-report' }),
+    n('jd_logger', 'logger', 1180, 160, 'log it', { level: 'info', message: 'HackerNews summary ready' }),
+    n('jd_out_log', 'output', 900, 280, 'log fallback', { kind: 'console' }),
+  ];
+  const edges = [
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'start', target: 'jd_api', label: '', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_api', target: 'jd_ai', label: '', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_ai', target: 'jd_cond', label: '', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_cond', target: 'jd_split', label: 'true', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_cond', target: 'jd_out_log', label: 'false', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_split', target: 'jd_out_dl', label: '', type: 'labeled' },
+    { id: `edge_${uuidv4().slice(0, 8)}`, source: 'jd_split', target: 'jd_logger', label: '', type: 'labeled' },
+  ];
+  return { nodes, edges };
+}
 
 const ONBOARDING_KEY = 'agentflow_onboarded_v1';
 
@@ -137,6 +182,7 @@ function CanvasPage() {
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
@@ -349,6 +395,49 @@ function CanvasPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [nodes.length, edges.length, isExecuting]);
 
+  // Shareable workflow URL (?workflow=<id> or base64 or judge-demo)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const w = params.get('workflow');
+    if (!w) return;
+    const t = setTimeout(() => {
+      if (w === 'judge-demo') {
+        const { nodes: jdNodes, edges: jdEdges } = buildJudgeDemoFlow();
+        setNodes(jdNodes);
+        setEdges(jdEdges.map((e: any) => ({ ...e, animated: false, style: { stroke: '#3a342c', strokeWidth: 1.6 } })));
+        addToolLog('load_judge_demo', { via: 'url' }, { success: true, message: 'Loaded Judge Demo from URL — press RUN' }, 'you');
+        setTimeout(() => fitAllNodes(), 220);
+        return;
+      }
+      // try base64 JSON
+      try {
+        const decoded = atob(decodeURIComponent(w));
+        const data = JSON.parse(decoded);
+        if (data.nodes && data.edges) {
+          setNodes(data.nodes);
+          setEdges(data.edges);
+          addToolLog('import_workflow', { via: 'url' }, { success: true, message: `Imported ${data.nodes.length} nodes from URL` }, 'you');
+          setTimeout(() => fitAllNodes(), 220);
+          return;
+        }
+      } catch {}
+      // try localStorage key agentflow_<name>
+      try {
+        const raw = localStorage.getItem(`agentflow_${w}`) || localStorage.getItem(w);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (data.nodes) {
+            setNodes(data.nodes);
+            setEdges(data.edges || []);
+            addToolLog('load_workflow', { name: w, via: 'url' }, { success: true }, 'you');
+            setTimeout(() => fitAllNodes(), 220);
+          }
+        }
+      } catch {}
+    }, 320);
+    return () => clearTimeout(t);
+  }, [fitAllNodes, setNodes, setEdges, addToolLog]);
+
   const completeOnboarding = useCallback(() => {
     localStorage.setItem(ONBOARDING_KEY, 'true');
     setWelcomeOpen(false);
@@ -369,6 +458,44 @@ function CanvasPage() {
     setHelpOpen(false);
     setWelcomeOpen(true);
   }, []);
+
+  const handleShareWorkflow = useCallback(async () => {
+    const data = { nodes: nodesRef.current, edges: edgesRef.current, version: 1, sharedAt: new Date().toISOString() };
+    const json = JSON.stringify(data);
+    // encode safely for btoa (json is ascii-only in practice)
+    const b64 = btoa(json);
+    const url = `${window.location.origin}${window.location.pathname}?workflow=${encodeURIComponent(b64)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 1800);
+      addToolLog('export_workflow', { via: 'share' }, { success: true, url, byteLength: json.length }, 'you');
+    } catch {
+      window.prompt('Share this workflow URL:', url);
+    }
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('workflow', b64);
+      window.history.replaceState({}, '', u.toString());
+    } catch {}
+  }, [addToolLog]);
+
+  const handleShareJudgeDemo = useCallback(async () => {
+    const url = `${window.location.origin}${window.location.pathname}?workflow=judge-demo`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 1800);
+      addToolLog('export_workflow', { via: 'share-judge' }, { success: true, url }, 'you');
+    } catch {
+      window.prompt('Share Judge Demo URL:', url);
+    }
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('workflow', 'judge-demo');
+      window.history.replaceState({}, '', u.toString());
+    } catch {}
+  }, [addToolLog]);
 
   // WebMCP pill — persistent agent-ready indicator
   const [hasWebMCP, setHasWebMCP] = useState(false);
@@ -477,6 +604,18 @@ function CanvasPage() {
         )}
 
         <div className="canvas-area" data-tour="canvas" onDragOver={onDragOver} onDrop={onDrop}>
+          {nodes.length <= 1 && (
+            <div className="canvas-empty" aria-live="polite">
+              <div className="canvas-empty-card">
+                <div className="canvas-empty-icon">◎</div>
+                <div className="canvas-empty-title">No modules yet — drag or ask your browser agent</div>
+                <p className="canvas-empty-desc">Drag a module from the left, click to add, or tell your <b>browser agent</b> in Chrome/ChatGPT:<br/>“<code>add_node</code> HackerNews API → <code>connect_nodes</code> → <code>execute_workflow</code>”<br/>Or hit <b>★ Judge Demo — 30s wow</b> in the sidebar: real API → AI → branch → download + log. LEDs run <span className="led-demo running" style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--amber)',boxShadow:'0 0 6px var(--amber)'}} /> → done.</p>
+                <div className="canvas-empty-actions">
+                  <span style={{fontFamily:'var(--font-mono)',fontSize:'9px',letterSpacing:'0.08em',color:'var(--faint)'}}>HUMAN × AGENT — same canvas · ToolLog shows YOU vs AGENT live</span>
+                </div>
+              </div>
+            </div>
+          )}
           <ReactFlow
             nodes={decoratedNodes}
             edges={decoratedEdges}
@@ -529,6 +668,19 @@ function CanvasPage() {
                 setIsExecuting={setIsExecuting}
                 setLiveStatus={setLiveStatus}
               />
+              <div className="share-row">
+                <button className="btn-ghost btn-small" onClick={handleShareWorkflow} title="Copy shareable URL with current workflow encoded (?workflow=...)">
+                  {shareCopied ? '✓ Copied link' : '↗ Share workflow URL'}
+                </button>
+                <button className="btn-ghost btn-small" onClick={handleShareJudgeDemo} title="Copy Judge Demo link (?workflow=judge-demo)">
+                  ★ Judge link
+                </button>
+              </div>
+              <AvailableToolsDrawer hasWebMCP={hasWebMCP} />
+              <div className="tool-log-highlight">
+                <span className="actor-tag you">YOU</span> <span style={{ color: 'var(--faint)' }}>vs</span> <span className="actor-tag agent">AGENT</span>
+                <span className="tool-log-highlight-desc">— every tool call streams here live with actor tags</span>
+              </div>
               <ToolLog logs={toolLogs} />
             </>
           )}
@@ -556,7 +708,7 @@ function CanvasPage() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<CanvasPage />} />
       <Route path="/tool" element={<CanvasPage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -16,7 +16,7 @@ export function LandingPage() {
         <span className="dash-tag">HUMAN × AGENT CANVAS</span>
         <div className="dash-header-actions">
           <Link to="/auth" className="dash-header-link">Sign in</Link>
-          <button className="btn-run dash-header-cta" onClick={() => navigate('/auth')}>Go to the tool →</button>
+          <button className="btn-run dash-header-cta" onClick={() => navigate('/tool')}>Open tool →</button>
         </div>
       </header>
 
@@ -77,7 +77,10 @@ export function LandingPage() {
                 <li><b>2.</b> Press <b>RUN</b> — real HN API → AI → branch → download + log</li>
                 <li><b>3.</b> Ask Chrome agent: “clone the AI node and rerun”</li>
               </ol>
-              <div className="dash-webmcp-side-note">Chrome: <code>chrome://flags → WebMCP → Enabled</code> · also ChatGPT in-app browser</div>
+              <button className="btn-run" style={{ width: '100%', marginTop: 8, justifyContent: 'center', display: 'flex' }} onClick={() => navigate('/tool?workflow=judge-demo')}>
+                ★ Open Judge Demo directly →
+              </button>
+              <div className="dash-webmcp-side-note" style={{ marginTop: 8 }}>Chrome: <code>chrome://flags → WebMCP → Enabled</code> · also ChatGPT in-app browser · <Link to="/tool?workflow=judge-demo" style={{ color: 'var(--amber)' }}>/tool?workflow=judge-demo</Link></div>
             </div>
           </div>
         </div>
@@ -100,14 +103,14 @@ export function LandingPage() {
           </p>
 
           <div className="dash-hero-actions">
-            <button className="btn-run dash-cta-primary" onClick={() => navigate('/auth')}>
-              Go to the tool →
+            <button className="btn-run dash-cta-primary" onClick={() => navigate('/tool')}>
+              Open tool → Try Judge Demo ★
             </button>
-            <button className="btn-ghost dash-cta-skip" onClick={() => navigate('/tool')}>
-              Skip for now
+            <button className="btn-ghost dash-cta-skip" onClick={() => navigate('/auth')}>
+              Sign in to save
             </button>
           </div>
-          <div className="dash-hero-hint">No account needed to try — sign in to save to database</div>
+          <div className="dash-hero-hint">No account needed — try anonymously, or sign in to save to database · also: <Link to="/tool" style={{color:'var(--cyan)'}}>/tool</Link> works directly</div>
         </section>
 
         <section className="dash-features">
