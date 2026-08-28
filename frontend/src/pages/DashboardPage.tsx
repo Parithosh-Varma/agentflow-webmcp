@@ -67,7 +67,7 @@ export function DashboardPage() {
           <div className="dash-feature-card">
             <div className="dash-feature-icon"><BoltIcon size={20} /></div>
             <h3>Chrome + ChatGPT</h3>
-            <p>Enable one setting: <code>chrome://flags → WebMCP → Enabled</code>. Then ask your browser agent to build flows hands-free.</p>
+            <p>Enable one setting: <code>chrome://flags/#enable-webmcp-testing → Enabled</code>. Then ask your browser agent to build flows hands-free.</p>
           </div>
         </section>
 

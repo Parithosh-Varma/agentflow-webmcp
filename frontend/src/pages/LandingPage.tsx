@@ -81,7 +81,7 @@ export function LandingPage() {
               <button className="btn-run" style={{ width: '100%', marginTop: 8, justifyContent: 'center', display: 'flex' }} onClick={() => navigate('/tool?workflow=judge-demo')}>
                 ★ Open Judge Demo directly →
               </button>
-              <div className="dash-webmcp-side-note" style={{ marginTop: 8 }}>Chrome: <code>chrome://flags → WebMCP → Enabled</code> · also ChatGPT in-app browser · <Link to="/tool?workflow=judge-demo" style={{ color: 'var(--amber)' }}>/tool?workflow=judge-demo</Link></div>
+              <div className="dash-webmcp-side-note" style={{ marginTop: 8 }}>Chrome: <code>chrome://flags/#enable-webmcp-testing → Enabled</code> · also ChatGPT in-app browser · <Link to="/tool?workflow=judge-demo" style={{ color: 'var(--amber)' }}>/tool?workflow=judge-demo</Link></div>
             </div>
           </div>
         </div>
@@ -137,7 +137,7 @@ export function LandingPage() {
           <div className="dash-feature-card">
             <div className="dash-feature-icon"><BoltIcon size={20} /></div>
             <h3>Chrome + ChatGPT</h3>
-            <p>Enable one setting: <code>chrome://flags → WebMCP → Enabled</code>. Then ask your browser agent to build flows hands-free.</p>
+            <p>Enable one setting: <code>chrome://flags/#enable-webmcp-testing → Enabled</code>. Then ask your browser agent to build flows hands-free.</p>
           </div>
         </section>
 
