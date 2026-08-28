@@ -43,12 +43,12 @@
   position: relative;
   z-index: 392;
   width: 100%;
-  max-width: 380px;
+  max-width: 560px;
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px 18px 14px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(232,163,61,0.07);
+  border-radius: 18px;
+  padding: 28px 26px 20px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.60), 0 0 0 1px rgba(232,163,61,0.07);
   animation: tour-card-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
