@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect, type ReactNode } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
+import { getInstanceCount, NODE_DISPLAY_NAMES } from './nodes';
 import {
   GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon,
   FilterIcon, SplitIcon, MergeIcon, LoopIcon, CodeIcon, WebhookIcon,
@@ -11,7 +12,7 @@ import type { NodeStatus } from '../engine';
 import './Sidebar.css';
 
 // ——— catalog with categories + descriptions ———
-type Category = 'Connect' | 'Logic' | 'Transform' | 'Output';
+type Category = 'Connect' | 'Logic' | 'Transform' | 'Output' | 'AI';
 
 const NODE_CATALOG: Array<{
   type: string;
@@ -37,13 +38,13 @@ const NODE_CATALOG: Array<{
   { type: 'code',      nodeType: 'codeNode',     label: 'Code',      category: 'Transform', desc: 'Run JS snippet',          icon: <CodeIcon size={13} />,      color: '#a8d8a8' },
   { type: 'validator', nodeType: 'validatorNode',label: 'Validator', category: 'Transform', desc: 'Schema check',            icon: <ValidatorIcon size={13} />, color: '#7dd3fc' },
   { type: 'delay',     nodeType: 'delayNode',    label: 'Delay',     category: 'Transform', desc: 'Wait / throttle',         icon: <ClockIcon size={13} />,     color: '#ab97d4' },
-  { type: 'ai',        nodeType: 'aiNode',       label: 'AI',        category: 'Transform', desc: 'LLM inference',           icon: <AiIcon size={13} />,        color: '#ff6b9d' },
+{ type: 'ai', nodeType: 'aiNode', label: 'AI', category: 'AI', desc: 'LLM inference', icon: <AiIcon size={13} />, color: '#ff6b9d' },
   // Output
   { type: 'output',    nodeType: 'outputNode',   label: 'Output',    category: 'Output',    desc: 'Save or POST result',     icon: <SendIcon size={13} />,      color: '#6cc7ba' },
   { type: 'logger',    nodeType: 'loggerNode',   label: 'Logger',    category: 'Output',    desc: 'Console telemetry',       icon: <LoggerIcon size={13} />,    color: '#d4a574' },
 ];
 
-const CATEGORIES: Category[] = ['Connect', 'Logic', 'Transform', 'Output'];
+const CATEGORIES: Category[] = ['Connect', 'Logic', 'Transform', 'Output', 'AI'];
 
 interface Props {
   nodes: Node[];
@@ -212,7 +213,7 @@ export function Sidebar({
   };
 
   const addNode = (type: string, nodeType: string, posOverride?: { x: number; y: number }) => {
-    const nodeLabel = label.trim() || `${type}_${nodes.length}`;
+    const nodeLabel = label.trim() || `${NODE_DISPLAY_NAMES[type] || type}_${getInstanceCount(type)}`;
     const pos = posOverride ? snapToGrid(posOverride.x, posOverride.y) : getSmartPlacement(nodes, selectedId);
     const newNode: Node = {
       id: `node_${uuidv4().slice(0, 8)}`,
@@ -503,9 +504,8 @@ export function Sidebar({
                 >
                   <span className="node-dot" style={{ background: dotColor[t] || '#8f867a' }} />
                   <span className="node-item-label">{String(n.data?.label)}</span>
-                  <span className="node-id">{n.id.slice(0, 8)}</span>
                   {status && status !== 'idle' && <span className={`node-status-dot s-${status}`} title={status} />}
-                  <span className="node-item-actions">
+                  <span className="node-actions">
                     <button
                       className="node-action"
                       onClick={(e) => { e.stopPropagation(); focusNode(n.id); }}

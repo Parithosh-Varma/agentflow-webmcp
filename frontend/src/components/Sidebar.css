@@ -7,7 +7,7 @@
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* scroll inside */
+  overflow-y: auto;
   flex-shrink: 0;
 }
 
