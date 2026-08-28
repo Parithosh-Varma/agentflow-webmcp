@@ -23,11 +23,11 @@
 .ob-modal {
   position: relative;
   width: 100%;
-  max-width: 500px;
+  max-width: 720px;
   background: linear-gradient(180deg, var(--panel) 0%, var(--bg-raised) 100%);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 32px 28px 24px;
+  border-radius: 20px;
+  padding: 40px 36px 28px;
   box-shadow:
     0 24px 64px rgba(0,0,0,0.55),
     0 1px 0 rgba(255,255,255,0.04) inset,
