@@ -2,3 +2,8 @@ node_modules/
 dist/
 .env
 *.log
+.opencode/
+.wrangler/
+# opencode loops (nested)
+frontend/.opencode/
+auth/.opencode/
