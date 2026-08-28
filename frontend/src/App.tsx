@@ -32,6 +32,7 @@ import { HelpDrawer, HelpButton } from './components/HelpDrawer';
 import { AgentToast } from './components/AgentToast';
 import { ChallengeBanner } from './components/ChallengeBanner';
 import { v4 as uuidv4 } from 'uuid';
+import { NODE_DISPLAY_NAMES, getInstanceCount } from './components/nodes';
 
 // Local judge-demo builder — duplicated from Sidebar.tsx to avoid circular import
 function buildJudgeDemoFlow(): { nodes: Node[]; edges: any[] } {
@@ -175,6 +176,7 @@ function CanvasPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [snapEnabled, setSnapEnabled] = useState(false);
   const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
   const [currentWorkflowName, setCurrentWorkflowName] = useState('Untitled');
   const [welcomeOpen, setWelcomeOpen] = useState(false);
@@ -254,7 +256,7 @@ function CanvasPage() {
         id: `node_${uuidv4().slice(0, 8)}`,
         type: nodeType,
         position: pos,
-        data: { label: `${type}_${nodesRef.current.length}`, config: {}, nodeType: type },
+        data: { label: `${NODE_DISPLAY_NAMES[type] || type}_${getInstanceCount(type)}`, config: {}, nodeType: type },
       };
       setNodes((nds: Node[]) => [...nds, newNode]);
       setSelectedId(newNode.id);
@@ -340,6 +342,7 @@ function CanvasPage() {
       else if ((src === 'done' || src === 'skipped') && (dst === 'done' || dst === 'skipped'))
         cls = 'edge-done';
       else if (dst === 'fault') cls = 'edge-faulted';
+      else if (dst === 'skipped') cls = 'edge-skipped';
       return { ...e, className: cls };
     });
   }, [edges, liveStatus]);
@@ -529,7 +532,7 @@ function CanvasPage() {
             <h1>AGENTFLOW</h1>
           </div>
           <span className="rail-tag">HUMAN × AGENT CANVAS</span>
-          <div className={`webmcp-pill ${hasWebMCP ? 'ready' : 'needs'}`} title={hasWebMCP ? 'WebMCP: 19 tools ready — agent can call add_node, connect_nodes, execute_workflow' : 'Enable one setting: chrome://flags → WebMCP → Enabled → Relaunch (or launch with --enable-features=WebMCP)'}>
+          <div className={`webmcp-pill ${hasWebMCP ? 'ready' : 'needs'}`} title={hasWebMCP ? 'WebMCP: 19 tools ready — agent can call add_node, connect_nodes, execute_workflow' : 'Enable one setting: chrome://flags/#enable-webmcp-testing → Enabled → Relaunch'}>
             <span className="webmcp-pill-dot" />
             {hasWebMCP ? 'WebMCP: 19 tools ready' : 'WebMCP: Enable one setting'}
           </div>
@@ -543,6 +546,24 @@ function CanvasPage() {
         <div className="rail-right">
           <div className="rail-counts">
             <b>{nodes.length}</b> MODULES · <b>{edges.length}</b> WIRES
+          </div>
+          <div className="rail-controls">
+            <button
+              className={`rail-btn ${snapEnabled ? 'active' : ''}`}
+              onClick={() => setSnapEnabled((v) => !v)}
+              title={snapEnabled ? 'Disable snap-to-grid' : 'Enable snap-to-grid'}
+              aria-label={snapEnabled ? 'Disable snap-to-grid' : 'Enable snap-to-grid'}
+            >
+              <span>{snapEnabled ? '✂' : '☐'}</span>
+            </button>
+            <button
+              className="rail-btn"
+              onClick={fitAllNodes}
+              title="Fit to screen"
+              aria-label="Fit to screen"
+            >
+              <span>⊕</span>
+            </button>
           </div>
           <button
             className="rail-help-btn"
