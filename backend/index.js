@@ -12,7 +12,6 @@ app.use(express.static(path.join(__dirname, '..', 'frontend', 'dist')));
 
 const workflows = new Map();
 const executionLogs = new Map();
-const tempKeys = new Map(); // judge self-serve temp keys (in-memory for local dev)
 
 const TOOL_DEFINITIONS = [
   {
@@ -234,35 +233,6 @@ app.get('/api/workflow', (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', tools: TOOL_DEFINITIONS.length, uptime: process.uptime() });
-});
-
-// Judge temp-key self-serve (public, no auth) — local dev mirror of Cloudflare Worker
-app.post('/api/judge/generate-temp-key', (req, res) => {
-  const crypto = require('crypto');
-  const label = String(req.body?.label || 'judge-temp').slice(0, 64);
-  const ttlHours = Math.min(Math.max(Number(req.body?.ttlHours || 24), 1), 72);
-  const raw = `${uuidv4()}-${Date.now()}-${Math.random()}-${label}`;
-  const key = crypto.createHash('sha256').update(raw).digest('hex');
-  const id = uuidv4();
-  const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000).toISOString();
-  tempKeys.set(key, { id, key, label, ttlHours, expiresAt, uses: 0, createdAt: new Date().toISOString() });
-  res.json({ success: true, key, id, label, ttlHours, expiresAt, verifyUrl: `/api/judge/verify?key=${key}`, demoUrl: `/?key=${key}&workflow=judge-demo` });
-});
-app.get('/api/judge/verify', (req, res) => {
-  const key = String(req.query.key || req.headers['x-demo-key'] || '').trim();
-  if (!key) return res.status(400).json({ valid: false, error: 'missing key' });
-  // master demo key (same as cloudflare ACCESS_CODE) always valid
-  const MASTER = '7c29f34ff320ed1dd8be77c9b0fa2c9e671062f7c613b0178b3e94ce0a132316';
-  if (key === MASTER) return res.json({ valid: true, source: 'master', label: 'master-demo-key', expiresAt: null });
-  const rec = tempKeys.get(key);
-  if (!rec) return res.status(404).json({ valid: false, error: 'not found' });
-  if (new Date(rec.expiresAt) < new Date()) return res.status(410).json({ valid: false, error: 'expired', expiresAt: rec.expiresAt });
-  rec.uses += 1;
-  res.json({ valid: true, source: 'temp', label: rec.label, expiresAt: rec.expiresAt, uses: rec.uses });
-});
-app.get('/api/judge/list', (req, res) => {
-  const list = Array.from(tempKeys.values()).slice(-20).map(r => ({ id: r.id, label: r.label, key_prefix: r.key.slice(0, 8), expiresAt: r.expiresAt, uses: r.uses, createdAt: r.createdAt }));
-  res.json({ keys: list });
 });
 
 // Serve frontend SPA for all non-API routes

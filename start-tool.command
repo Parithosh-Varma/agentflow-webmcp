@@ -1,6 +1,6 @@
 #!/bin/zsh
 # AgentFlow — Main Tool (Canvas) · double-click to run
-# Port 5173 · frontend/vite · http://localhost:5173/ (tool at / and /tool, judge-key at /judge-key)
+# Port 5173 · frontend/vite · http://localhost:5173/ (tool at / and /tool)
 # Separate Cloudflare Pages: agentflow-hackathon.pages.dev
 
 set -e
@@ -29,7 +29,6 @@ fi
 echo ""
 echo "→ Starting Vite on http://localhost:$PORT/"
 echo "  Tool:      http://localhost:$PORT/  (or /tool)"
-echo "  JudgeKey:  http://localhost:$PORT/judge-key"
 echo "  Callback:  http://localhost:$PORT/auth/callback (bridged from auth)"
 echo "  Prod Tool: https://agentflow-hackathon.pages.dev"
 echo "  (Auth is separate: https://agentflow-auth.pages.dev — run start-auth.command)"
