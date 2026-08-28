@@ -230,6 +230,24 @@ select:focus-visible {
 @keyframes webmcp-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
 .webmcp-pill.needs .webmcp-pill-dot { opacity: 0.9; }
 
+/* Rail control buttons */
+.rail-controls { display: flex; gap: 6px; margin-left: 12px; }
+.rail-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-raised); color: var(--dim); font-size: 10px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.rail-btn:hover { border-color: var(--amber); color: var(--amber); background: var(--panel-2); }
+.rail-btn.active { color: var(--amber); border-color: var(--amber); background: rgba(232,163,61,0.08); }
+.rail-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+
+/* Run completion banner */
+.run-complete-banner {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--amber); color: #1a1408; padding: 10px 20px;
+  border-radius: var(--r-md); font-family: var(--font-mono);
+  font-size: 12px; letter-spacing: 0.1em; z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  animation: banner-in 0.2s ease;
+}
+@keyframes banner-in { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
 .rail-help-btn {
   width: 30px;
   height: 30px;
@@ -422,6 +440,9 @@ select:focus-visible {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--faint);
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  background: var(--bg-raised);
 }
 
 .led {
@@ -430,28 +451,40 @@ select:focus-visible {
   border-radius: 50%;
   background: var(--border);
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
-  transition: all 0.3s;
+  flex-shrink: 0;
+  transition: all 0.2s;
 }
+
+/* LED states with explicit labels for colorblind accessibility */
+.readout[data-state='idle'] { color: var(--ink-2); }
+.readout[data-state='idle'] .led { background: var(--border); }
+.readout[data-state='idle'] span { content: '● IDLE'; }
 
 .readout[data-state='running'] { color: var(--amber); }
 .readout[data-state='running'] .led {
   background: var(--amber);
   box-shadow: 0 0 10px var(--amber), 0 0 20px rgba(232,163,61,0.2);
+  animation: led-blink 1s steps(2, start) infinite;
+}
+.readout[data-state='running'] span { content: '● RUNNING'; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .readout[data-state='running'] .led { animation: none; }
 }
 .readout[data-state='complete'] { color: var(--cyan); }
 .readout[data-state='complete'] .led {
   background: var(--cyan);
   box-shadow: 0 0 8px var(--cyan);
 }
+.readout[data-state='complete'] span { content: '● DONE'; }
+
 .readout[data-state='fault'] { color: var(--red); }
 .readout[data-state='fault'] .led {
   background: var(--red);
   box-shadow: 0 0 10px var(--red);
 }
+.readout[data-state='fault'] span { content: '● FAULT'; }
 
-@media (prefers-reduced-motion: no-preference) {
-  .readout[data-state='running'] .led { animation: led-blink 1s steps(2, start) infinite; }
-}
 @keyframes led-blink { to { visibility: hidden; } }
 
 /* Counts */
@@ -528,7 +561,7 @@ select:focus-visible {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
   flex-shrink: 0;
 }
 
@@ -643,6 +676,39 @@ select:focus-visible {
   font-size: 9px;
 }
 
+/* Node action affordance on hover */
+.node-item .node-actions {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  z-index: 10;
+  transition: opacity 0.12s;
+}
+.node-item:hover .node-actions { opacity: 1; }
+
+.node-action {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.node-action:hover { background: var(--bg-raised); color: var(--ink); }
+.node-action:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+
+.node-action.danger:hover { color: var(--red); background: rgba(224,93,68,0.1); }
+
 /* Hints */
 .hint {
   font-size: 11px;
@@ -718,6 +784,11 @@ select:focus-visible {
 
 .edge-faulted .react-flow__edge-path {
   stroke: rgba(224,93,68,0.4) !important;
+}
+
+.edge-skipped .react-flow__edge-path {
+  stroke: var(--faint) !important;
+  stroke-dasharray: 4 4;
 }
 
 /* Edge labels */
@@ -839,6 +910,9 @@ select:focus-visible {
   color: var(--tint);
   background: color-mix(in srgb, var(--tint) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--tint) 20%, transparent);
+  font-size: 10px;
+  min-width: 26px;
+  text-align: center;
 }
 
 .module-body {
@@ -865,6 +939,19 @@ select:focus-visible {
   text-overflow: ellipsis;
 }
 
+/* Node action dots - shown on hover */
+.node-actions {
+  opacity: 0;
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  display: flex;
+  gap: 4px;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+.node-item:hover .node-actions { opacity: 1; }
+
 /* Status LED */
 .module-led {
   margin-left: auto;
@@ -879,7 +966,9 @@ select:focus-visible {
 .module-led[data-status='running'] {
   background: var(--amber);
   box-shadow: 0 0 8px var(--amber), 0 0 16px rgba(232,163,61,0.2);
+  animation: pulse-ring 1s ease-in-out infinite;
 }
+@keyframes pulse-ring { 0%, 100% { box-shadow: 0 0 8px var(--amber), 0 0 16px rgba(232,163,61,0.2); } 50% { box-shadow: 0 0 8px var(--amber), 0 0 24px rgba(232,163,61,0.4); } }
 .module-led[data-status='done'] {
   background: var(--cyan);
   box-shadow: 0 0 6px rgba(86,205,189,0.4);
@@ -891,9 +980,42 @@ select:focus-visible {
 .module-led[data-status='skipped'] {
   background: var(--faint);
 }
-.module[data-skipped='true'] { opacity: 0.45; }
 
-/* Terminal pins */
+/* Dimmed desaturated skipped node */
+.module[data-skipped='true'] {
+  opacity: 0.45;
+  filter: grayscale(30%);
+}
+
+/* Wire label background chip */
+.edge-label {
+  position: absolute;
+  pointer-events: none;
+  background: var(--panel-2);
+  color: var(--ink-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  z-index: 10;
+}
+
+/* Hover affordance for nodes */
+.node-item .node-actions {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  z-index: 10;
+  transition: opacity 0.12s;
+}
+.node-item:hover .node-actions { opacity: 1; }
 .react-flow__handle.pin {
   width: 8px;
   height: 8px;
