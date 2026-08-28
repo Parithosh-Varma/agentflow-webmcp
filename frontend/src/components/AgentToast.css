@@ -3,24 +3,33 @@
    ================================================================ */
 .agent-toast {
   position: fixed;
-  right: 16px;
-  bottom: 68px;
-  width: 420px;
-  max-width: calc(100vw - 32px);
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(6px);
+  padding: 24px;
+  animation: toast-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.agent-toast-inner {
+  width: 100%;
+  max-width: 880px;
+  max-height: 90vh;
+  overflow: auto;
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow:
-    0 16px 48px rgba(0,0,0,0.45),
+    0 24px 80px rgba(0,0,0,0.55),
     0 0 0 1px rgba(232,163,61,0.07),
-    0 0 32px rgba(232,163,61,0.06);
-  z-index: 350;
-  padding: 14px 14px 12px 14px;
+    0 0 48px rgba(232,163,61,0.08);
+  padding: 20px 22px 18px 22px;
   display: grid;
-  grid-template-columns: 36px 1fr;
-  gap: 10px 12px;
-  animation: toast-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-  overflow: hidden;
+  grid-template-columns: 42px 1fr;
+  gap: 12px 14px;
 }
 
 @keyframes toast-in {

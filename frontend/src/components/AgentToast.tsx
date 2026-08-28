@@ -65,7 +65,7 @@ export function AgentToast({ suppress = false, delayMs = 2200, autoHideMs = 0 }:
   };
 
   const handleCopy = async () => {
-    const text = 'chrome://flags/#webmcp';
+    const text = 'chrome://flags/#enable-webmcp-testing';
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -77,8 +77,9 @@ export function AgentToast({ suppress = false, delayMs = 2200, autoHideMs = 0 }:
   };
 
   return (
-    <div className="agent-toast" role="status" aria-live="polite" aria-label="Browser agent tip">
-      <div className="agent-toast-icon" aria-hidden>⬢</div>
+    <div className="agent-toast" role="dialog" aria-modal="true" aria-label="Browser agent tip">
+      <div className="agent-toast-inner">
+      <div className="agent-toast-icon" aria-hidden><img src="/logo.png" alt="" style={{width:'22px',height:'22px',objectFit:'contain'}}/></div>
 
       <div className="agent-toast-body">
         <div className="agent-toast-kicker">
@@ -97,14 +98,13 @@ export function AgentToast({ suppress = false, delayMs = 2200, autoHideMs = 0 }:
         <div className="agent-toast-setting">
           <div className="agent-toast-setting-head">Enable one setting in Chrome (main demo):</div>
           <div className="agent-toast-code">
-            <code>chrome://flags → search “WebMCP” → Enabled</code>
+            <code>chrome://flags/#enable-webmcp-testing → Enabled</code>
             <button className="agent-toast-copy" onClick={handleCopy} title="Copy flag URL">
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
           <div className="agent-toast-steps">
-            Open <b>chrome://flags</b> → search <b>WebMCP</b> → <b>Enabled</b> → <b>Relaunch</b>
-            <span className="agent-toast-alt"> or launch Chrome with <code>--enable-features=WebMCP</code></span>
+            Open <b>chrome://flags/#enable-webmcp-testing</b> → <b>Enabled</b> → <b>Relaunch</b>
           </div>
           <div className="agent-toast-legacy">
             Also works in ChatGPT in-app browser: enable <code>WebMCP / Agent Mode</code> in its settings.
@@ -134,6 +134,7 @@ export function AgentToast({ suppress = false, delayMs = 2200, autoHideMs = 0 }:
         >
           Learn more ↗
         </a>
+      </div>
       </div>
     </div>
   );
