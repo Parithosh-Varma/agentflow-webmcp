@@ -6,6 +6,25 @@ import {
   AiIcon, ValidatorIcon, LoggerIcon, FileIcon,
 } from '../icons';
 
+export const NODE_DISPLAY_NAMES: Record<string, string> = {
+  start:     'Start',
+  api_call:  'API Call',
+  transform: 'Transform',
+  condition: 'Condition',
+  output:    'Output',
+  delay:     'Delay',
+  filter:    'Filter',
+  split:     'Split',
+  merge:     'Merge',
+  loop:      'Loop',
+  code:      'Code',
+  webhook:   'Webhook',
+  ai:        'AI',
+  validator: 'Validator',
+  logger:    'Logger',
+  file:      'File',
+};
+
 const TYPE_META: Record<string, { tint: string; icon: ReactNode }> = {
   start:     { tint: '#9ba657', icon: <PlayIcon size={11} /> },
   api_call:  { tint: '#8f9fdd', icon: <GlobeIcon size={12} /> },
@@ -29,7 +48,8 @@ function Module(props: NodeProps) {
   const { data, type } = props;
   const key = (data?.nodeType as string) || (type === 'startNode' ? 'start' : 'api_call');
   const meta = TYPE_META[key] || TYPE_META.api_call;
-  const typeLabel = key === 'start' ? 'start' : key.replace('_', ' ');
+  const displayName = NODE_DISPLAY_NAMES[key] || key.replace('_', ' ').split(' ').map((s: string) => s[0].toUpperCase() + s.slice(1)).join(' ');
+  const typeLabel = displayName;
   const status = (data?.status as string) || 'idle';
 
   return (
@@ -54,6 +74,13 @@ function Module(props: NodeProps) {
       />
     </div>
   );
+}
+
+export function getInstanceCount(typeKey: string): number {
+  const storageKey = `agentflow_instance_count_${typeKey}`;
+  let count = Number(localStorage.getItem(storageKey) || '0');
+  localStorage.setItem(storageKey, String(count + 1));
+  return count + 1;
 }
 
 export const nodeTypes = {
