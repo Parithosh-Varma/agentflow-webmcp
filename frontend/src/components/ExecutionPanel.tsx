@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import {
   executeWorkflow,
   toEngineNodes,
   toEngineEdges,
   type NodeStatus,
+  type ExecResult,
 } from '../engine';
+import { NODE_DISPLAY_NAMES } from './nodes';
+import { CheckIcon, CrossIcon } from './icons';
 
 function useJsonEditor(initial: string) {
   const [value, setValue] = useState(initial);
@@ -34,14 +37,32 @@ function useJsonEditor(initial: string) {
 }
 
 interface Props {
-  executionResult: any;
+  executionResult: ExecResult | null;
   isExecuting: boolean;
   nodes: Node[];
   edges: Edge[];
   addToolLog: (tool: string, input: any, result: any, actor?: 'agent' | 'you') => void;
-  setExecutionResult: (r: any) => void;
+  setExecutionResult: (r: ExecResult | null) => void;
   setIsExecuting: (v: boolean) => void;
   setLiveStatus: (updater: (prev: Record<string, NodeStatus>) => Record<string, NodeStatus>) => void;
+}
+
+function formatOutput(data: any): string {
+  if (data === undefined) return '—';
+  if (data === null) return 'null';
+  if (typeof data === 'string') return data;
+  try {
+    return JSON.stringify(data, null, 2);
+  } catch {
+    return String(data);
+  }
+}
+
+function getNodeLabel(nodes: Node[], nodeId: string): string {
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return nodeId;
+  const nodeType = (node.data?.nodeType as string) || 'start';
+  return `${NODE_DISPLAY_NAMES[nodeType] || nodeType}: ${node.data?.label || nodeId}`;
 }
 
 export function ExecutionPanel({
@@ -83,7 +104,6 @@ export function ExecutionPanel({
       });
       setExecutionResult(result);
       addToolLog('execute_workflow', { input }, result, 'you');
-      // Show completion banner
       setTimeout(() => {
         const existing = document.querySelector('.run-complete-banner');
         if (existing) existing.remove();
@@ -96,13 +116,19 @@ export function ExecutionPanel({
           font-size: 12px; letter-spacing: 0.1em; z-index: 1000;
           box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         `;
-        banner.textContent = `Workflow complete — ${result.durationMs !== undefined ? result.durationMs + 'ms' : ''} total`;
+        banner.textContent = `Workflow complete — ${result.durationMs}ms total`;
         document.body.appendChild(banner);
-        // Auto-dismiss after 5 seconds
         setTimeout(() => banner.remove(), 5000);
       }, 100);
     } catch (err: any) {
-      const errResult = { success: false, error: err?.message };
+      const errResult: ExecResult = {
+        success: false,
+        executedAt: new Date().toISOString(),
+        durationMs: 0,
+        order: [],
+        status: {},
+        outputs: { error: err?.message },
+      };
       setExecutionResult(errResult);
       addToolLog('execute_workflow', { input }, errResult, 'you');
     }
@@ -123,6 +149,39 @@ export function ExecutionPanel({
     addToolLog('validate_workflow', {}, result, 'you');
   };
 
+  // Build per-node result views
+  const nodeResults = useMemo(() => {
+    if (!executionResult) return [];
+    const { outputs, status, order } = executionResult;
+    return order.map((nodeId) => {
+      const output = outputs[nodeId];
+      const nodeStatus = status[nodeId];
+      const label = getNodeLabel(nodes, nodeId);
+      const isStart = nodeId === 'start' || nodeId.startsWith('start');
+      return {
+        nodeId,
+        label,
+        status: nodeStatus,
+        output,
+        isStart,
+        hasOutput: output !== undefined && output !== null,
+      };
+    });
+  }, [executionResult, nodes]);
+
+  const finalOutputNode = useMemo(() => {
+    if (!executionResult) return null;
+    const { outputs, order } = executionResult;
+    // Find the last non-start node that produced output
+    for (let i = order.length - 1; i >= 0; i--) {
+      const nodeId = order[i];
+      if (nodeId !== 'start' && !nodeId.startsWith('start') && outputs[nodeId] !== undefined) {
+        return { nodeId, output: outputs[nodeId], label: getNodeLabel(nodes, nodeId) };
+      }
+    }
+    return null;
+  }, [executionResult, nodes]);
+
   return (
     <div className="run-console">
       <div className="exec-stats">
@@ -135,7 +194,7 @@ export function ExecutionPanel({
           <span>Wires</span>
         </div>
         <div className="stat">
-          <b>{isExecuting ? '…' : executionResult ? (executionResult.success ? '✓' : '✗') : '—'}</b>
+          <b>{isExecuting ? '…' : executionResult ? (executionResult.success ? <CheckIcon size={14} /> : <CrossIcon size={14} />) : '—'}</b>
           <span>Status</span>
         </div>
       </div>
@@ -156,6 +215,7 @@ export function ExecutionPanel({
 
       <div className="exec-actions">
         <button
+          data-onboarding="run-button"
           className="btn-run"
           onClick={runFlow}
           disabled={isExecuting || nodes.length === 0}
@@ -169,10 +229,62 @@ export function ExecutionPanel({
 
       {executionResult ? (
         <div className="exec-result">
-          <h4>
-            Output{executionResult.durationMs !== undefined ? ` · ${executionResult.durationMs}ms` : ''}
-          </h4>
-          <pre>{JSON.stringify(executionResult.outputs ?? executionResult, null, 2)}</pre>
+          <div className="exec-result-header">
+            <h4>
+              Output{executionResult.durationMs !== undefined ? ` · ${executionResult.durationMs}ms` : ''}
+            </h4>
+            <span className={`exec-status-badge ${executionResult.success ? 'success' : 'fault'}`}>
+              {executionResult.success ? 'Completed' : 'Failed'}
+            </span>
+          </div>
+
+          {finalOutputNode && (
+            <div className="exec-final-output">
+              <div className="exec-final-label">
+                <span className="exec-final-kicker">Final output</span>
+                <span className="exec-final-node">{finalOutputNode.label}</span>
+              </div>
+              <pre className="exec-final-data">{formatOutput(finalOutputNode.output)}</pre>
+              <button className="btn-ghost btn-small exec-copy-btn" onClick={() => navigator.clipboard.writeText(formatOutput(finalOutputNode.output))}>
+                Copy JSON
+              </button>
+            </div>
+          )}
+
+          <details className="exec-node-details">
+            <summary>All node outputs ({nodeResults.filter(r => !r.isStart && r.hasOutput).length})</summary>
+            <div className="exec-node-list">
+              {nodeResults
+                .filter(r => !r.isStart)
+                .map((r) => (
+                  <div key={r.nodeId} className={`exec-node-row status-${r.status}`}>
+                    <div className="exec-node-info">
+                      <span className={`exec-node-status-dot status-${r.status}`} title={r.status} />
+                      <span className="exec-node-name">{r.label}</span>
+                    </div>
+                    <div className="exec-node-output">
+                      {r.hasOutput ? (
+                        <>
+                          <pre>{formatOutput(r.output)}</pre>
+                          <button className="btn-ghost btn-small" onClick={() => navigator.clipboard.writeText(formatOutput(r.output))}>
+                            Copy
+                          </button>
+                        </>
+                      ) : (
+                        <span className="exec-no-output">— no output —</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </details>
+
+          {executionResult.success === false && executionResult.outputs?.error && (
+            <div className="exec-error">
+              <span className="exec-error-icon">⚠</span>
+              <pre>{executionResult.outputs.error}</pre>
+            </div>
+          )}
         </div>
       ) : (
         <p className="hint" style={{ marginTop: 10 }}>

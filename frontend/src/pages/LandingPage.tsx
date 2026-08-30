@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { ChallengeBanner } from '../components/ChallengeBanner';
-import { BoltIcon } from '../components/icons';
+import { BoltIcon, GithubIcon } from '../components/icons';
 import './LandingPage.css';
 
 export function LandingPage() {
@@ -16,6 +16,10 @@ export function LandingPage() {
         </Link>
         <span className="dash-tag">HUMAN × AGENT CANVAS</span>
         <div className="dash-header-actions">
+          <a href="https://github.com/Parithosh-Varma/agentflow-webmcp" target="_blank" rel="noreferrer" className="dash-github-btn" aria-label="View on GitHub">
+            <GithubIcon size={16} />
+            <span>GitHub</span>
+          </a>
           <Link to="/auth" className="dash-header-link">Sign in</Link>
           <button className="btn-run dash-header-cta" onClick={() => navigate('/tool')}>Open tool →</button>
         </div>

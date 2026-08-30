@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import * as api from '../api';
 import { useAuth } from '../context/AuthContext';
+import { CloseIcon } from './icons';
 
 interface Props {
   nodes: Node[];
@@ -178,7 +179,7 @@ export function WorkflowManager({
                   onClick={(e) => { e.stopPropagation(); handleDelete(wf.id); }}
                   title="Delete"
                 >
-                  ×
+                  <CloseIcon size={12} />
                 </button>
               </div>
             ))}

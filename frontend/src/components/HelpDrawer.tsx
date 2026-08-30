@@ -1,3 +1,4 @@
+import { CloseIcon, ExternalLinkIcon } from './icons';
 import './HelpDrawer.css';
 
 interface Props {
@@ -18,7 +19,7 @@ export function HelpDrawer({ open, onClose, onReplay }: Props) {
             <div className="help-kicker">Guide</div>
             <h2 className="help-title">How to use AgentFlow</h2>
           </div>
-          <button className="help-close" onClick={onClose} aria-label="Close help">×</button>
+          <button className="help-close" onClick={onClose} aria-label="Close help"><CloseIcon size={14} /></button>
         </div>
 
         <div className="help-body">
@@ -64,7 +65,7 @@ export function HelpDrawer({ open, onClose, onReplay }: Props) {
             ↺ Replay Onboarding
           </button>
           <a className="help-link" href="https://agentflow-hackathon.pages.dev/" target="_blank" rel="noreferrer">
-            Open live site ↗
+            Open live site <ExternalLinkIcon size={12} />
           </a>
         </div>
       </aside>

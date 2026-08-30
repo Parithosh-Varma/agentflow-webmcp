@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BoltIcon } from './icons';
+import { BoltIcon, DiamondIcon, HexagonIcon } from './icons';
 import './WelcomeModal.css';
 
 interface WelcomeModalProps {
@@ -13,13 +13,13 @@ const STEPS = [
     title: 'Welcome to AgentFlow',
     subtitle: 'Visual workflow builder where humans and AI agents co-create automation pipelines via WebMCP.',
     detail: 'Design, wire, and run workflows on a shared canvas — no code required to start.',
-    icon: <span>◈</span>,
+    icon: <DiamondIcon size={28} />,
   },
   {
     title: 'Three panels, one flow',
     subtitle: 'Your workspace is split for speed: build left, visualize center, execute right.',
     detail: null,
-    icon: <span>⬡</span>,
+    icon: <HexagonIcon size={28} />,
   },
   {
     title: 'You are ready to build',

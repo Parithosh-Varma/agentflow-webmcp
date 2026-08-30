@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Node } from '@xyflow/react';
+import { CloseIcon } from './icons';
 
 interface Props {
   node: Node | null;
@@ -25,7 +26,7 @@ export function NodePopover({ node, onChange, onDelete, onClose }: Props) {
     <div className="node-popover" onClick={(e) => e.stopPropagation()}>
       <div className="popover-header">
         <span className="popover-title">{label}</span>
-        <button className="popover-close" onClick={onClose}>×</button>
+        <button className="popover-close" onClick={onClose}><CloseIcon size={14} /></button>
       </div>
 
       <div className="popover-body">

@@ -1,0 +1,202 @@
+/* ================================================================
+   AgentFlow — Design Tokens
+   Single source of truth for color, type, spacing, motion
+   ================================================================ */
+
+:root {
+  /* ──────────────────────────────────────────────
+     COLOR — 6 named values, semantic aliases below
+     ────────────────────────────────────────────── */
+
+  /* Ground — the canvas world */
+  --color-ground:        #0d0c0b;
+  --color-ground-raised: #141210;
+  --color-ground-high:   #1c1916;
+
+  /* Line — structure, not decoration */
+  --color-line:       #2a2622;
+  --color-line-soft:  #36312c;
+
+  /* Ink — reading hierarchy */
+  --color-ink:        #f2ede6;
+  --color-ink-muted:  #b8b0a3;
+  --color-ink-faint:  #7a7368;
+
+  /* Human (amber) — warm, authoring, intent */
+  --color-human:        #e8a33d;
+  --color-human-dim:    #c4882e;
+  --color-human-soft:   rgba(232, 163, 61, 0.12);
+  --color-human-glow:   rgba(232, 163, 61, 0.25);
+
+  /* Agent (cyan) — cool, executing, live */
+  --color-agent:        #4fd1c5;
+  --color-agent-dim:    #38b2ac;
+  --color-agent-soft:   rgba(79, 209, 197, 0.10);
+  --color-agent-glow:   rgba(79, 209, 197, 0.30);
+
+  /* Fault — single use, high contrast */
+  --color-fault:        #e53e3e;
+  --color-fault-soft:   rgba(229, 62, 62, 0.10);
+  --color-fault-glow:   rgba(229, 62, 62, 0.30);
+
+  /* Grid — canvas */
+  --grid-line:      #262119;
+  --grid-line-bold: #2a2622;
+
+  /* ──────────────────────────────────────────────
+     SEMANTIC ALIASES — use these in components
+     ────────────────────────────────────────────── */
+
+  /* Surfaces */
+  --bg:           var(--color-ground);
+  --bg-raised:    var(--color-ground-raised);
+  --bg-high:      var(--color-ground-high);
+  --panel:        var(--color-ground-raised);
+  --panel-2:      var(--color-ground-high);
+  --surface:      var(--color-ground-high);
+  --surface-2:    var(--color-line-soft);
+
+  /* Borders */
+  --border:       var(--color-line);
+  --border-soft:  var(--color-line-soft);
+  --border-faint: var(--color-line);
+
+  /* Text */
+  --ink:          var(--color-ink);
+  --ink-2:        var(--color-ink-muted);
+  --dim:          var(--color-ink-muted);
+  --faint:        var(--color-ink-faint);
+
+  /* Accent — Human (authoring) */
+  --amber:        var(--color-human);
+  --amber-dim:    var(--color-human-dim);
+  --amber-soft:   var(--color-human-soft);
+  --amber-glow:   var(--color-human-glow);
+
+  /* Accent — Agent (executing) */
+  --cyan:         var(--color-agent);
+  --cyan-dim:     var(--color-agent-dim);
+  --cyan-soft:    var(--color-agent-soft);
+  --cyan-glow:    var(--color-agent-glow);
+
+  /* Fault */
+  --red:          var(--color-fault);
+  --red-soft:     var(--color-fault-soft);
+  --red-glow:     var(--color-fault-glow);
+
+  /* ──────────────────────────────────────────────
+     TYPOGRAPHY
+     ────────────────────────────────────────────── */
+  --font-display: 'Chakra Petch', sans-serif;
+  --font-body:    'Archivo', sans-serif;
+  --font-mono:    'IBM Plex Mono', monospace;
+
+  /* Type scale — 1.25 ratio, 3 weights only */
+  --text-xs:  11px;  /* captions, labels */
+  --text-sm:  12px;  /* body small, button text */
+  --text-base: 14px; /* body default */
+  --text-lg:  16px;  /* emphasis */
+  --text-xl:  20px;  /* section titles */
+  --text-2xl: 28px;  /* canvas thesis */
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-bold:    600;
+
+  /* Line heights */
+  --leading-tight:  1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  /* ──────────────────────────────────────────────
+     SPACING — 4px base unit
+     ────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ──────────────────────────────────────────────
+     RADIUS
+     ────────────────────────────────────────────── */
+  --radius-sm:  4px;
+  --radius-md:  6px;
+  --radius-lg:  10px;
+  --radius-xl:  14px;
+  --radius-pill: 999px;
+
+  /* ──────────────────────────────────────────────
+     MOTION — deliberate, not decorative
+     ────────────────────────────────────────────── */
+  --ease-standard:  cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-quick:     cubic-bezier(0.2, 0, 0.38, 1);
+  --ease-entrance:  cubic-bezier(0.16, 1, 0.3, 1);
+
+  --duration-fast:    120ms;
+  --duration-normal:  200ms;
+  --duration-slow:    320ms;
+  --duration-entrance: 480ms;
+
+  /* ──────────────────────────────────────────────
+      Z-INDEX — explicit layers
+      ────────────────────────────────────────────── */
+  --z-canvas:      1;
+  --z-node:        10;
+  --z-edge:        5;
+  --z-handle:      15;
+  --z-popover:     100;
+  --z-modal:       200;
+  --z-toast:       300;
+  --z-collab-bar:  50;  /* signature element */
+  --z-tooltip:     400;
+}
+
+/* ──────────────────────────────────────────────
+   LIGHT MODE — white / warm paper
+   Toggle via <html data-theme="light"> or prefers
+   ────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --color-ground:        #fdfcfb;
+  --color-ground-raised: #ffffff;
+  --color-ground-high:   #f5f3f0;
+
+  --color-line:       #e8e0d8;
+  --color-line-soft:  #ede8e0;
+
+  --color-ink:        #1a160f;
+  --color-ink-muted:  #6b6259;
+  --color-ink-faint:  #9a938a;
+
+  --color-human-soft:   rgba(232, 163, 61, 0.14);
+  --color-human-glow:   rgba(232, 163, 61, 0.22);
+
+  --color-agent-soft:   rgba(56, 178, 172, 0.12);
+  --color-agent-glow:   rgba(56, 178, 172, 0.22);
+
+  --color-fault-soft:   rgba(229, 62, 62, 0.08);
+  --color-fault-glow:   rgba(229, 62, 62, 0.20);
+
+  --grid-line:      rgba(38,33,25,0.06);
+  --grid-line-bold: rgba(38,33,25,0.10);
+}
+
+/* Auto light if user prefers and no explicit data-theme */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --color-ground:        #fdfcfb;
+    --color-ground-raised: #ffffff;
+    --color-ground-high:   #f5f3f0;
+    --color-line:       #e8e0d8;
+    --color-line-soft:  #ede8e0;
+    --color-ink:        #1a160f;
+    --color-ink-muted:  #6b6259;
+    --color-ink-faint:  #9a938a;
+    --grid-line:      rgba(38,33,25,0.06);
+    --grid-line-bold: rgba(38,33,25,0.10);
+  }
+}

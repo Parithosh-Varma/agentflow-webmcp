@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AgentFlow — Mission Control</title>
   <meta name="description" content="Real-time operations dashboard for AgentFlow." />
-  <link rel="icon" type="image/png" href="./favicon.png" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -487,7 +487,7 @@
   <nav class="rail">
     <div class="rail-inner">
       <a class="wordmark" href="./index.html">
-        <img class="wordmark-logo" src="./logo.png" alt="" width="18" height="18" />
+        <img class="wordmark-logo" src="./logo-sm.png" alt="AgentFlow" width="18" height="18" />
         <b>AGENTFLOW</b>
         <span class="sep">/</span>
         <span class="page">mission control</span>
@@ -658,7 +658,7 @@
       const d = curr - p;
       if (d === 0) { el.textContent = ''; return; }
       el.textContent = (d > 0 ? '+' : '') + d;
-      el.style.color = d > 0 ? 'var(--green)' : 'd > 0 ? \'var(--green)\' : \'var(--red)\'';
+      el.style.color = d > 0 ? 'var(--green)' : 'var(--red)';
     }
 
     /* ---- hero number animation ---- */

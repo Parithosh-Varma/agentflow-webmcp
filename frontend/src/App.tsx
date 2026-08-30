@@ -9,6 +9,7 @@ import {
   MiniMap,
   Background,
   BackgroundVariant,
+  SelectionMode,
   type Connection,
   type Node,
   type Edge,
@@ -26,13 +27,21 @@ import { useAuth } from './context/AuthContext';
 import logo from './assets/logo.png';
 import type { NodeStatus } from './engine';
 import { localWireAdjust, snapAndPushOnDrop, snapToGrid } from './utils/grid';
-import { WelcomeModal } from './components/WelcomeModal';
-import { OnboardingTour } from './components/OnboardingTour';
 import { HelpDrawer, HelpButton } from './components/HelpDrawer';
 import { AgentToast } from './components/AgentToast';
-import { ChallengeBanner } from './components/ChallengeBanner';
+import { GithubIcon } from './components/icons';
+
+import { useOnboarding } from './onboarding/useOnboarding';
+import { TourOverlay } from './onboarding/TourOverlay';
 import { v4 as uuidv4 } from 'uuid';
 import { NODE_DISPLAY_NAMES, getInstanceCount } from './components/nodes';
+import {
+  ReplayBar,
+  ReplayOverlay,
+  ReplayInspector,
+  useReplayController,
+  buildReplayData,
+} from './components/ExecutionReplay';
 
 // Local judge-demo builder — duplicated from Sidebar.tsx to avoid circular import
 function buildJudgeDemoFlow(): { nodes: Node[]; edges: any[] } {
@@ -82,45 +91,218 @@ function buildJudgeDemoFlow(): { nodes: Node[]; edges: any[] } {
 }
 
 const ONBOARDING_KEY = 'agentflow_onboarded_v1';
+const COLLAB_HISTORY_LIMIT = 12;
 
 const edgeTypes = { labeled: LabeledEdge };
 
-const WEBMCP_TOOLS_19: Array<{ name: string; desc: string; group: 'core' | 'advanced' }> = [
+const WEBMCP_TOOLS_27: Array<{ name: string; desc: string; group: 'core' | 'advanced' }> = [
   // 8 core
   { name: 'add_node', desc: 'Add workflow node', group: 'core' },
   { name: 'connect_nodes', desc: 'Connect two nodes', group: 'core' },
   { name: 'execute_workflow', desc: 'Run workflow (topological)', group: 'core' },
-  { name: 'get_available_tools', desc: 'List 19 tools + schemas', group: 'core' },
+  { name: 'get_available_tools', desc: 'List 27 tools + schemas', group: 'core' },
   { name: 'get_node_details', desc: 'Get node info', group: 'core' },
-  { name: 'update_node_config', desc: 'Update node config', group: 'core' },
-  { name: 'get_workflow_status', desc: 'Get nodes/edges summary', group: 'core' },
+  { name: 'update_node_config', desc: 'Update node config (id or label, validates keys)', group: 'core' },
+  { name: 'get_workflow_status', desc: 'Get nodes/edges + positions', group: 'core' },
   { name: 'validate_workflow', desc: 'Validate workflow', group: 'core' },
-  // 11 advanced
-  { name: 'delete_node', desc: 'Remove node + wires', group: 'advanced' },
+  // 11 advanced (original)
+  { name: 'delete_node', desc: 'Remove node + wires (undoable)', group: 'advanced' },
   { name: 'clone_node', desc: 'Duplicate node', group: 'advanced' },
   { name: 'get_node_connections', desc: 'Incoming/outgoing wires', group: 'advanced' },
   { name: 'save_workflow', desc: 'Save to localStorage', group: 'advanced' },
   { name: 'load_workflow', desc: 'Load from localStorage', group: 'advanced' },
-  { name: 'run_node', desc: 'Run single node isolate', group: 'advanced' },
+  { name: 'run_node', desc: 'Run single node isolate (stack traces)', group: 'advanced' },
   { name: 'set_node_position', desc: 'Move node', group: 'advanced' },
   { name: 'get_workflow_history', desc: 'Past runs', group: 'advanced' },
   { name: 'create_template', desc: 'Save as template', group: 'advanced' },
   { name: 'export_workflow', desc: 'Export JSON', group: 'advanced' },
   { name: 'import_workflow', desc: 'Import JSON', group: 'advanced' },
+  // 8 new — addressing 10 limitations
+  { name: 'find_nodes', desc: 'Search by label/type — no more ID guessing', group: 'advanced' },
+  { name: 'get_execution_details', desc: 'Per-node outputs + stacks (debug)', group: 'advanced' },
+  { name: 'get_node_output', desc: 'Single node output by id/label', group: 'advanced' },
+  { name: 'get_canvas_snapshot', desc: 'Textual canvas map (visual blindness)', group: 'advanced' },
+  { name: 'probe_api', desc: 'Test URL before wiring (CORS/JSON check)', group: 'advanced' },
+  { name: 'undo_last_action', desc: 'Undo last mutation', group: 'advanced' },
+  { name: 'redo_last_action', desc: 'Redo', group: 'advanced' },
+  { name: 'get_undo_history', desc: 'Mutation history', group: 'advanced' },
 ];
+const WEBMCP_TOOLS_19 = WEBMCP_TOOLS_27; // compat alias
+
+const CANVAS_TOUR_STEPS = [
+  { id: 'canvas-intro', target: 'canvas-root', title: 'Your canvas', body: 'Drag nodes here to build a flow.' },
+  { id: 'canvas-add-node', target: 'add-node-button', title: 'Add a node', body: 'Click here, or drag from the sidebar.' },
+  { id: 'canvas-connect', target: 'canvas-root', title: 'Connect nodes', body: 'Drag from one node’s edge to another to link them.' },
+  { id: 'canvas-run', target: 'run-button', title: 'Run it', body: 'Press RUN to execute the workflow.' },
+];
+
+// ================================================================
+// Signature: Live Collaboration Bar
+// Thin strip showing human↔agent activity in real time
+// ================================================================
+interface CollabEvent { actor: 'human' | 'agent'; action: string; time: number; }
+
+function CollaborationBar({ recentLogs }: { recentLogs: CollabEvent[] }) {
+  const segments = recentLogs.slice(-COLLAB_HISTORY_LIMIT).map((e, i) => (
+    <div
+      key={i}
+      className={`collab-bar__segment ${e.actor === 'human' ? 'collab-bar__segment--human' : 'collab-bar__segment--agent'}`}
+      style={{ width: 'calc(100% / 12)' }}
+      title={`${e.actor}: ${e.action}`}
+    />
+  ));
+  const hasAgent = recentLogs.some(e => e.actor === 'agent');
+  const hasHuman = recentLogs.some(e => e.actor === 'human');
+
+  return (
+    <div className="collab-bar" aria-label="Live collaboration activity">
+      <div className="collab-bar__track" role="img" aria-label={`Human actions: ${hasHuman ? 'active' : 'idle'}, Agent actions: ${hasAgent ? 'active' : 'idle'}`}>
+        {segments}
+      </div>
+      {hasAgent && <div className="collab-bar__pulse collab-bar__pulse--agent" aria-hidden="true" />}
+      {hasHuman && <div className="collab-bar__pulse collab-bar__pulse--human" aria-hidden="true" />}
+    </div>
+  );
+}
+
+// ================================================================
+// Thesis: Canvas Demo — auto-playing agent building the Judge Demo
+// Real nodes, real grid, real animations — not a video
+// ================================================================
+interface CanvasDemoProps { onStartFlow: () => void; isPlaying: boolean; }
+
+function CanvasDemo({ onStartFlow, isPlaying }: CanvasDemoProps) {
+  const [demoNodes, setDemoNodes] = useState<Node[]>([]);
+  const [demoEdges, setDemoEdges] = useState<any[]>([]);
+  const [showCTA, setShowCTA] = useState(false);
+  const reactFlowRef = useRef<any>(null);
+
+  useCtaKeyframes();
+
+  const judgeFlow = buildJudgeDemoFlow();
+
+  // Phase timings (ms): 0=idle, 1=start, 2=api, 3=ai, 4=cond, 5=split, 6=outputs, 7=cta
+  const PHASES = [
+    { nodes: ['start'], edges: [], duration: 400 },
+    { nodes: ['start', 'jd_api'], edges: [{ source: 'start', target: 'jd_api' }], duration: 600 },
+    { nodes: ['start', 'jd_api', 'jd_ai'], edges: [{ source: 'start', target: 'jd_api' }, { source: 'jd_api', target: 'jd_ai' }], duration: 700 },
+    { nodes: ['start', 'jd_api', 'jd_ai', 'jd_cond'], edges: [{ source: 'start', target: 'jd_api' }, { source: 'jd_api', target: 'jd_ai' }, { source: 'jd_ai', target: 'jd_cond' }], duration: 600 },
+    { nodes: ['start', 'jd_api', 'jd_ai', 'jd_cond', 'jd_split', 'jd_out_log'], edges: [
+      { source: 'start', target: 'jd_api' }, { source: 'jd_api', target: 'jd_ai' },
+      { source: 'jd_ai', target: 'jd_cond' }, { source: 'jd_cond', target: 'jd_split', label: 'true' },
+      { source: 'jd_cond', target: 'jd_out_log', label: 'false' }
+    ], duration: 800 },
+    { nodes: ['start', 'jd_api', 'jd_ai', 'jd_cond', 'jd_split', 'jd_out_dl', 'jd_logger', 'jd_out_log'], edges: [
+      { source: 'start', target: 'jd_api' }, { source: 'jd_api', target: 'jd_ai' },
+      { source: 'jd_ai', target: 'jd_cond' }, { source: 'jd_cond', target: 'jd_split', label: 'true' },
+      { source: 'jd_cond', target: 'jd_out_log', label: 'false' },
+      { source: 'jd_split', target: 'jd_out_dl' }, { source: 'jd_split', target: 'jd_logger' }
+    ], duration: 1000 },
+    { nodes: ['start', 'jd_api', 'jd_ai', 'jd_cond', 'jd_split', 'jd_out_dl', 'jd_logger', 'jd_out_log'], edges: [
+      { source: 'start', target: 'jd_api' }, { source: 'jd_api', target: 'jd_ai' },
+      { source: 'jd_ai', target: 'jd_cond' }, { source: 'jd_cond', target: 'jd_split', label: 'true' },
+      { source: 'jd_cond', target: 'jd_out_log', label: 'false' },
+      { source: 'jd_split', target: 'jd_out_dl' }, { source: 'jd_split', target: 'jd_logger' }
+    ], duration: 1200, cta: true },
+  ];
+
+  useEffect(() => {
+    if (!isPlaying) { setShowCTA(false); return; }
+    let cancelled = false;
+    async function run() {
+      for (let i = 0; i < PHASES.length; i++) {
+        if (cancelled) break;
+        const p = PHASES[i];
+        const nodesToShow = judgeFlow.nodes.filter(n => p.nodes.includes(n.id));
+        const edgesToShow = p.edges.map((e, idx) => ({
+          id: `demo_edge_${idx}`,
+          source: e.source,
+          target: e.target,
+          label: e.label || '',
+          type: 'labeled',
+          animated: false,
+          style: { stroke: '#3a342c', strokeWidth: 1.6 },
+        }));
+        setDemoNodes(nodesToShow);
+        setDemoEdges(edgesToShow);
+        if (p.cta) setShowCTA(true);
+        await new Promise(r => setTimeout(r, p.duration));
+      }
+    }
+    run();
+    return () => { cancelled = true; };
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (reactFlowRef.current) {
+      reactFlowRef.current.fitView({ padding: 0.2, duration: 400 });
+    }
+  }, [demoNodes.length]);
+
+  if (!isPlaying || demoNodes.length === 0) return null;
+
+  return (
+    <div className="canvas-demo playing" role="region" aria-label="Agent building workflow demo">
+      <ReactFlow
+        ref={reactFlowRef}
+        nodes={demoNodes}
+        edges={demoEdges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        defaultEdgeOptions={{ type: 'labeled', style: { stroke: '#3a342c', strokeWidth: 1.6 } }}
+        fitView
+        style={{ background: 'var(--bg)', width: '100%', height: '100%' }}
+      >
+        <Background variant={BackgroundVariant.Lines} gap={26} color="#262119" />
+      </ReactFlow>
+      {showCTA && (
+        <div className="canvas-demo-cta" style={{
+          position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 20, textAlign: 'center', pointerEvents: 'auto',
+          animation: 'cta-in 0.4s var(--ease-entrance) forwards'
+        }}>
+          <button
+            className="btn-run"
+            onClick={onStartFlow}
+            style={{ padding: '12px 28px', fontSize: '13px' }}
+          >
+            Press RUN to execute
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// CTA animation keyframe (injected once)
+function useCtaKeyframes() {
+  useEffect(() => {
+    if (typeof document !== 'undefined' && !document.getElementById('cta-keyframes')) {
+      const style = document.createElement('style');
+      style.id = 'cta-keyframes';
+      style.textContent = `
+        @keyframes cta-in {
+          from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+}
 
 function AvailableToolsDrawer({ hasWebMCP }: { hasWebMCP: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="available-tools">
       <button className="available-tools-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        <span className="available-tools-title">Available Tools (19)</span>
+        <span className="available-tools-title">Available Tools (27)</span>
         <span className={`available-tools-badge ${hasWebMCP ? 'ready' : 'needs'}`}>{hasWebMCP ? '● ready' : '○ needs enable'}</span>
         <span className="available-tools-caret">{open ? '▾' : '▸'}</span>
       </button>
       {open && (
         <div className="available-tools-body">
-          <div className="available-tools-hint">Exposed via <code>document.modelContext.registerTool()</code> — agent calls these, you see ToolLog live.</div>
+          <div className="available-tools-hint">Exposed via <code>document.modelContext.registerTool()</code> — agent calls these, you see ToolLog live. 8 new tools (find_nodes, get_execution_details, probe_api, undo…) fix the 10 reported limitations.</div>
           <div className="available-tools-group">
             <div className="available-tools-group-title">8 core</div>
             {WEBMCP_TOOLS_19.filter((t) => t.group === 'core').map((t) => (
@@ -131,7 +313,7 @@ function AvailableToolsDrawer({ hasWebMCP }: { hasWebMCP: boolean }) {
             ))}
           </div>
           <div className="available-tools-group">
-            <div className="available-tools-group-title">11 advanced</div>
+            <div className="available-tools-group-title">19 advanced (11+8 new)</div>
             {WEBMCP_TOOLS_19.filter((t) => t.group === 'advanced').map((t) => (
               <div key={t.name} className="available-tool-row">
                 <code className="available-tool-name">{t.name}</code>
@@ -139,7 +321,7 @@ function AvailableToolsDrawer({ hasWebMCP }: { hasWebMCP: boolean }) {
               </div>
             ))}
           </div>
-          <div className="available-tools-foot">See <code>webmcp.ts:40 registerTool</code> + <code>engine.ts</code> for execution.</div>
+          <div className="available-tools-foot">See <code>webmcp.ts:22 registerTool</code> + <code>engine.ts:42 async runners</code> for execution. New tools: find_nodes, get_canvas_snapshot, probe_api, undo/redo.</div>
         </div>
       )}
     </div>
@@ -156,14 +338,24 @@ interface LogEntry {
   actor: 'agent' | 'you';
 }
 
-const initialNodes: Node[] = [
-  {
-    id: 'start',
-    type: 'startNode',
-    position: { x: 40, y: 200 },
-    data: { label: 'Start', config: {} },
-  },
-];
+const initialNodes: Node[] = [];
+
+const CACHE_KEY = 'agentflow_workflow_cache_v2';
+const SESSION_KEY = 'agentflow_session_id_v1';
+
+// Generate or get session ID for this tab
+function getSessionId(): string {
+  let sid = sessionStorage.getItem(SESSION_KEY);
+  if (!sid) {
+    sid = `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    sessionStorage.setItem(SESSION_KEY, sid);
+  }
+  return sid;
+}
+
+function getCacheKey(sessionId: string): string {
+  return `${CACHE_KEY}_${sessionId}`;
+}
 
 function CanvasPage() {
   const { user } = useAuth();
@@ -175,14 +367,45 @@ function CanvasPage() {
   const [liveStatus, setLiveStatus] = useState<Record<string, NodeStatus>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    try { const v = Number(localStorage.getItem('agentflow_sidebar_width_v1')); return v >= 220 && v <= 520 ? v : 276; } catch { return 276; }
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarWidthRef = useRef(sidebarWidth);
+  sidebarWidthRef.current = sidebarWidth;
+  const SIDEBAR_MIN = 220;
+  const SIDEBAR_MAX = 520;
+  const SIDEBAR_DEFAULT = 276;
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [snapEnabled, setSnapEnabled] = useState(false);
   const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
   const [currentWorkflowName, setCurrentWorkflowName] = useState('Untitled');
-  const [welcomeOpen, setWelcomeOpen] = useState(false);
-  const [tourOpen, setTourOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const onboarding = useOnboarding();
+  const [showTour, setShowTour] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Session ID for this tab
+  const sessionId = getSessionId();
+  const cacheKey = getCacheKey(sessionId);
+
+  // Replay state
+  const [replayData, setReplayData] = useState<any>(null);
+  const [showReplay, setShowReplay] = useState(false);
+  const {
+    isPlaying,
+    currentTime,
+    speed,
+    play,
+    pause,
+    stop,
+    step,
+    scrub,
+    inspectedNode,
+    inspectNode,
+    closeInspector,
+  } = useReplayController(replayData);
 
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
@@ -193,6 +416,52 @@ function CanvasPage() {
 
   const workflowHistoryRef = useRef<any[]>([]);
   const templatesRef = useRef<Record<string, { nodes: Node[]; edges: Edge[] }>>({});
+
+  // Auto-save workflow to session-specific localStorage cache
+  useEffect(() => {
+    const cache = {
+      sessionId,
+      nodes,
+      edges,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(cacheKey, JSON.stringify(cache));
+  }, [nodes, edges, cacheKey]);
+
+  // Load workflow from cache on mount - try same session first
+  useEffect(() => {
+    try {
+      // 1. Try to restore from this session's cache
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { nodes: cachedNodes, edges: cachedEdges, timestamp, sessionId: cachedSid } = JSON.parse(cached);
+        if (cachedSid === sessionId && cachedNodes?.length && Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000) {
+          setNodes(cachedNodes);
+          setEdges(cachedEdges);
+          addToolLog('load_cache', { sessionId }, { success: true, nodeCount: cachedNodes.length, edgeCount: cachedEdges.length }, 'you');
+          return;
+        }
+      }
+
+      // 2. Check for other session caches (for recovery UI) - commented out for now
+      // const otherCaches = getAllCacheKeys()
+      //   .map(k => { try { return { key: k, ...JSON.parse(localStorage.getItem(k)!) }; } catch { return null; } })
+      //   .filter((c) => c !== null && c.nodes?.length && Date.now() - c.timestamp < 7 * 24 * 60 * 60 * 1000)
+      //   .sort((a, b) => b.timestamp - a.timestamp);
+
+      // If there are other recent caches, we could show a restore prompt
+      // For now, just start fresh - user can use "load_workflow" tool or sidebar to recover
+} catch {
+      // Ignore cache errors
+    }
+  }, [cacheKey, sessionId]);
+
+  // Broadcast session changes to other tabs (optional sync)
+  useEffect(() => {
+    const channel = new BroadcastChannel('agentflow_sync');
+    channel.postMessage({ type: 'session_active', sessionId, timestamp: Date.now() });
+    return () => channel.close();
+  }, [sessionId]);
 
   const addToolLog = useCallback(
     (tool: string, input: any, result: any, actor: 'agent' | 'you' = 'agent') => {
@@ -362,17 +631,31 @@ function CanvasPage() {
     }
   }, [runState]);
 
+  // Build replay data when execution completes
   useEffect(() => {
-    const isCompleted = localStorage.getItem(ONBOARDING_KEY);
-    if (!isCompleted) {
-      const t = setTimeout(() => setWelcomeOpen(true), 400);
+    if ((runState === 'complete' || runState === 'fault') && executionResult) {
+      const data = buildReplayData(executionResult, nodes, executionResult.order || []);
+      if (data) {
+        setReplayData(data);
+        setShowReplay(true);
+      }
+    } else if (runState === 'idle') {
+      setReplayData(null);
+      setShowReplay(false);
+    }
+  }, [runState, executionResult, nodes]);
+
+  // New onboarding — data-onboarding TourOverlay (replaces WelcomeModal/OnboardingTour)
+  useEffect(() => {
+    if (!onboarding.isDismissed('canvas-tour')) {
+      const t = setTimeout(() => setShowTour(true), 700);
       return () => clearTimeout(t);
     }
-  }, []);
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === '?' && !welcomeOpen && !tourOpen) {
+      if (e.key === '?' && !showTour) {
         const ae = document.activeElement as HTMLElement | null;
         if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
         e.preventDefault();
@@ -381,7 +664,32 @@ function CanvasPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [welcomeOpen, tourOpen]);
+  }, [showTour]);
+
+  // Rectangle multi-select — Delete / Backspace removes selection
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length) {
+        const ae = document.activeElement as HTMLElement | null;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+        e.preventDefault();
+        const toDelete = selectedIds.filter((id) => id !== 'start');
+        if (!toDelete.length) return;
+        setNodes((nds: Node[]) => nds.filter((n) => !toDelete.includes(n.id)));
+        setEdges((eds: any[]) => eds.filter((e) => !toDelete.includes(e.source) && !toDelete.includes(e.target)));
+        setSelectedIds([]);
+        setSelectedId(null);
+        addToolLog('delete_nodes', { count: toDelete.length, ids: toDelete }, { success: true }, 'you');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedIds, setNodes, setEdges, addToolLog]);
+
+  const onSelectionChange = useCallback(({ nodes: sel }: any) => {
+    const ids = sel.map((n: any) => n.id);
+    setSelectedIds((prev) => (prev.length === ids.length && prev.every((v, i) => v === ids[i]) ? prev : ids));
+  }, []);
 
   // Warn on tab close / reload if workflow has unsaved work
   useEffect(() => {
@@ -439,26 +747,17 @@ function CanvasPage() {
     return () => clearTimeout(t);
   }, [fitAllNodes, setNodes, setEdges, addToolLog]);
 
-  const completeOnboarding = useCallback(() => {
-    localStorage.setItem(ONBOARDING_KEY, 'true');
-    setWelcomeOpen(false);
-    setTimeout(() => setTourOpen(true), 260);
-  }, []);
-
-  const skipWelcome = useCallback(() => {
-    localStorage.setItem(ONBOARDING_KEY, 'true');
-    setWelcomeOpen(false);
-  }, []);
-
   const completeTour = useCallback(() => {
-    setTourOpen(false);
-  }, []);
-
+    onboarding.dismissTour('canvas-tour');
+    setShowTour(false);
+  }, [onboarding]);
   const resetOnboarding = useCallback(() => {
-    localStorage.removeItem(ONBOARDING_KEY);
+    onboarding.resetTour('canvas-tour');
+    localStorage.removeItem(ONBOARDING_KEY); // legacy
+    try { localStorage.removeItem('agentflow_agent_toast_snoozed_until_v1'); } catch {}
     setHelpOpen(false);
-    setWelcomeOpen(true);
-  }, []);
+    setShowTour(true);
+  }, [onboarding]);
 
   const handleShareWorkflow = useCallback(async () => {
     const data = { nodes: nodesRef.current, edges: edgesRef.current, version: 1, sharedAt: new Date().toISOString() };
@@ -513,8 +812,45 @@ function CanvasPage() {
     return () => { clearTimeout(t1); clearTimeout(t2); clearInterval(iv); };
   }, []);
 
+  // Theme — white / dark
+  const [theme, setTheme] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('agentflow_theme_v1');
+      if (saved === 'light' || saved === 'dark') return saved;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    } catch { return 'dark'; }
+  });
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('agentflow_theme_v1', theme);
+      // favicon follows theme — white logo for dark bg, black logo for light paper
+      const fav = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
+      if (fav) fav.href = '/favicon.svg';
+    } catch {}
+  }, [theme]);
+
   // Agent toast suppress while onboarding/help modals are open
-  const suppressAgentToast = welcomeOpen || tourOpen || helpOpen;
+  const suppressAgentToast = showTour || helpOpen;
+
+  // Demo thesis state — auto-plays once on first visit
+  const [demoPlayed, setDemoPlayed] = useState(() => localStorage.getItem('agentflow_demo_played_v1') === 'true');
+  const [demoPlaying, setDemoPlaying] = useState(false);
+
+  const startDemo = useCallback(() => {
+    if (!demoPlayed) {
+      localStorage.setItem('agentflow_demo_played_v1', 'true');
+      setDemoPlayed(true);
+    }
+    setDemoPlaying(true);
+  }, [demoPlayed]);
+
+  // Convert toolLogs to collab events
+  const recentCollabEvents = useMemo(() => {
+    return toolLogs
+      .slice(-COLLAB_HISTORY_LIMIT)
+      .map(l => ({ actor: l.actor === 'you' ? 'human' as const : 'agent' as const, action: l.tool, time: Date.now() }));
+  }, [toolLogs]);
 
   return (
     <div className="app">
@@ -532,9 +868,9 @@ function CanvasPage() {
             <h1>AGENTFLOW</h1>
           </div>
           <span className="rail-tag">HUMAN × AGENT CANVAS</span>
-          <div className={`webmcp-pill ${hasWebMCP ? 'ready' : 'needs'}`} title={hasWebMCP ? 'WebMCP: 19 tools ready — agent can call add_node, connect_nodes, execute_workflow' : 'Enable one setting: chrome://flags/#enable-webmcp-testing → Enabled → Relaunch'}>
+          <div className={`webmcp-pill ${hasWebMCP ? 'ready' : 'needs'}`} title={hasWebMCP ? 'WebMCP: 27 tools ready — 8 new (find_nodes, get_execution_details, probe_api, undo) fix 10 limitations' : 'Enable one setting: chrome://flags/#enable-webmcp-testing → Enabled → Relaunch'}>
             <span className="webmcp-pill-dot" />
-            {hasWebMCP ? 'WebMCP: 19 tools ready' : 'WebMCP: Enable one setting'}
+            {hasWebMCP ? 'WebMCP: 27 tools ready' : 'WebMCP: Enable one setting'}
           </div>
         </div>
 
@@ -547,7 +883,7 @@ function CanvasPage() {
           <div className="rail-counts">
             <b>{nodes.length}</b> MODULES · <b>{edges.length}</b> WIRES
           </div>
-          <div className="rail-controls">
+          <div className="rail-controls" style={{display:'none'}}>
             <button
               className={`rail-btn ${snapEnabled ? 'active' : ''}`}
               onClick={() => setSnapEnabled((v) => !v)}
@@ -565,6 +901,25 @@ function CanvasPage() {
               <span>⊕</span>
             </button>
           </div>
+          <a
+            className="rail-github-btn"
+            href="https://github.com/Parithosh-Varma/agentflow-webmcp"
+            target="_blank"
+            rel="noreferrer"
+            title="View on GitHub"
+            aria-label="View on GitHub"
+          >
+            <GithubIcon size={16} />
+            <span>GitHub</span>
+          </a>
+          <button
+            className="rail-btn"
+            onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+            title={theme === 'light' ? 'Switch to dark' : 'Switch to white mode'}
+            aria-label="Toggle theme"
+          >
+            <span>{theme === 'light' ? '◐' : '◑'}</span>
+          </button>
           <button
             className="rail-help-btn"
             onClick={() => setHelpOpen((v) => !v)}
@@ -576,10 +931,14 @@ function CanvasPage() {
         </div>
       </header>
 
-      <ChallengeBanner variant="banner" />
+      <CollaborationBar recentLogs={recentCollabEvents} />
 
-      <div className={`main ${sidebarOpen ? '' : 'sidebar-closed'} ${rightPanelOpen ? '' : 'right-closed'}`}>
-        {sidebarOpen && (
+      <div className={`main ${sidebarOpen ? '' : 'sidebar-closed'} ${rightPanelOpen ? '' : 'right-closed'} ${isResizing ? 'resizing' : ''}`}>
+        <div
+          className={`sidebar-wrap ${sidebarOpen ? 'sidebar-wrap--open' : 'sidebar-wrap--closed'} ${isResizing ? 'resizing' : ''}`}
+          aria-hidden={!sidebarOpen}
+          style={sidebarOpen ? { width: sidebarWidth, transition: isResizing ? 'none' : undefined } : undefined}
+        >
           <Sidebar
             nodes={nodes}
             setNodes={setNodes}
@@ -609,21 +968,87 @@ function CanvasPage() {
               />
             )}
           </Sidebar>
+        </div>
+        {sidebarOpen && (
+          <div
+            className={`sidebar-resizer ${isResizing ? 'resizing' : ''}`}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar — drag to resize, double-click to reset"
+            title="Drag to resize • Double-click to reset"
+            onDoubleClick={() => { setSidebarWidth(SIDEBAR_DEFAULT); try { localStorage.setItem('agentflow_sidebar_width_v1', String(SIDEBAR_DEFAULT)); } catch {} }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizing(true);
+              const startX = e.clientX;
+              const startW = sidebarWidthRef.current;
+              let latest = startW;
+              const onMove = (ev: MouseEvent) => {
+                const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, startW + ev.clientX - startX));
+                latest = next;
+                setSidebarWidth(next);
+              };
+              const onUp = () => {
+                setIsResizing(false);
+                try { localStorage.setItem('agentflow_sidebar_width_v1', String(latest)); } catch {}
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+              };
+              document.body.style.cursor = 'col-resize';
+              document.body.style.userSelect = 'none';
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+            onTouchStart={(e) => {
+              const touch = e.touches[0];
+              if (!touch) return;
+              const startX = touch.clientX;
+              const startW = sidebarWidthRef.current;
+              let latest = startW;
+              const onMove = (ev: TouchEvent) => {
+                const t = (ev as TouchEvent).touches[0];
+                if (!t) return;
+                const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, startW + t.clientX - startX));
+                latest = next;
+                setSidebarWidth(next);
+              };
+              const onUp = () => {
+                setIsResizing(false);
+                try { localStorage.setItem('agentflow_sidebar_width_v1', String(latest)); } catch {}
+                window.removeEventListener('touchmove', onMove as any);
+                window.removeEventListener('touchend', onUp);
+              };
+              setIsResizing(true);
+              window.addEventListener('touchmove', onMove as any, { passive: false } as any);
+              window.addEventListener('touchend', onUp);
+            }}
+          >
+            <div className="sidebar-resizer-grip" aria-hidden="true" />
+          </div>
         )}
 
-        <div className="canvas-area" data-tour="canvas" onDragOver={onDragOver} onDrop={onDrop}>
-          {nodes.length <= 1 && (
-            <div className="canvas-empty" aria-live="polite">
-              <div className="canvas-empty-card">
-                <div className="canvas-empty-icon">◎</div>
-                <div className="canvas-empty-title">No modules yet — drag or ask your browser agent</div>
-                <p className="canvas-empty-desc">Drag a module from the left, click to add, or tell your <b>browser agent</b> in Chrome/ChatGPT:<br/>“<code>add_node</code> HackerNews API → <code>connect_nodes</code> → <code>execute_workflow</code>”<br/>Or hit <b>★ Judge Demo — 30s wow</b> in the sidebar: real API → AI → branch → download + log. LEDs run <span className="led-demo running" style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--amber)',boxShadow:'0 0 6px var(--amber)'}} /> → done.</p>
-                <div className="canvas-empty-actions">
-                  <span style={{fontFamily:'var(--font-mono)',fontSize:'9px',letterSpacing:'0.08em',color:'var(--faint)'}}>HUMAN × AGENT — same canvas · ToolLog shows YOU vs AGENT live</span>
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="canvas-area" data-tour="canvas" data-onboarding="canvas-root" onDragOver={onDragOver} onDrop={onDrop} style={{ position: 'relative' }}>
+          {(() => {
+            const nonStartCount = nodes.filter((n) => n.id !== 'start').length;
+            const showDemo = !demoPlayed && nonStartCount === 0 && !demoPlaying;
+            const showEmpty = nonStartCount === 0 && !demoPlaying && !showDemo;
+            return (
+              <>
+                {showDemo && <CanvasDemo onStartFlow={startDemo} isPlaying={demoPlaying} />}
+                {showEmpty && (
+                  <div className="canvas-empty" aria-live="polite">
+                    <div className="canvas-empty-card canvas-empty-card--minimal">
+                      <div className="canvas-empty-icon">◎</div>
+                      <div className="canvas-empty-title">No modules yet</div>
+                      <p className="canvas-empty-desc canvas-empty-desc--bold">Drag or ask agent — or hit ★ Judge Demo</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
           <ReactFlow
             nodes={decoratedNodes}
             edges={decoratedEdges}
@@ -632,16 +1057,25 @@ function CanvasPage() {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeDragStop={onNodeDragStop}
+            selectionOnDrag
+            panOnDrag={[1, 2]}
+            selectionMode={SelectionMode.Partial}
+            onSelectionChange={onSelectionChange}
             onNodeClick={(_, node) => {
-              setSelectedId(node.id);
-              setRightPanelOpen(true);
+              if (isPlaying && replayData) {
+                inspectNode(node.id, null); // Will find latest event
+              } else {
+                setSelectedId(node.id);
+                setRightPanelOpen(true);
+              }
             }}
-            onPaneClick={() => setSelectedId(null)}
+            onPaneClick={() => {
+              setSelectedId(null);
+              closeInspector();
+            }}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={{ type: 'labeled', style: { stroke: '#3a342c', strokeWidth: 1.6 } }}
-            fitView
-            proOptions={{ hideAttribution: true }}
             style={{ background: 'var(--bg)' }}
           >
             <Controls showInteractive={false} position="bottom-right" />
@@ -651,8 +1085,45 @@ function CanvasPage() {
               style={{ background: 'var(--panel)', width: 130, height: 90 }}
               position="top-right"
             />
-            <Background variant={BackgroundVariant.Lines} gap={26} color="#262119" />
+<Background variant={BackgroundVariant.Lines} gap={26} color="var(--grid-line)" />
           </ReactFlow>
+
+          {selectedIds.length > 1 && (
+            <div className="selection-bar">
+              <span className="selection-bar-count">{selectedIds.length} selected</span>
+              <button
+                className="btn-ghost btn-small"
+                onClick={() => {
+                  const toDelete = selectedIds.filter((id) => id !== 'start');
+                  if (!toDelete.length) return;
+                  setNodes((nds: Node[]) => nds.filter((n) => !toDelete.includes(n.id)));
+                  setEdges((eds: any[]) => eds.filter((e) => !toDelete.includes(e.source) && !toDelete.includes(e.target)));
+                  setSelectedIds([]);
+                  setSelectedId(null);
+                  addToolLog('delete_nodes', { count: toDelete.length, ids: toDelete }, { success: true }, 'you');
+                }}
+              >
+                Delete
+              </button>
+              <button className="btn-ghost btn-small" onClick={() => setSelectedIds([])}>
+                Clear
+              </button>
+            </div>
+          )}
+
+          {/* Replay Overlay - animated data packets */}
+          {replayData && isPlaying && (
+            <ReplayOverlay
+              replayData={replayData}
+              nodes={decoratedNodes}
+              edges={decoratedEdges}
+              currentTime={currentTime}
+              isPlaying={isPlaying}
+              speed={speed}
+              onNodeInspect={inspectNode}
+              reactFlowInstance={reactFlowRef.current}
+            />
+          )}
         </div>
 
         <div className={`right-panel ${rightPanelOpen ? '' : 'collapsed'}`} data-tour="run">
@@ -704,11 +1175,45 @@ function CanvasPage() {
         )}
       </div>
 
-      <WelcomeModal open={welcomeOpen} onClose={skipWelcome} onComplete={completeOnboarding} />
-      <OnboardingTour open={tourOpen} onClose={completeTour} onComplete={completeTour} />
+      {!onboarding.isDismissed('canvas-tour') && showTour && (
+        <TourOverlay steps={CANVAS_TOUR_STEPS} onComplete={completeTour} onSkip={completeTour} />
+      )}
       <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} onReplay={resetOnboarding} />
-      {!helpOpen && !welcomeOpen && !tourOpen && <HelpButton onClick={() => setHelpOpen(true)} />}
-      <AgentToast suppress={suppressAgentToast} delayMs={2500} />
+      {!helpOpen && !showTour && <HelpButton onClick={() => setHelpOpen(true)} />}
+      <button
+        data-onboarding="help-tour-trigger"
+        onClick={() => setShowTour(true)}
+        title="Take a tour"
+        style={{ position: 'fixed', bottom: 16, left: 16, zIndex: 30, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 11, cursor: 'pointer' }}
+      >
+        Take a tour
+      </button>
+      <AgentToast suppress={suppressAgentToast} delayMs={2500} autoHideMs={14000} />
+
+      {/* Replay Bar */}
+      {showReplay && (
+        <ReplayBar
+          replayData={replayData}
+          onClose={() => setShowReplay(false)}
+          onReplay={play}
+          onPause={pause}
+          onStop={stop}
+          onStep={step}
+          onScrub={scrub}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          speed={speed}
+        />
+      )}
+
+      {/* Replay Node Inspector */}
+      {inspectedNode && (
+        <ReplayInspector
+          node={nodes.find(n => n.id === inspectedNode.nodeId) || null}
+          event={inspectedNode.event}
+          onClose={closeInspector}
+        />
+      )}
     </div>
   );
 }

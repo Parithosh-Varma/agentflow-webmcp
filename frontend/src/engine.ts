@@ -103,7 +103,9 @@ async function runApiCall(cfg: any, input: any): Promise<any> {
   return parsed;
 }
 
-function runTransform(data: any, cfg: any): any {
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as typeof Function;
+
+async function runTransform(data: any, cfg: any): Promise<any> {
   const op = cfg?.op || 'passthrough';
   switch (op) {
     case 'pick': {
@@ -123,18 +125,22 @@ function runTransform(data: any, cfg: any): any {
       return Array.isArray(data) ? data[0] : data;
     case 'expression': {
       if (!cfg?.expression) throw new Error('no expression set');
-      const fn = new Function('data', `"use strict"; return (${cfg.expression})(data);`);
-      return fn(data);
+      // Support both sync and async expressions: `async (data) => ...` or `(data) => ...`
+      const expr = String(cfg.expression).trim();
+      // If expression looks like a function, call it; otherwise evaluate as JS body with `data` in scope.
+      // We use AsyncFunction so `await` inside works (e.g. `async (data) => await fetch(...)`)
+      const fn = new AsyncFunction('data', `"use strict"; return (${expr})(data);`);
+      return await fn(data);
     }
     default:
       return data;
   }
 }
 
-function evalCondition(data: any, cfg: any): boolean {
+async function evalCondition(data: any, cfg: any): Promise<boolean> {
   if (cfg?.expression) {
-    const fn = new Function('data', `"use strict"; return Boolean((${cfg.expression})(data));`);
-    return fn(data);
+    const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`);
+    return await fn(data);
   }
   if (cfg?.path !== undefined && cfg?.path !== '') {
     const actual = getPath(data, cfg.path);
@@ -178,11 +184,11 @@ async function runOutput(data: any, cfg: any): Promise<any> {
   throw new Error(`unknown output kind: ${kind}`);
 }
 
-function runFilter(data: any, cfg: any): any {
+async function runFilter(data: any, cfg: any): Promise<any> {
   const expr = cfg?.expression;
   if (!expr) throw new Error('filter requires an expression');
-  const fn = new Function('data', `"use strict"; return Boolean((${expr})(data));`);
-  const pass = fn(data);
+  const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr})(data));`);
+  const pass = await fn(data);
   return { passed: pass, data };
 }
 
@@ -224,11 +230,17 @@ function runLoop(data: any, cfg: any): any {
   return { iterations: results, total: items.length };
 }
 
-function runCode(data: any, cfg: any): any {
+async function runCode(data: any, cfg: any): Promise<any> {
   const code = cfg?.code || cfg?.expression;
   if (!code) throw new Error('code node requires a code expression');
-  const fn = new Function('data', `"use strict"; ${code}`);
-  return fn(data);
+  // Use AsyncFunction so top-level await and `return await fetch(...)` work.
+  // Supports 3 patterns:
+  // 1) `return data.foo;`
+  // 2) `return await fetch(data.url).then(r=>r.json())`
+  // 3) `const res = await fetch(...); return res.json();` (no wrapper needed)
+  // We also support user writing an IIFE: `return (async () => { ... })()` still works.
+  const fn = new AsyncFunction('data', `"use strict"; ${code}`);
+  return await fn(data);
 }
 
 async function runWebhook(data: any, cfg: any): Promise<any> {
@@ -267,11 +279,11 @@ async function runAi(data: any, cfg: any): Promise<any> {
   return { model, response: json.choices?.[0]?.message?.content || 'no response' };
 }
 
-function runValidator(data: any, cfg: any): any {
+async function runValidator(data: any, cfg: any): Promise<any> {
   const rules = cfg?.rules || cfg?.expression;
   if (rules) {
-    const fn = new Function('data', `"use strict"; return (${rules})(data);`);
-    const valid = fn(data);
+    const fn = new AsyncFunction('data', `"use strict"; return await (${rules})(data);`);
+    const valid = await fn(data);
     return { valid: Boolean(valid), data };
   }
   // Default: check data is truthy and not empty
@@ -411,10 +423,10 @@ export async function executeWorkflow(
           result = await runApiCall(node.config, data);
           break;
         case 'transform':
-          result = runTransform(data, node.config);
+          result = await runTransform(data, node.config);
           break;
         case 'condition': {
-          const passed = evalCondition(data, node.config);
+          const passed = await evalCondition(data, node.config);
           lastCondition = passed;
           result = { passed, checked: node.label };
           break;
@@ -427,7 +439,7 @@ export async function executeWorkflow(
           result = await runOutput(data, node.config);
           break;
         case 'filter':
-          result = runFilter(data, node.config);
+          result = await runFilter(data, node.config);
           break;
         case 'split':
           result = runSplit(data, node.config);
@@ -439,7 +451,7 @@ export async function executeWorkflow(
           result = runLoop(data, node.config);
           break;
         case 'code':
-          result = runCode(data, node.config);
+          result = await runCode(data, node.config);
           break;
         case 'webhook':
           result = await runWebhook(data, node.config);
@@ -448,7 +460,7 @@ export async function executeWorkflow(
           result = await runAi(data, node.config);
           break;
         case 'validator':
-          result = runValidator(data, node.config);
+          result = await runValidator(data, node.config);
           break;
         case 'logger':
           result = runLogger(data, node.config);
@@ -465,8 +477,9 @@ export async function executeWorkflow(
       onEvent({ id, status: 'done', result });
     } catch (err: any) {
       hadError = true;
+      const stack = err?.stack ? String(err.stack).slice(0, 1200) : undefined;
       statusMap[id] = 'fault';
-      outputs[id] = { error: err?.message || String(err) };
+      outputs[id] = { error: err?.message || String(err), stack, name: err?.name || 'Error', nodeType: node.type };
       onEvent({ id, status: 'fault', error: err?.message || String(err) });
     }
   }

@@ -1,5 +1,6 @@
-/* Global resets — App.css owns all design tokens and component styles */
-@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+/* Global resets + design tokens */
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import './styles/tokens.css';
 
 * {
   margin: 0;
@@ -13,12 +14,37 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Archivo', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background: rgba(232, 163, 61, 0.25);
-  color: #fff;
+  background: var(--amber-soft);
+  color: var(--ink);
+}
+
+/* Focus visible — consistent, accessible */
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* Scrollbar — subtle */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-soft); }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -191,6 +191,27 @@
   border: 1px solid var(--border-soft);
 }
 
+/* White mode — keep banner black for contrast */
+:root[data-theme="light"] .challenge-hero {
+  background: #0d0c0b;
+  border-bottom: 1px solid #1c1916;
+}
+:root[data-theme="light"] .challenge-hero-img {
+  background: #0d0c0b;
+}
+:root[data-theme="light"] .challenge-hero-kicker {
+  background: rgba(232,163,61,0.12);
+  border-color: rgba(232,163,61,0.22);
+}
+:root[data-theme="light"] .challenge-banner {
+  background: #0d0c0b;
+  border-bottom-color: #1c1916;
+}
+:root[data-theme="light"] .challenge-card {
+  background: #141210;
+  border-color: #2a2622;
+}
+
 @media (max-width: 720px) {
   .challenge-hero { padding: 10px 12px; }
   .challenge-hero-img { max-height: 180px; }

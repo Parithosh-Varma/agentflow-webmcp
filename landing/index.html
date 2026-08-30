@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AgentFlow — One canvas. Two operators.</title>
   <meta name="description" content="A visual workflow instrument where you and your AI agent build the same machine. Sketch modules, wire them up, then let your agent drive the canvas through browser-native WebMCP tools." />
-  <link rel="icon" type="image/png" href="./favicon.png" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -335,7 +335,7 @@
   <nav class="rail">
     <div class="rail-inner">
       <a class="wordmark" href="#top">
-        <img class="wordmark-logo" src="./logo.png" alt="AgentFlow" width="18" height="18" />
+        <img class="wordmark-logo" src="./logo-sm.png" alt="AgentFlow" width="18" height="18" />
         <b>AGENTFLOW</b>
       </a>
       <div class="rail-links">
@@ -343,8 +343,7 @@
         <a class="hide-sm" href="#tools">Tools</a>
         <a class="hide-sm" href="#how">How it runs</a>
         <a class="hide-sm" href="./dashboard.html">Stats</a>
-        <a class="btn btn-amber" href="https://agentflow-auth.pages.dev/auth">Go to the tool →</a>
-        <a class="btn btn-ghost" href="https://agentflow-hackathon.pages.dev/tool" style="padding:8px 14px; font-size:13px;">Skip</a>
+        <a class="btn btn-amber" href="https://agentflow-hackathon.pages.dev">Go to the tool →</a>
       </div>
     </div>
   </nav>
@@ -362,11 +361,10 @@
           Either way, you see every signal travel.
         </p>
         <div class="hero-ctas">
-          <a class="btn btn-amber" href="https://agentflow-auth.pages.dev/auth">Go to the tool →</a>
-          <a class="btn btn-ghost" href="https://agentflow-hackathon.pages.dev/tool">Skip for now</a>
+          <a class="btn btn-amber" href="https://agentflow-hackathon.pages.dev">Go to the tool →</a>
           <a class="btn btn-ghost" href="https://github.com/Parithosh-Varma/agentflow-webmcp">read the source</a>
         </div>
-        <div style="margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--dim);">Sign in to <strong style="color:var(--ink);">save your workflow in the database</strong> — skip to try without saving.</div>
+        <div style="margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--dim);">No signup — <strong style="color:var(--ink);">runs in your browser, autosaves locally</strong>.</div>
       </div>
 
       <figure class="schematic" aria-label="Animated diagram of a workflow with signals traveling between modules">
@@ -435,12 +433,12 @@
     </a>
   </div>
 
-  <!-- Feature: save to DB -->
+  <!-- Feature: autosave -->
   <section style="padding:32px 0; border-bottom:1px solid var(--line-soft); background: linear-gradient(180deg, var(--panel), transparent);">
     <div class="wrap" style="text-align:center;">
-      <span style="font-family:var(--mono); font-size:9px; letter-spacing:0.18em; color:var(--amber); text-transform:uppercase; background:rgba(232,163,61,0.1); border:1px solid rgba(232,163,61,0.18); padding:4px 10px; border-radius:99px;">Database • Sync</span>
-      <h3 style="font-family:var(--display); font-size:18px; font-weight:600; margin:12px 0 8px; color:var(--ink);">Save your workflow in the database</h3>
-      <p style="color:var(--dim); max-width:520px; margin:0 auto; font-size:14px;">If you <strong style="color:var(--ink);">sign in</strong>, your workflows are saved in the database and persist across devices. <strong style="color:var(--ink);">Skip</strong> to try anonymously — you can always sign in later from the tool.</p>
+      <span style="font-family:var(--mono); font-size:9px; letter-spacing:0.18em; color:var(--amber); text-transform:uppercase; background:rgba(232,163,61,0.1); border:1px solid rgba(232,163,61,0.18); padding:4px 10px; border-radius:99px;">Autosave • Local</span>
+      <h3 style="font-family:var(--display); font-size:18px; font-weight:600; margin:12px 0 8px; color:var(--ink);">Your workflow stays with you</h3>
+      <p style="color:var(--dim); max-width:520px; margin:0 auto; font-size:14px;">No account needed. Your canvas <strong style="color:var(--ink);">autosaves locally in the browser</strong> and restores when you return — build, run, and share instantly.</p>
     </div>
   </section>
 
@@ -485,14 +483,7 @@
         <div class="tool"><code>connect_nodes</code><span>Routes a wire from one pin to another</span></div>
         <div class="tool"><code>execute_workflow</code><span>Runs the whole flow in dependency order</span></div>
         <div class="tool"><code>get_available_tools</code><span>Discovers everything on offer</span></div>
-        <div class="tool">
-            <code>AI Node</code>
-            <div style="display: flex; gap: 8px; margin-top: 5px;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg" alt="ChatGPT" width="16" height="16">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" alt="Gemini" width="16" height="16">
-            </div>
-            <span style="margin-top: 5px;">LLM node: Chat, Reasoning, Code generation</span>
-        </div>
+        <div class="tool"><code>ai_node</code><span>LLM node: Chat, Reasoning, Code generation</span></div>
         <div class="tool"><code>get_node_details</code><span>Inspects any module's wiring and config</span></div>
         <div class="tool"><code>update_node_config</code><span>Retunes a module without rebuilding it</span></div>
         <div class="tool"><code>get_workflow_status</code><span>Reads the board: modules, wires, counts</span></div>
@@ -531,10 +522,10 @@
       <h2>The canvas is live. Bring your agent.</h2>
       <p>Open the instrument, build a flow, then ask an agent to rebuild it faster than you can drag.</p>
         <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-          <a class="btn btn-amber" href="https://agentflow-auth.pages.dev/auth">Go to the tool →</a>
-          <a class="btn btn-ghost" href="https://agentflow-hackathon.pages.dev/tool">Skip for now</a>
+          <a class="btn btn-amber" href="https://agentflow-hackathon.pages.dev">Go to the tool →</a>
+          <a class="btn btn-ghost" href="https://github.com/Parithosh-Varma/agentflow-webmcp">read the source</a>
         </div>
-      <div style="margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--dim);">Sign in to save your workflow in the database — or skip to try anonymously.</div>
+      <div style="margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--dim);">No account needed — just open and build.</div>
     </div>
   </section>
 

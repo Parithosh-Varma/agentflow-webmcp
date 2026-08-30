@@ -5,7 +5,8 @@ import { getInstanceCount, NODE_DISPLAY_NAMES } from './nodes';
 import {
   GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon,
   FilterIcon, SplitIcon, MergeIcon, LoopIcon, CodeIcon, WebhookIcon,
-  AiIcon, ValidatorIcon, LoggerIcon, FileIcon, BoltIcon,
+  AiIcon, ValidatorIcon, LoggerIcon, FileIcon,
+  CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon,
 } from './icons';
 import { getSmartPlacement, snapToGrid } from '../utils/grid';
 import type { NodeStatus } from '../engine';
@@ -286,6 +287,7 @@ export function Sidebar({
     } catch {}
   };
 
+  void loadExample; void loadJudgeDemo;
   const clearCanvas = () => {
     const startNode = nodes.find((n) => n.id === 'start');
     const keep = startNode ? [startNode] : nodes.slice(0, 1);
@@ -351,19 +353,27 @@ export function Sidebar({
           <span className="sb-count">{filtered.length} / {NODE_CATALOG.length}</span>
         </div>
 
-        <div className="sb-search-wrap">
-          <span className="sb-search-icon" aria-hidden>⌕</span>
-          <input
-            ref={searchRef}
-            className="sidebar-input sb-search-input"
-            placeholder="Search modules — press /"
-            aria-label="Search modules"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && (
-            <button className="sb-search-clear" onClick={() => setSearch('')} aria-label="Clear search">×</button>
-          )}
+        <div className="kumo-search-outer">
+          <label className="kumo-search-inner">
+            <span className="kumo-search-icon" aria-hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg>
+            </span>
+            <input
+              ref={searchRef}
+              className="kumo-search-input"
+              placeholder="Search"
+              aria-label="Search modules"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search ? (
+              <button className="sb-search-clear" onClick={() => setSearch('')} aria-label="Clear search" style={{position:'static'}}><CloseIcon size={12} /></button>
+            ) : (
+              <span className="kumo-kbd-row" aria-hidden="true">
+                <kbd className="kumo-kbd">⌘</kbd><kbd className="kumo-kbd">K</kbd>
+              </span>
+            )}
+          </label>
         </div>
 
         <div className="sb-pills" role="tablist" aria-label="Filter by category">
@@ -390,7 +400,7 @@ export function Sidebar({
             onKeyDown={(e) => { if (e.key === 'Enter' && label.trim()) setLabel(label.trim()); }}
           />
           {label && (
-            <button className="sb-label-clear" onClick={() => setLabel('')} aria-label="Clear label">×</button>
+            <button className="sb-label-clear" onClick={() => setLabel('')} aria-label="Clear label"><CloseIcon size={12} /></button>
           )}
         </div>
       </div>
@@ -407,6 +417,7 @@ export function Sidebar({
             {filtered.map((nt) => (
               <button
                 key={nt.type}
+                data-onboarding={nt.type === 'api_call' ? 'add-node-button' : undefined}
                 className="node-btn"
                 draggable
                 onDragStart={(e) => handleDragStart(e, nt.type, nt.nodeType)}
@@ -430,7 +441,7 @@ export function Sidebar({
             return (
               <div key={cat} className="sb-category">
                 <button className="sb-cat-header" onClick={() => toggleCollapse(cat)} aria-expanded={!isCollapsed}>
-                  <span className="sb-cat-caret">{isCollapsed ? '▸' : '▾'}</span>
+                  <ChevronRightIcon size={10} className={`sb-cat-caret ${isCollapsed ? '' : 'open'}`} />
                   <span className="sb-cat-title">{cat}</span>
                   <span className="sb-cat-count">{items.length}</span>
                 </button>
@@ -439,6 +450,7 @@ export function Sidebar({
                     {items.map((nt) => (
                       <button
                         key={nt.type}
+                        data-onboarding={nt.type === 'api_call' ? 'add-node-button' : undefined}
                         className="node-btn"
                         draggable
                         onDragStart={(e) => handleDragStart(e, nt.type, nt.nodeType)}
@@ -473,7 +485,10 @@ export function Sidebar({
 
         {nodes.length === 0 ? (
           <div className="sb-empty-canvas">
-            <div className="sb-empty-canvas-icon">◎</div>
+            <div
+              aria-hidden="true"
+              className="absolute rounded-full transition-shadow duration-fast group-focus-visible/resize:shadow-focus inset-y-0 left-1/2 w-3 -translate-x-1/2 cursor-col-resize"
+            />
             <p className="sb-empty-canvas-title">No modules yet</p>
             <p className="hint sb-empty-canvas-hint">Drag a module to canvas, click to add, or ask your <b>browser agent</b> — “Add an API Call to HackerNews and run it”.<br/>Try <b>★ Judge Demo</b> below for a 30s wow flow.</p>
           </div>
@@ -512,7 +527,7 @@ export function Sidebar({
                       title="Focus in canvas"
                       aria-label="Focus"
                     >
-                      ⊙
+                      <FocusIcon size={12} />
                     </button>
                     <button
                       className="node-action"
@@ -520,7 +535,7 @@ export function Sidebar({
                       title="Duplicate"
                       aria-label="Duplicate"
                     >
-                      ⧉
+                      <CopyIcon size={12} />
                     </button>
                     <button
                       className="node-action danger"
@@ -530,7 +545,7 @@ export function Sidebar({
                       disabled={isStart}
                       style={{ opacity: isStart ? 0.3 : 1, cursor: isStart ? 'not-allowed' : 'pointer' }}
                     >
-                      ×
+                      <CloseIcon size={12} />
                     </button>
                   </span>
                 </div>
@@ -543,23 +558,7 @@ export function Sidebar({
         </p>
       </div>
 
-      {/* Quick actions — judge demo first */}
-      <div className="sidebar-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button className="btn-example sb-example-btn sb-judge-btn" onClick={loadJudgeDemo} title="Load the 30s wow demo — HN API → AI → Condition → Split → Download + Log. Press RUN and watch LEDs + ToolLog live.">
-          <span className="sb-example-icon" style={{ background: 'linear-gradient(135deg, rgba(232,163,61,0.22), rgba(86,205,189,0.16))', borderColor: 'rgba(232,163,61,0.32)', color: 'var(--amber)' }}>✦</span>
-          <span>
-            <b>★ Judge Demo — 30s wow</b>
-            <i>HN API → AI summarize → condition → split → download + log</i>
-          </span>
-        </button>
-        <button className="btn-example sb-example-btn" onClick={loadExample}>
-          <span className="sb-example-icon"><BoltIcon size={14} /></span>
-          <span>
-            <b>Load example flow</b>
-            <i>GitHub → transform → condition → output</i>
-          </span>
-        </button>
-      </div>
+
 
       {children}
 

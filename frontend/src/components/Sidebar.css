@@ -2,7 +2,8 @@
    Sidebar — Polished
    ================================================================ */
 .sidebar.sidebar {
-  width: 276px;
+  width: 100%;
+  min-width: 0;
   background: var(--panel);
   border-right: 1px solid var(--border);
   display: flex;
@@ -38,12 +39,76 @@
   letter-spacing: 0.06em;
 }
 
+/* Kumo-style search — outer elevated + inner control */
+.kumo-search-outer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-high);
+  padding: 6px;
+  border-radius: 16px;
+  transition: background var(--duration-normal) var(--ease-standard);
+}
+.kumo-search-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  height: 40px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+.kumo-search-inner:focus-within {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--amber-soft), 0 4px 12px rgba(0,0,0,0.08);
+}
+.kumo-search-icon {
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.kumo-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink);
+  padding: 0;
+  height: 100%;
+}
+.kumo-search-input::placeholder { color: var(--faint); }
+.kumo-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  color: var(--dim);
+  flex-shrink: 0;
+}
+.kumo-kbd-row { display: flex; gap: 4px; align-items: center; }
+
+/* legacy fallback */
 .sb-search-wrap {
   position: relative;
   display: flex;
   align-items: center;
 }
-
 .sb-search-icon {
   position: absolute;
   left: 10px;
@@ -52,7 +117,6 @@
   pointer-events: none;
   line-height: 1;
 }
-
 .sb-search-input {
   padding-left: 28px !important;
   padding-right: 28px !important;
@@ -184,11 +248,15 @@
   color: var(--ink);
 }
 .sb-cat-caret {
-  font-size: 9px;
-  color: var(--faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 12px;
-  text-align: center;
+  transition: transform var(--duration-fast);
+  flex-shrink: 0;
+  color: var(--faint);
 }
+.sb-cat-caret.open { transform: rotate(90deg); }
 .sb-cat-title {
   font-family: var(--font-mono);
   font-size: 9px;
@@ -519,17 +587,24 @@
   border-radius: 12px;
 }
 .sb-empty-canvas-icon {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   margin: 0 auto 8px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(232,163,61,0.14), rgba(86,205,189,0.10));
-  border: 1px solid rgba(232,163,61,0.18);
-  color: var(--amber);
+  background: transparent;
+  border: none;
+  color: initial;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 0;
+  /* make the SVG fill the box */
+  svg { width: 100%; height: 100%; }
+  /* spin animation */
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 .sb-empty-canvas-title {
   font-family: var(--font-display);
@@ -560,9 +635,9 @@
 .sb-scroll::-webkit-scrollbar,
 .node-list::-webkit-scrollbar { width: 5px; }
 
-/* Responsive */
+/* Responsive — resizable overrides keep 100% inside wrap */
 @media (max-width: 960px) {
-  .sidebar.sidebar { width: 240px; }
+  .sidebar.sidebar { width: 100%; }
 }
 @media (max-width: 720px) {
   .sidebar.sidebar { width: 100%; }

@@ -1,23 +1,27 @@
 /* ================================================================
    Agent Toast — Chrome / ChatGPT in-app browser nudge
+   Now a non-blocking bottom-right corner toast (not fullscreen)
    ================================================================ */
 .agent-toast {
   position: fixed;
-  inset: 0;
+  right: 16px;
+  bottom: 16px;
   z-index: 1000;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.75);
-  backdrop-filter: blur(6px);
-  padding: 24px;
-  animation: toast-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  flex-direction: column;
+  background: transparent;
+  padding: 0;
+  pointer-events: auto;
+  animation: toast-slide 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+  filter: drop-shadow(0 16px 40px rgba(0,0,0,0.45));
 }
 
 .agent-toast-inner {
   width: 100%;
-  max-width: 880px;
-  max-height: 90vh;
+  max-height: min(78vh, 560px);
   overflow: auto;
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
   border: 1px solid var(--border);
@@ -26,12 +30,17 @@
     0 24px 80px rgba(0,0,0,0.55),
     0 0 0 1px rgba(232,163,61,0.07),
     0 0 48px rgba(232,163,61,0.08);
-  padding: 20px 22px 18px 22px;
+  padding: 16px 16px 14px 16px;
   display: grid;
-  grid-template-columns: 42px 1fr;
-  gap: 12px 14px;
+  grid-template-columns: 36px 1fr;
+  gap: 10px 12px;
+  position: relative;
 }
 
+@keyframes toast-slide {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(12px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -252,6 +261,62 @@
   font-style: italic;
 }
 
+/* What I CANNOT do section */
+.agent-toast-cannot {
+  margin-top: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border-faint);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.agent-toast-cannot summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border-faint);
+  transition: color var(--duration-fast);
+}
+.agent-toast-cannot summary::-webkit-details-marker { display: none; }
+.agent-toast-cannot summary:hover { color: var(--amber); }
+.agent-toast-cannot-caret {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--duration-fast);
+  flex-shrink: 0;
+}
+.agent-toast-cannot[open] .agent-toast-cannot-caret { transform: rotate(180deg); }
+
+.agent-toast-cannot-list {
+  margin: 0;
+  padding: 8px 10px 10px 24px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--ink-muted);
+  list-style: none;
+}
+.agent-toast-cannot-list li {
+  margin-bottom: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.agent-toast-cannot-list li:last-child { margin-bottom: 0; }
+.agent-toast-cannot-list li svg {
+  flex-shrink: 0;
+  color: var(--fault);
+}
+
 .agent-toast-close {
   position: absolute;
   top: 8px;
@@ -262,7 +327,6 @@
   border: 1px solid transparent;
   background: transparent;
   color: var(--faint);
-  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;

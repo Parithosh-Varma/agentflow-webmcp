@@ -46,8 +46,15 @@ CREATE TABLE IF NOT EXISTS templates (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- Indexes
+-- Indexes — P1 database optimization (filter/search columns)
 CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);
+CREATE INDEX IF NOT EXISTS idx_workflows_updated_at ON workflows(updated_at);
+CREATE INDEX IF NOT EXISTS idx_workflows_user_updated ON workflows(user_id, updated_at);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_workflow_id ON execution_logs(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_user_id ON execution_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_execution_logs_status ON execution_logs(status);
+CREATE INDEX IF NOT EXISTS idx_execution_logs_executed_at ON execution_logs(executed_at);
+CREATE INDEX IF NOT EXISTS idx_execution_logs_workflow_user ON execution_logs(workflow_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_templates_user_id ON templates(user_id);
+CREATE INDEX IF NOT EXISTS idx_templates_created_at ON templates(created_at);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

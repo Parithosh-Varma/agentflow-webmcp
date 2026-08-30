@@ -10,7 +10,8 @@
     "db:init:remote": "wrangler d1 execute agentflow-db --remote --file=schema.sql"
   },
   "dependencies": {
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "zod": "^4.5.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240117.0",
