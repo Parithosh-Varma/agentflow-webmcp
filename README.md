@@ -1,4 +1,4 @@
-<p align="center">
+<p align="center" style="margin:0">
   <img src="./logo.png" alt="AgentFlow" width="140" />
 </p>
 
@@ -12,7 +12,7 @@
 [![Paper PDF](https://img.shields.io/badge/paper-PAPER.pdf-ff6b9d?style=flat-square)](./PAPER.pdf)
 [![License: MIT](https://img.shields.io/badge/license-MIT-ede8dc?style=flat-square)](./LICENSE)
 
-<p align="center">
+<p align="center" style="margin:8px 0 0 0">
   <img src="https://d112y698adiu2z.cloudfront.net/photos/production/challenge_photos/005/137/486/datas/full_width.png" alt="Challenge — AgentFlow WebMCP" style="max-width:800px; width:100%; background:transparent;" />
 </p>
 
