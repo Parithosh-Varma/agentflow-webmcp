@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./logo.png" alt="AgentFlow" width="140" />
+</p>
+
 # AgentFlow — Human × Agent Canvas × WebMCP
 
 > **One canvas. Two operators.** A visual workflow instrument where you and your browser agent (Chrome · ChatGPT in-app) build the same machine.
