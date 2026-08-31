@@ -325,6 +325,315 @@ async function runFile(data: any, cfg: any): Promise<any> {
   return { operation: 'read', path, data };
 }
 
+// ---- n8n major nodes (Top 30 + apps) ----
+
+async function runSchedule(_data: any, cfg: any): Promise<any> {
+  const cron = cfg?.cron || cfg?.schedule || '*/5 * * * *';
+  const intervalMs = cfg?.intervalMs ?? cfg?.ms ?? 0;
+  if (intervalMs) await sleep(Number(intervalMs));
+  return { scheduled: true, cron, nextRun: new Date(Date.now() + Number(intervalMs || 60000)).toISOString() };
+}
+
+async function runGraphQL(_data: any, cfg: any): Promise<any> {
+  const url = cfg?.url || cfg?.endpoint;
+  const query = cfg?.query || cfg?.graphql || '{ __typename }';
+  const variables = cfg?.variables || {};
+  const headers = cfg?.headers || {};
+  if (!url) throw new Error('GraphQL requires url/endpoint');
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ query, variables: typeof variables === 'string' ? JSON.parse(variables) : variables }),
+  });
+  const text = await res.text();
+  const parsed = parseMaybeJson(text);
+  if (!res.ok) throw new Error(`GraphQL HTTP ${res.status}: ${String(text).slice(0, 400)}`);
+  return parsed;
+}
+
+function runSet(data: any, cfg: any): any {
+  const keepOnlySet = cfg?.keepOnlySet ?? cfg?.keepOnly ?? false;
+  const fields = cfg?.fields || cfg?.set || cfg?.values || {};
+  let parsedFields: Record<string, any> = {};
+  if (typeof fields === 'string') {
+    try { parsedFields = JSON.parse(fields); } catch { parsedFields = {}; }
+  } else if (typeof fields === 'object') {
+    parsedFields = fields;
+  }
+  // If no explicit fields, use all cfg keys except reserved
+  if (Object.keys(parsedFields).length === 0) {
+    const reserved = new Set(['keepOnlySet', 'keepOnly', 'fields', 'set', 'values']);
+    for (const [k, v] of Object.entries(cfg)) {
+      if (!reserved.has(k)) parsedFields[k] = v;
+    }
+  }
+  const base = keepOnlySet ? {} : (typeof data === 'object' && data !== null ? { ...data } : {});
+  for (const [k, v] of Object.entries(parsedFields)) {
+    if (typeof v === 'string' && v.includes('{{')) {
+      // simple mustache: {{ $json.foo }}
+      base[k] = v.replace(/\{\{\s*\$json\.([\w.]+)\s*\}\}/g, (_m: string, p: string) => String(getPath(data, p) ?? ''));
+    } else {
+      base[k] = v;
+    }
+  }
+  return base;
+}
+
+async function runSwitch(data: any, cfg: any): Promise<any> {
+  const rules = cfg?.rules || cfg?.cases || cfg?.switch || [];
+  const expression = cfg?.expression || cfg?.code;
+  let matched: string | number = 'default';
+  if (expression) {
+    const fn = new AsyncFunction('data', `"use strict"; return await (${expression})(data);`);
+    const res = await fn(data);
+    matched = String(res);
+  } else if (Array.isArray(rules) && rules.length) {
+    for (const rule of rules) {
+      const expr = rule.expression || rule.condition;
+      if (expr) {
+        const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr})(data));`);
+        if (await fn(data)) { matched = rule.value ?? rule.case ?? 'true'; break; }
+      }
+    }
+  } else if (cfg?.value !== undefined) {
+    matched = String(cfg.value);
+  }
+  return { case: matched, data, matchedCase: matched };
+}
+
+function runAggregate(data: any, cfg: any): any {
+  const field = cfg?.field || cfg?.groupBy || '';
+  const operation = cfg?.operation || cfg?.aggregate || 'count';
+  const items = Array.isArray(data) ? data : data?.items || data?.data || [data];
+  if (operation === 'count') return { count: items.length, field, operation };
+  if (operation === 'sum' && field) {
+    const sum = items.reduce((s: number, it: any) => s + Number(getPath(it, field) ?? it[field] ?? 0), 0);
+    return { sum, field, count: items.length };
+  }
+  if (operation === 'avg' && field) {
+    const sum = items.reduce((s: number, it: any) => s + Number(getPath(it, field) ?? 0), 0);
+    return { avg: items.length ? sum / items.length : 0, field, count: items.length };
+  }
+  // groupBy
+  if (field) {
+    const groups: Record<string, any[]> = {};
+    for (const it of items) {
+      const key = String(getPath(it, field) ?? it[field] ?? 'null');
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(it);
+    }
+    return { groups, count: items.length, field };
+  }
+  return { count: items.length, items };
+}
+
+function runSort(data: any, cfg: any): any {
+  const field = cfg?.field || cfg?.sortBy || '';
+  const order = String(cfg?.order || cfg?.direction || 'asc').toLowerCase();
+  const items = Array.isArray(data) ? [...data] : data?.items ? [...data.items] : [data];
+  if (!field) {
+    items.sort();
+  } else {
+    items.sort((a: any, b: any) => {
+      const av = getPath(a, field) ?? a[field];
+      const bv = getPath(b, field) ?? b[field];
+      if (av === bv) return 0;
+      const cmp = av > bv ? 1 : -1;
+      return order === 'desc' ? -cmp : cmp;
+    });
+  }
+  return { sorted: items, count: items.length, field, order };
+}
+
+function runLimit(data: any, cfg: any): any {
+  const max = Number(cfg?.max ?? cfg?.limit ?? 10);
+  const offset = Number(cfg?.offset ?? 0);
+  const items = Array.isArray(data) ? data : data?.items || data?.data || [data];
+  const sliced = items.slice(offset, offset + max);
+  return { limited: sliced, count: sliced.length, total: items.length, offset, max };
+}
+
+function runItemLists(data: any, cfg: any): any {
+  const operation = cfg?.operation || 'union';
+  const a = Array.isArray(data) ? data : data?.a || data?.items || [data];
+  const b = Array.isArray(cfg?.list) ? cfg.list : cfg?.b ? (Array.isArray(cfg.b) ? cfg.b : [cfg.b]) : [];
+  if (operation === 'union') return { result: [...a, ...b], count: a.length + b.length };
+  if (operation === 'intersect') {
+    const setB = new Set(b.map((x: any) => JSON.stringify(x)));
+    return { result: a.filter((x: any) => setB.has(JSON.stringify(x))), operation };
+  }
+  if (operation === 'difference') {
+    const setB = new Set(b.map((x: any) => JSON.stringify(x)));
+    return { result: a.filter((x: any) => !setB.has(JSON.stringify(x))), operation };
+  }
+  return { result: a, operation };
+}
+
+async function runFunction(data: any, cfg: any): Promise<any> {
+  const code = cfg?.code || cfg?.functionCode || cfg?.expression || 'return data;';
+  const fn = new AsyncFunction('data', 'items', `"use strict"; ${code}`);
+  const items = Array.isArray(data) ? data : [data];
+  // n8n Function node signature: function(item) per item, we mimic
+  if (cfg?.perItem) {
+    const out = [];
+    for (const it of items) out.push(await fn(it, items));
+    return { results: out, count: out.length };
+  }
+  return await fn(data, items);
+}
+
+function runNoOp(data: any, _cfg: any): any {
+  return data;
+}
+
+async function runWebhookResponse(data: any, cfg: any): Promise<any> {
+  const status = Number(cfg?.status ?? 200);
+  const body = cfg?.body ?? data;
+  const headers = cfg?.headers || {};
+  // In browser, can't actually respond to webhook, just simulate
+  return { status, body: typeof body === 'string' ? body : JSON.stringify(body).slice(0, 2000), headers, simulated: true };
+}
+
+async function runHtml(data: any, cfg: any): Promise<any> {
+  const operation = cfg?.operation || 'extract';
+  const html = String(cfg?.html ?? data?.html ?? data ?? '');
+  const selector = cfg?.selector || cfg?.css || '';
+  const attribute = cfg?.attribute || 'textContent';
+  if (operation === 'extract' && selector) {
+    // In browser we can use DOMParser if available
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const nodes = doc.querySelectorAll(selector);
+      const results = Array.from(nodes).map((el: any) => attribute === 'textContent' ? el.textContent : el.getAttribute(attribute));
+      return { results, count: results.length, selector, attribute };
+    } catch {
+      return { html: html.slice(0, 2000), selector, note: 'DOMParser not available, returned raw' };
+    }
+  }
+  return { html: html.slice(0, 5000), operation, selector };
+}
+
+function runDateTime(data: any, cfg: any): any {
+  const operation = cfg?.operation || 'now';
+  const input = cfg?.date ?? cfg?.value ?? data;
+  const format = cfg?.format || 'iso';
+  const parse = (v: any): Date => {
+    if (v instanceof Date) return v;
+    if (typeof v === 'number') return new Date(v);
+    if (typeof v === 'string') { const d = new Date(v); if (!isNaN(d.getTime())) return d; }
+    return new Date();
+  };
+  if (operation === 'now') return { now: new Date().toISOString(), timestamp: Date.now() };
+  if (operation === 'format') {
+    const d = parse(input);
+    if (format === 'iso') return { formatted: d.toISOString(), input };
+    if (format === 'locale') return { formatted: d.toLocaleString(), input };
+    return { formatted: d.toISOString(), format, input };
+  }
+  if (operation === 'add') {
+    const d = parse(input);
+    const amount = Number(cfg?.amount ?? 1);
+    const unit = cfg?.unit || 'days';
+    const mul: Record<string, number> = { ms: 1, seconds: 1000, minutes: 60000, hours: 3600000, days: 86400000 };
+    return { result: new Date(d.getTime() + amount * (mul[unit] ?? 86400000)).toISOString(), operation, amount, unit };
+  }
+  return { result: parse(input).toISOString(), operation };
+}
+
+// ---- generic app runners (Slack, Discord, GitHub etc.) — HTTP wrappers ----
+async function runGenericApp(app: string, data: any, cfg: any): Promise<any> {
+  const url = cfg?.url || cfg?.webhookUrl || cfg?.endpoint;
+  const method = String(cfg?.method || 'POST').toUpperCase();
+  const headers = cfg?.headers || {};
+  const body = cfg?.body ?? cfg?.payload ?? data;
+  const simulatedNote = `simulated ${app} — configure url/webhookUrl to send for real`;
+  if (!url) {
+    // Simulate — log and return
+    console.log(`[AgentFlow ${app} simulated]`, { data: String(JSON.stringify(data)).slice(0, 500), cfg });
+    return { app, simulated: true, note: simulatedNote, dataPreview: String(JSON.stringify(data)).slice(0, 500), config: cfg };
+  }
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: method === 'GET' ? undefined : JSON.stringify(body) });
+  const text = await res.text();
+  const parsed = parseMaybeJson(text);
+  if (!res.ok) throw new Error(`${app} HTTP ${res.status}: ${String(text).slice(0, 400)}`);
+  return { app, status: res.status, data: parsed, simulated: false };
+}
+
+async function runSlack(data: any, cfg: any): Promise<any> { return runGenericApp('slack', data, cfg); }
+async function runDiscord(data: any, cfg: any): Promise<any> { return runGenericApp('discord', data, cfg); }
+async function runGithub(data: any, cfg: any): Promise<any> { return runGenericApp('github', data, cfg); }
+async function runGmail(data: any, cfg: any): Promise<any> { return runGenericApp('gmail', data, cfg); }
+async function runGoogleSheets(data: any, cfg: any): Promise<any> { return runGenericApp('google_sheets', data, cfg); }
+async function runNotion(data: any, cfg: any): Promise<any> { return runGenericApp('notion', data, cfg); }
+async function runAirtable(data: any, cfg: any): Promise<any> { return runGenericApp('airtable', data, cfg); }
+async function runPostgres(data: any, cfg: any): Promise<any> {
+  const query = cfg?.query || cfg?.sql || 'SELECT 1';
+  if (cfg?.url) return runGenericApp('postgres', data, { ...cfg, query });
+  return { app: 'postgres', query, simulated: true, note: 'simulated — configure url to query real DB', rowCount: Array.isArray(data) ? data.length : 1 };
+}
+async function runMySQL(data: any, cfg: any): Promise<any> {
+  const query = cfg?.query || cfg?.sql || 'SELECT 1';
+  if (cfg?.url) return runGenericApp('mysql', data, { ...cfg, query });
+  return { app: 'mysql', query, simulated: true, note: 'simulated — configure url' };
+}
+async function runMongoDB(data: any, cfg: any): Promise<any> {
+  const operation = cfg?.operation || 'find';
+  if (cfg?.url) return runGenericApp('mongodb', data, cfg);
+  return { app: 'mongodb', operation, simulated: true, note: 'simulated — configure url' };
+}
+async function runRedis(data: any, cfg: any): Promise<any> {
+  const operation = cfg?.operation || 'get';
+  const key = cfg?.key || 'default';
+  if (cfg?.url) return runGenericApp('redis', data, cfg);
+  // In-browser simulate via localStorage like cache
+  if (operation === 'set') {
+    try { localStorage.setItem(`redis:${key}`, JSON.stringify(data)); } catch {}
+    return { app: 'redis', operation, key, simulated: true };
+  }
+  if (operation === 'get') {
+    try { const v = localStorage.getItem(`redis:${key}`); return { app: 'redis', operation, key, value: v ? JSON.parse(v) : null, simulated: true }; } catch { return { app: 'redis', operation, key, value: null }; }
+  }
+  return { app: 'redis', operation, key, simulated: true };
+}
+async function runStripe(data: any, cfg: any): Promise<any> { return runGenericApp('stripe', data, cfg); }
+async function runShopify(data: any, cfg: any): Promise<any> { return runGenericApp('shopify', data, cfg); }
+async function runAwsS3(data: any, cfg: any): Promise<any> { return runGenericApp('aws_s3', data, cfg); }
+
+async function runOpenAI(data: any, cfg: any): Promise<any> {
+  // Like runAi but for openai node specifically
+  const prompt = cfg?.prompt || cfg?.message || 'Hello';
+  const model = cfg?.model || 'gpt-4o-mini';
+  const apiKey = cfg?.apiKey;
+  if (!apiKey) return { app: 'openai', model, prompt, response: `[OpenAI simulated] ${prompt} | Data: ${String(JSON.stringify(data)).slice(0, 200)}`, note: 'No API key — simulated' };
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: `${prompt}\n\nData:\n${JSON.stringify(data, null, 2)}` }] }),
+  });
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 400)}`);
+  const json = await res.json();
+  return { app: 'openai', model, response: json.choices?.[0]?.message?.content || '', prompt };
+}
+
+function getCustomDef(type: string): any | undefined {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('agentflow_custom_nodes_v1');
+      if (raw) {
+        const arr = JSON.parse(raw);
+        return (arr as any[]).find((n: any) => n.type === type);
+      }
+    }
+  } catch {}
+  return undefined;
+}
+async function runCustom(data: any, cfg: any, def: any): Promise<any> {
+  const code = cfg.code || def.code;
+  if (!code) throw new Error(`custom node ${def.type} missing code`);
+  const fn = new AsyncFunction('data', 'config', `"use strict"; ${code}`);
+  return await fn(data, cfg);
+}
+
 // ---- executor -------------------------------------------------------------
 
 function topologicalOrder(nodes: WorkflowNode[], edges: WorkflowEdge[]): string[] {
@@ -412,11 +721,11 @@ export async function executeWorkflow(
       const upstreamData = incoming.length
         ? outputs[incoming[incoming.length - 1].source]
         : undefined;
-      const data =
-        upstreamData !== undefined ? upstreamData : node.type === 'start' ? opts.input ?? {} : {};
+      const data = upstreamData !== undefined ? upstreamData : opts.input ?? {};
 
       switch (node.type) {
         case 'start':
+        case 'manual_trigger':
           result = opts.input ?? {};
           break;
         case 'api_call':
@@ -468,8 +777,102 @@ export async function executeWorkflow(
         case 'file':
           result = await runFile(data, node.config);
           break;
-        default:
+        case 'schedule':
+          result = await runSchedule(data, node.config);
+          break;
+        case 'graphql':
+          result = await runGraphQL(data, node.config);
+          break;
+        case 'set':
+          result = runSet(data, node.config);
+          break;
+        case 'switch': {
+          const sw = await runSwitch(data, node.config);
+          // Store switch case for downstream label gating (like condition)
+          (globalThis as any).__lastSwitchCase = sw.case;
+          result = sw;
+          break;
+        }
+        case 'aggregate':
+          result = runAggregate(data, node.config);
+          break;
+        case 'sort':
+          result = runSort(data, node.config);
+          break;
+        case 'limit':
+          result = runLimit(data, node.config);
+          break;
+        case 'item_lists':
+          result = runItemLists(data, node.config);
+          break;
+        case 'function':
+          result = await runFunction(data, node.config);
+          break;
+        case 'noop':
+          result = runNoOp(data, node.config);
+          break;
+        case 'webhook_response':
+          result = await runWebhookResponse(data, node.config);
+          break;
+        case 'html':
+          result = await runHtml(data, node.config);
+          break;
+        case 'date_time':
+          result = runDateTime(data, node.config);
+          break;
+        case 'slack':
+          result = await runSlack(data, node.config);
+          break;
+        case 'discord':
+          result = await runDiscord(data, node.config);
+          break;
+        case 'github':
+          result = await runGithub(data, node.config);
+          break;
+        case 'gmail':
+          result = await runGmail(data, node.config);
+          break;
+        case 'google_sheets':
+          result = await runGoogleSheets(data, node.config);
+          break;
+        case 'notion':
+          result = await runNotion(data, node.config);
+          break;
+        case 'airtable':
+          result = await runAirtable(data, node.config);
+          break;
+        case 'postgres':
+          result = await runPostgres(data, node.config);
+          break;
+        case 'mysql':
+          result = await runMySQL(data, node.config);
+          break;
+        case 'mongodb':
+          result = await runMongoDB(data, node.config);
+          break;
+        case 'redis':
+          result = await runRedis(data, node.config);
+          break;
+        case 'stripe':
+          result = await runStripe(data, node.config);
+          break;
+        case 'shopify':
+          result = await runShopify(data, node.config);
+          break;
+        case 'aws_s3':
+          result = await runAwsS3(data, node.config);
+          break;
+        case 'openai':
+          result = await runOpenAI(data, node.config);
+          break;
+        default: {
+          const custom = getCustomDef(node.type);
+          if (custom) {
+            result = await runCustom(data, node.config, custom);
+            break;
+          }
           throw new Error(`unknown module type: ${node.type}`);
+        }
       }
 
       statusMap[id] = 'done';

@@ -46,6 +46,22 @@ CREATE TABLE IF NOT EXISTS templates (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- Custom nodes table (user-defined)
+CREATE TABLE IF NOT EXISTS custom_nodes (
+  type TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  color TEXT DEFAULT '#a8d8a8',
+  icon TEXT DEFAULT 'CodeIcon',
+  fields TEXT DEFAULT '[]',
+  code TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, type),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 -- Indexes — P1 database optimization (filter/search columns)
 CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);
 CREATE INDEX IF NOT EXISTS idx_workflows_updated_at ON workflows(updated_at);
@@ -58,3 +74,19 @@ CREATE INDEX IF NOT EXISTS idx_execution_logs_workflow_user ON execution_logs(wo
 CREATE INDEX IF NOT EXISTS idx_templates_user_id ON templates(user_id);
 CREATE INDEX IF NOT EXISTS idx_templates_created_at ON templates(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_custom_nodes_user_id ON custom_nodes(user_id);
+CREATE INDEX IF NOT EXISTS idx_custom_nodes_updated_at ON custom_nodes(updated_at);
+
+-- Workflow versions (P2: history)
+CREATE TABLE IF NOT EXISTS workflow_versions (
+  id TEXT PRIMARY KEY,
+  workflow_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  nodes TEXT DEFAULT '[]',
+  edges TEXT DEFAULT '[]',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_versions_workflow_id ON workflow_versions(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_versions_user_id ON workflow_versions(user_id);

@@ -411,3 +411,264 @@ export function GithubIcon({ size = 14, className }: IconProps) {
     </svg>
   );
 }
+
+export function ScheduleIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M8 2v4M16 2v4M3 8h18" />
+      <circle cx="12" cy="14" r="3" />
+      <path d="M12 14v-2" />
+    </svg>
+  );
+}
+
+export function GraphQLIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M12 2l9 6v8l-9 6-9-6V8z" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M12 2v4M12 18v4M3 8l4 2M17 10l4-2M3 16l4-2M17 14l4 2" />
+    </svg>
+  );
+}
+
+export function SetIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M8 9h8M8 12h8M8 15h5" />
+    </svg>
+  );
+}
+
+export function SwitchIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M7 10l-2 2 2 2M17 10l2 2-2 2" />
+      <path d="M7 12h10" />
+    </svg>
+  );
+}
+
+export function AggregateIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="4" y="16" width="4" height="4" />
+      <rect x="10" y="10" width="4" height="10" />
+      <rect x="16" y="4" width="4" height="16" />
+    </svg>
+  );
+}
+
+export function SortIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M8 6l-3 3 3 3M16 18l3-3-3-3" />
+      <path d="M5 9h8M19 15H11" />
+    </svg>
+  );
+}
+
+export function LimitIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M4 6h16M4 12h10M4 18h7" />
+      <circle cx="18" cy="18" r="3" />
+      <path d="M18 16v4M16 18h4" opacity={0.6} />
+    </svg>
+  );
+}
+
+export function ItemListsIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="3" width="18" height="5" rx="1" />
+      <rect x="3" y="10" width="18" height="5" rx="1" />
+      <rect x="3" y="17" width="12" height="5" rx="1" />
+    </svg>
+  );
+}
+
+export function FunctionIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M5 6h10l-4 6 4 6H5" />
+      <circle cx="17" cy="12" r="2" />
+    </svg>
+  );
+}
+
+export function NoOpIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M8 8l8 8" />
+    </svg>
+  );
+}
+
+export function WebhookResponseIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M12 4l8 6-8 6-8-6z" />
+      <path d="M12 10v8" />
+    </svg>
+  );
+}
+
+export function HtmlIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M5 3l2 8 3-8 3 8 2-8" />
+      <path d="M5 15h14" />
+      <path d="M7 15l-1 6M17 15l1 6M9 18h6" />
+    </svg>
+  );
+}
+
+export function DateTimeIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="4" width="18" height="14" rx="2" />
+      <path d="M8 2v4M16 2v4M3 10h18" />
+      <circle cx="12" cy="14" r="2.5" />
+    </svg>
+  );
+}
+
+export function SlackIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="3" width="6" height="6" rx="1.5" />
+      <rect x="15" y="3" width="6" height="6" rx="1.5" />
+      <rect x="3" y="15" width="6" height="6" rx="1.5" />
+      <rect x="15" y="15" width="6" height="6" rx="1.5" />
+    </svg>
+  );
+}
+
+export function DiscordIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M5 5c4-1 8-1 12 0l1 10c-1 2-3 3-6 4-3-1-5-2-6-4z" />
+      <circle cx="9" cy="13" r="1.5" />
+      <circle cx="15" cy="13" r="1.5" />
+    </svg>
+  );
+}
+
+export function GmailIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 7l9 7 9-7" />
+    </svg>
+  );
+}
+
+export function GoogleSheetsIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M8 3v4h8" />
+      <path d="M8 9h8M8 13h8M8 17h5" />
+    </svg>
+  );
+}
+
+export function NotionIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M8 8h8M8 12h8M8 16h5" />
+      <path d="M12 8v8" />
+    </svg>
+  );
+}
+
+export function AirtableIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M7 7h4v10H7zM13 7h4v6h-4z" />
+    </svg>
+  );
+}
+
+export function PostgresIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <ellipse cx="12" cy="6" rx="7" ry="3" />
+      <path d="M5 6v12c0 1.7 3 3 7 3s7-1.3 7-3V6" />
+      <path d="M5 12c0 1.7 3 3 7 3s7-1.3 7-3" />
+    </svg>
+  );
+}
+
+export function MySQLIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M7 16V8l3-2 3 2v8l-3 2z" />
+      <path d="M7 8l3 2 3-2" />
+      <path d="M10 14l3-2" />
+    </svg>
+  );
+}
+
+export function MongoDBIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M12 3c-4 3-6 6-6 9 0 3 2 6 6 9 4-3 6-6 6-9 0-3-2-6-6-9z" />
+      <path d="M12 8c-2 1.5-3 3-3 4.5 0 1.8 1 3.5 3 5.5" />
+    </svg>
+  );
+}
+
+export function RedisIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M5 9l7-5 7 5-7 5z" />
+      <path d="M5 15l7 5 7-5" />
+      <path d="M5 9v6l7 5v-6z" />
+    </svg>
+  );
+}
+
+export function StripeIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M3 10h18" />
+    </svg>
+  );
+}
+
+export function ShopifyIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M6 7l3-4 5 1-1 5-7 6-3-2z" />
+      <circle cx="12" cy="16" r="2" />
+    </svg>
+  );
+}
+
+export function AwsS3Icon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M3 10l9-6 9 6-9 6z" />
+      <path d="M3 14l9 6 9-6" />
+      <path d="M3 10v4l9 6v-4z" />
+    </svg>
+  );
+}
+
+export function OpenAIIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M12 3l2 3h3l-2 3 1 4-4-1-4 1 1-4-2-3h3z" />
+      <circle cx="12" cy="12" r="2" />
+    </svg>
+  );
+}

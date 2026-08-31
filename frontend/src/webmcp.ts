@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { executeWorkflow, toEngineNodes, toEngineEdges, type NodeStatus } from './engine';
 import { getSmartPlacement, localWireAdjust, snapToGrid, findNearestOpenSlot } from './utils/grid';
 
+const API_BASE = 'https://agentflow.parithosh.workers.dev';
+
 interface WebMCPContext {
   nodes: Node[];
   edges: Edge[];
@@ -24,6 +26,7 @@ interface WebMCPContext {
 const mutationHistory: Array<{ nodes: Node[]; edges: Edge[]; label: string; at: string }> = [];
 const redoStack: Array<{ nodes: Node[]; edges: Edge[]; label: string; at: string }> = [];
 const MAX_HISTORY = 50;
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor as typeof Function;
 
 export function registerWebMCPTools(ctx: WebMCPContext): () => void {
   const controllers: AbortController[] = [];
@@ -50,7 +53,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     transform: ['op', 'keys', 'expression'],
     condition: ['expression', 'path', 'equals'],
     output: ['kind', 'url', 'filename'],
-    delay: ['ms'],
+    delay: ['ms', 'duration'],
     filter: ['expression'],
     split: ['batchSize'],
     merge: [],
@@ -62,7 +65,49 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     logger: ['level', 'message'],
     file: ['operation', 'path'],
     start: [],
+    manual_trigger: [],
+    schedule: ['cron', 'schedule', 'intervalMs', 'ms'],
+    graphql: ['url', 'endpoint', 'query', 'graphql', 'variables', 'headers'],
+    set: ['keepOnlySet', 'keepOnly', 'fields', 'set', 'values'],
+    switch: ['rules', 'cases', 'switch', 'expression', 'code', 'value'],
+    aggregate: ['field', 'groupBy', 'operation', 'aggregate'],
+    sort: ['field', 'sortBy', 'order', 'direction'],
+    limit: ['max', 'limit', 'offset'],
+    item_lists: ['operation', 'list', 'b'],
+    function: ['code', 'functionCode', 'expression', 'perItem'],
+    noop: [],
+    webhook_response: ['status', 'body', 'headers'],
+    html: ['operation', 'html', 'selector', 'css', 'attribute'],
+    date_time: ['operation', 'date', 'value', 'format', 'amount', 'unit'],
+    slack: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    discord: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    github: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    gmail: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    google_sheets: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    notion: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    airtable: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    postgres: ['url', 'query', 'sql', 'endpoint'],
+    mysql: ['url', 'query', 'sql', 'endpoint'],
+    mongodb: ['url', 'operation', 'endpoint'],
+    redis: ['url', 'operation', 'key', 'endpoint'],
+    stripe: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    shopify: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    aws_s3: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
+    openai: ['prompt', 'message', 'model', 'apiKey'],
   };
+  function getCustomKnownKeys(): Record<string,string[]> {
+    try {
+      const raw = localStorage.getItem('agentflow_custom_nodes_v1');
+      if (raw) {
+        const arr = JSON.parse(raw);
+        const m: Record<string,string[]> = {};
+        for (const c of arr) m[c.type] = (c.fields||[]).map((f:any)=>f.key).concat(['code']);
+        return m;
+      }
+    } catch {}
+    return {};
+  }
+  function isCustomTypeWebMCP(t:string){ return t.startsWith('custom_'); }
 
   // Registry of tool executors so a (simulated or real) agent can call them
   // the exact same way a WebMCP browser would. Exposed on window.__agentflow.
@@ -111,11 +156,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     inputSchema: {
       type: 'object',
       properties: {
-        type: { type: 'string', enum: [
-          'api_call', 'transform', 'condition', 'output', 'delay',
-          'filter', 'split', 'merge', 'loop', 'code',
-          'webhook', 'ai', 'validator', 'logger', 'file',
-        ] },
+        type: { type: 'string', description: 'Node type: built-in (api_call, transform, condition, output, delay, filter, split, merge, loop, code, webhook, ai, validator, logger, file, schedule, graphql, set, switch, aggregate, sort, limit, item_lists, function, noop, webhook_response, html, date_time, slack, discord, github, gmail, google_sheets, notion, airtable, postgres, mysql, mongodb, redis, stripe, shopify, aws_s3, openai) or custom_... (create via UI or create_custom_node tool)' },
         label: { type: 'string' },
         x: { type: 'number', description: 'X position on canvas' },
         y: { type: 'number', description: 'Y position on canvas' },
@@ -128,7 +169,9 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       const effectiveLabel = label || config?.label || effectiveType;
       pushHistory(`add_node:${effectiveType}:${effectiveLabel}`);
       const nodeId = `node_${uuidv4().slice(0, 8)}`;
-      const typeMap: Record<string, string> = {
+      const baseTypeMap: Record<string, string> = {
+        start: 'startNode',
+        manual_trigger: 'startNode',
         api_call: 'apiCallNode',
         transform: 'transformNode',
         condition: 'conditionNode',
@@ -144,7 +187,44 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
         validator: 'validatorNode',
         logger: 'loggerNode',
         file: 'fileNode',
+        schedule: 'scheduleNode',
+        graphql: 'graphqlNode',
+        set: 'setNode',
+        switch: 'switchNode',
+        aggregate: 'aggregateNode',
+        sort: 'sortNode',
+        limit: 'limitNode',
+        item_lists: 'itemListsNode',
+        function: 'functionNode',
+        noop: 'noopNode',
+        webhook_response: 'webhookResponseNode',
+        html: 'htmlNode',
+        date_time: 'dateTimeNode',
+        slack: 'slackNode',
+        discord: 'discordNode',
+        github: 'githubNode',
+        gmail: 'gmailNode',
+        google_sheets: 'googleSheetsNode',
+        notion: 'notionNode',
+        airtable: 'airtableNode',
+        postgres: 'postgresNode',
+        mysql: 'mysqlNode',
+        mongodb: 'mongodbNode',
+        redis: 'redisNode',
+        stripe: 'stripeNode',
+        shopify: 'shopifyNode',
+        aws_s3: 'awsS3Node',
+        openai: 'openaiNode',
       };
+      // merge custom nodes into typeMap
+      const typeMap: Record<string, string> = { ...baseTypeMap };
+      try {
+        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('agentflow_custom_nodes_v1') : null;
+        if (raw) {
+          const customs = JSON.parse(raw);
+          for (const c of customs) typeMap[c.type] = 'customNode';
+        }
+      } catch {}
       let pos: { x: number; y: number };
       if (x !== undefined && y !== undefined) {
         pos = findNearestOpenSlot(snapToGrid(x, y), ctx.nodesRef.current);
@@ -156,7 +236,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       const initialConfig = (config && typeof config === 'object' ? config : {}) as any;
       const newNode: Node = {
         id: nodeId,
-        type: typeMap[effectiveType] || 'apiCallNode',
+        type: typeMap[effectiveType] || 'customNode',
         position: pos,
         data: { label: effectiveLabel, config: initialConfig, nodeType: effectiveType },
       };
@@ -305,8 +385,12 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
           { name: 'undo_last_action', description: 'Undo last mutation (add/connect/delete/update) — solves no-undo (#9)' },
           { name: 'redo_last_action', description: 'Redo after undo' },
           { name: 'get_undo_history', description: 'List mutation history' },
+          { name: 'create_custom_node', description: 'Create a new custom node type — code is JS body for async (data,config) => { return ... }' },
+          { name: 'list_custom_nodes', description: 'List all custom node definitions' },
+          { name: 'delete_custom_node', description: 'Delete a custom node type' },
+          { name: 'update_custom_node', description: 'Update a custom node code/fields' },
         ],
-        totalTools: 27,
+        totalTools: 31,
       };
       ctx.addToolLog('get_available_tools', {}, result);
       return JSON.stringify(result);
@@ -370,8 +454,10 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       }
       // Validate keys — warn on unknown (#7)
       const nodeType = (node.data?.nodeType as string) || 'api_call';
-      const known = KNOWN_CONFIG_KEYS[nodeType] || [];
-      const unknownKeys = Object.keys(config || {}).filter(k => known.length && !known.includes(k));
+      const customKeys = getCustomKnownKeys();
+      const isCustom = isCustomTypeWebMCP(nodeType);
+      const known = KNOWN_CONFIG_KEYS[nodeType] || customKeys[nodeType] || [];
+      const unknownKeys = (!isCustom && known.length) ? Object.keys(config || {}).filter(k => !known.includes(k)) : (isCustom && known.length ? Object.keys(config || {}).filter(k => !known.includes(k)) : []);
       const warnings = unknownKeys.length ? [`Unknown keys for ${nodeType}: ${unknownKeys.join(', ')}. Known: ${known.join(', ')||'(none)'}. They will be stored but ignored at runtime.`] : [];
       pushHistory(`update:${resolvedId}`);
       ctx.setNodes((nds: Node[]) =>
@@ -416,18 +502,31 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       const engineNodes = toEngineNodes(ctx.nodesRef.current);
       const engineEdges = toEngineEdges(ctx.edgesRef.current);
       const errors: string[] = [];
+      let customTypes = new Set<string>();
+      try { const raw = localStorage.getItem('agentflow_custom_nodes_v1'); if (raw) customTypes = new Set((JSON.parse(raw) as any[]).map((c:any)=>c.type)); } catch {}
+      const ALL_BUILTIN = new Set(['start','manual_trigger','api_call','transform','condition','output','delay','filter','split','merge','loop','code','webhook','ai','validator','logger','file','schedule','graphql','set','switch','aggregate','sort','limit','item_lists','function','noop','webhook_response','html','date_time','slack','discord','github','gmail','google_sheets','notion','airtable','postgres','mysql','mongodb','redis','stripe','shopify','aws_s3','openai']);
       engineNodes.forEach((n) => {
         if (!n.label) errors.push(`module ${n.id} has no label`);
-        if (n.type === 'api_call' && !n.config?.url)
-          errors.push(`api_call "${n.label}" has no URL configured`);
-        if (n.type === 'output' && n.config?.kind === 'webhook' && !n.config?.url)
-          errors.push(`output "${n.label}" is a webhook with no URL`);
-        if (n.type === 'filter' && !n.config?.expression)
-          errors.push(`filter "${n.label}" has no expression`);
-        if (n.type === 'code' && !n.config?.code && !n.config?.expression)
-          errors.push(`code "${n.label}" has no code`);
-        if (n.type === 'webhook' && !n.config?.url)
-          errors.push(`webhook "${n.label}" has no URL`);
+        if (!ALL_BUILTIN.has(n.type) && !n.type.startsWith('custom_')) errors.push(`module "${n.label}" unknown type ${n.type}`);
+        if (n.type.startsWith('custom_') && !customTypes.has(n.type)) errors.push(`custom node "${n.label}" type ${n.type} not found — create via create_custom_node`);
+        if (n.type === 'api_call' && !n.config?.url) errors.push(`api_call "${n.label}" has no URL configured`);
+        if (n.type === 'graphql' && !n.config?.url && !n.config?.endpoint) errors.push(`graphql "${n.label}" missing url/endpoint`);
+        if (n.type === 'webhook' && !n.config?.url) errors.push(`webhook "${n.label}" has no URL`);
+        if (n.type === 'transform' && n.config?.op==='pick' && !n.config?.keys) errors.push(`transform "${n.label}" op=pick requires keys`);
+        if (n.type === 'transform' && n.config?.op==='expression' && !n.config?.expression) errors.push(`transform "${n.label}" op=expression requires expression`);
+        if (n.type === 'condition' && !n.config?.expression && !n.config?.path) errors.push(`condition "${n.label}" requires expression or path`);
+        if (n.type === 'output' && n.config?.kind === 'webhook' && !n.config?.url) errors.push(`output "${n.label}" is a webhook with no URL`);
+        if (n.type === 'filter' && !n.config?.expression) errors.push(`filter "${n.label}" has no expression`);
+        if (n.type === 'code' && !n.config?.code && !n.config?.expression) errors.push(`code "${n.label}" has no code`);
+        if (n.type === 'function' && !n.config?.code && !n.config?.functionCode && !n.config?.expression) errors.push(`function "${n.label}" missing code`);
+        if (n.type === 'delay' && n.config?.ms!==undefined && isNaN(Number(n.config.ms))) errors.push(`delay "${n.label}" ms must be number`);
+        if (n.type === 'set' && !n.config?.fields && !n.config?.set && !n.config?.values && Object.keys(n.config||{}).length===0) errors.push(`set "${n.label}" has no fields`);
+        if (n.type === 'switch' && !n.config?.expression && !n.config?.rules && !n.config?.cases && n.config?.value===undefined) errors.push(`switch "${n.label}" requires expression or rules`);
+        if (n.type === 'aggregate' && ['sum','avg'].includes(String(n.config?.operation||'')) && !n.config?.field && !n.config?.groupBy) errors.push(`aggregate "${n.label}" operation ${n.config?.operation} requires field`);
+        if (n.type === 'html' && n.config?.operation==='extract' && !n.config?.selector && !n.config?.css) errors.push(`html "${n.label}" extract requires selector`);
+        if (n.type === 'date_time' && n.config?.operation==='add' && n.config?.amount===undefined) errors.push(`date_time "${n.label}" add requires amount`);
+        if (n.type === 'openai' && !n.config?.prompt && !n.config?.message) errors.push(`openai "${n.label}" missing prompt`);
+        if (n.type === 'ai' && !n.config?.prompt) errors.push(`ai "${n.label}" missing prompt`);
       });
       engineEdges.forEach((e) => {
         if (!engineNodes.find((n) => n.id === e.source))
@@ -988,6 +1087,111 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     execute: async () => {
       const result = { success:true, undoCount: mutationHistory.length, redoCount: redoStack.length, history: mutationHistory.map(h=>({label:h.label, at:h.at, nodes:h.nodes.length, edges:h.edges.length})), redo: redoStack.map(h=>({label:h.label, at:h.at})) };
       ctx.addToolLog('get_undo_history', {}, {undo:result.undoCount, redo:result.redoCount});
+      return JSON.stringify(result);
+    },
+  });
+  // Custom node tools
+  register({
+    name: 'create_custom_node',
+    description: 'Create a new custom node type. code is JS body for async (data,config) => { ...; return result; } . type auto-prefixed with custom_',
+    inputSchema: { type:'object', properties: { type:{type:'string', description:'custom_ prefix auto-added if missing'}, displayName:{type:'string'}, description:{type:'string'}, color:{type:'string'}, icon:{type:'string'}, fields:{type:'array'}, code:{type:'string'} }, required:['code'] },
+    execute: async ({ type, displayName, description, color, icon, fields, code }: any) => {
+      if (!code) return JSON.stringify({success:false, error:'code required'});
+      const BLOCKED = [/require\s*\(/, /process\./, /child_process/, /fs\./, /eval\s*\(/, /Function\s*\(/, /while\s*\(\s*true\s*\)/, /for\s*\(\s*;\s*;\s*\)/];
+      for (const pat of BLOCKED) if (pat.test(code)) return JSON.stringify({success:false, error:`blocked pattern: ${pat}`});
+      try { new AsyncFunction('data','config', `"use strict"; ${code}`); } catch(e:any){ return JSON.stringify({success:false, error:`code syntax: ${e.message}`}); }
+      let t = String(type || displayName || 'custom_node').toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/__+/g,'_').replace(/^_+|_+$/g,'');
+      if (!t.startsWith('custom_')) t = `custom_${t}`;
+      if (t.length>32) t=t.slice(0,32);
+      const builtIn = new Set(['start','manual_trigger','api_call','transform','condition','output','delay','filter','split','merge','loop','code','webhook','ai','validator','logger','file','schedule','graphql','set','switch','aggregate','sort','limit','item_lists','function','noop','webhook_response','html','date_time','slack','discord','github','gmail','google_sheets','notion','airtable','postgres','mysql','mongodb','redis','stripe','shopify','aws_s3','openai']);
+      if (builtIn.has(t) || builtIn.has(t.replace('custom_',''))) return JSON.stringify({success:false, error:`type ${t} conflicts with built-in`});
+      let list:any[] = [];
+      try { const raw=localStorage.getItem('agentflow_custom_nodes_v1'); if(raw) list=JSON.parse(raw); } catch{}
+      if (list.find((n:any)=>n.type===t)) return JSON.stringify({success:false, error:`custom node ${t} already exists, use update_custom_node`});
+      const def = { type:t, displayName: String(displayName||t.replace('custom_','').replace(/_/g,' ')).slice(0,40), description: String(description||'Custom node').slice(0,120), color: color||'#a8d8a8', icon: icon||'CodeIcon', fields: Array.isArray(fields)? fields.slice(0,12): [], code, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      list.push(def);
+      localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
+      try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
+      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch(`${API_BASE}/api/custom-nodes`, {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=> fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{})); } catch{}
+      const result={success:true, node:def, message:`Created custom node ${t}`};
+      ctx.addToolLog('create_custom_node', {type:t}, result);
+      return JSON.stringify(result);
+    },
+  });
+  register({
+    name: 'list_custom_nodes',
+    description: 'List all custom node definitions',
+    inputSchema: { type:'object', properties:{} },
+    execute: async () => {
+      let list:any[]=[];
+      try { const raw=localStorage.getItem('agentflow_custom_nodes_v1'); if(raw) list=JSON.parse(raw); } catch{}
+      // also merge backend nodes (for agent-created via backend API)
+      try {
+        const headers: Record<string,string> = {};
+        try { const tok = localStorage.getItem('agentflow_token'); if (tok) headers['Authorization'] = `Bearer ${tok}`; } catch {}
+        let res: Response | null = null;
+        try { res = await fetch(`${API_BASE}/api/custom-nodes`, { headers }); } catch {}
+        if (!res || !res.ok) {
+          try { res = await fetch('/api/custom-nodes', { headers }); } catch {}
+        }
+        if (res && res.ok) {
+          const data = await res.json();
+          const backendNodes = data.nodes || [];
+          const seen = new Set(list.map((n:any)=>n.type));
+          for (const b of backendNodes) if (!seen.has(b.type)) list.push(b);
+        }
+      } catch {}
+      const result={success:true, nodes:list, count:list.length};
+      ctx.addToolLog('list_custom_nodes', {}, {count:list.length});
+      return JSON.stringify(result);
+    },
+  });
+  register({
+    name: 'delete_custom_node',
+    description: 'Delete a custom node type',
+    inputSchema: { type:'object', properties:{ type:{type:'string'} }, required:['type'] },
+    execute: async ({ type }: any) => {
+      const t = String(type||'').toLowerCase();
+      let list:any[]=[];
+      try { const raw=localStorage.getItem('agentflow_custom_nodes_v1'); if(raw) list=JSON.parse(raw); } catch{}
+      const idx=list.findIndex((n:any)=>n.type===t);
+      if(idx<0) return JSON.stringify({success:false, error:`not found ${t}`});
+      const removed=list.splice(idx,1)[0];
+      localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
+      try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
+      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch(`${API_BASE}/api/custom-nodes`, {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=> fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{})); } catch{}
+      const result={success:true, deleted:removed.type};
+      ctx.addToolLog('delete_custom_node', {type:t}, result);
+      return JSON.stringify(result);
+    },
+  });
+  register({
+    name: 'update_custom_node',
+    description: 'Update a custom node code/fields',
+    inputSchema: { type:'object', properties:{ type:{type:'string'}, code:{type:'string'}, fields:{type:'array'}, displayName:{type:'string'}, description:{type:'string'}, color:{type:'string'}, icon:{type:'string'} }, required:['type'] },
+    execute: async ({ type, code, fields, displayName, description, color, icon }: any) => {
+      const t=String(type||'').toLowerCase();
+      let list:any[]=[];
+      try { const raw=localStorage.getItem('agentflow_custom_nodes_v1'); if(raw) list=JSON.parse(raw); } catch{}
+      const def=list.find((n:any)=>n.type===t);
+      if(!def) return JSON.stringify({success:false, error:`not found ${t}`});
+      if(code){
+        const BLOCKED = [/require\s*\(/, /process\./, /child_process/, /fs\./, /eval\s*\(/, /Function\s*\(/, /while\s*\(\s*true\s*\)/, /for\s*\(\s*;\s*;\s*\)/];
+      for (const pat of BLOCKED) if (pat.test(code)) return JSON.stringify({success:false, error:`blocked pattern: ${pat}`});
+      try { new AsyncFunction('data','config', `"use strict"; ${code}`); } catch(e:any){ return JSON.stringify({success:false, error:`code syntax: ${e.message}`}); }
+        def.code=code;
+      }
+      if(displayName) def.displayName=String(displayName).slice(0,40);
+      if(description) def.description=String(description).slice(0,120);
+      if(color) def.color=color;
+      if(icon) def.icon=icon;
+      if(Array.isArray(fields)) def.fields=fields.slice(0,12);
+      def.updatedAt=new Date().toISOString();
+      localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
+      try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
+      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch(`${API_BASE}/api/custom-nodes`, {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=> fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{})); } catch{}
+      const result={success:true, node:def};
+      ctx.addToolLog('update_custom_node', {type:t}, result);
       return JSON.stringify(result);
     },
   });

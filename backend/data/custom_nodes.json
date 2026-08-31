@@ -1,0 +1,26 @@
+[
+  {
+    "type": "custom_bad",
+    "user_id": "dev-anon",
+    "displayName": "Bad",
+    "description": "Custom node",
+    "color": "#a8d8a8",
+    "icon": "CodeIcon",
+    "fields": [],
+    "code": "while(true){}",
+    "createdAt": "2026-08-31T13:46:22.748Z",
+    "updatedAt": "2026-08-31T13:46:22.748Z"
+  },
+  {
+    "type": "custom_bad2",
+    "user_id": "dev-anon",
+    "displayName": "Bad2",
+    "description": "Custom node",
+    "color": "#a8d8a8",
+    "icon": "CodeIcon",
+    "fields": [],
+    "code": "require('fs')",
+    "createdAt": "2026-08-31T13:46:22.752Z",
+    "updatedAt": "2026-08-31T13:46:22.752Z"
+  }
+]

@@ -4,21 +4,31 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
+    "dotenv": "^16.4.7",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
     "node-cache": "^5.1.2",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "uuid": "^14.0.2",
     "zod": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.2.2",
+    "vitest": "^1.6.0"
   }
 }

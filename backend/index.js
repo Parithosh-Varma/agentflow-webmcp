@@ -1,5 +1,7 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const pino = require('pino');
@@ -9,6 +11,9 @@ const { z } = require('zod');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const { authMiddleware } = require('./auth');
+const { runSandboxed, validateCode } = require('./sandbox');
+const { isEnabled: isSupabaseEnabled, dbLoadWorkflows, dbPersistWorkflows, dbLoadCustomNodes, dbPersistCustomNodes } = require('./supabase');
 
 // ================================================================
 // AgentFlow Backend — P0/P1/P2 optimized
@@ -17,24 +22,26 @@ const { v4: uuidv4 } = require('uuid');
 // P2: cache (NodeCache), background queue, monitoring/metrics
 // ================================================================
 
-const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+const { getLogger, Sentry, recordMetric } = require('./observability');
+const logger = getLogger();
 
 const app = express();
 
 // ---- Security & Performance Middleware ----
-app.use(cors());
+const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map(s=>s.trim()).filter(Boolean);
+app.use(cors({
+  origin: allowedOrigins.length ? allowedOrigins : true,
+  credentials: true,
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Access-Token'],
+}));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(compression({ level: 6, threshold: 512 }));
 app.use(express.json({ limit: '1mb' }));
 app.use(pinoHttp({ logger }));
-
-// Security headers (helmet-lite)
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  next();
-});
 
 // ---- Rate Limiting ----
 const globalLimiter = rateLimit({
@@ -46,13 +53,14 @@ const globalLimiter = rateLimit({
 });
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Rate limit exceeded for tool execution.' },
 });
 app.use('/api/', globalLimiter);
 app.use('/api/execute-tool', strictLimiter);
+app.use('/api', authMiddleware);
 
 // Serve static frontend in production
 app.use(express.static(path.join(__dirname, '..', 'frontend', 'dist')));
@@ -138,9 +146,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// ---- All valid node types (mirrors frontend/src/components/nodes/index.tsx) ----
+const ALL_NODE_TYPES = ['start','manual_trigger','api_call','transform','condition','output','delay','filter','split','merge','loop','code','webhook','ai','validator','logger','file','schedule','graphql','set','switch','aggregate','sort','limit','item_lists','function','noop','webhook_response','html','date_time','slack','discord','github','gmail','google_sheets','notion','airtable','postgres','mysql','mongodb','redis','stripe','shopify','aws_s3','openai'];
+
+function isCustomType(t) { return typeof t === 'string' && t.startsWith('custom_'); }
 // ---- Validation Schemas (P0: zod) ----
 const addNodeSchema = z.object({
-  type: z.enum(['api_call','transform','condition','output','delay','filter','split','merge','loop','code','webhook','ai','validator','logger','file']),
+  type: z.string().min(1).max(40).refine(v => ALL_NODE_TYPES.includes(v) || isCustomType(v), { message: "Invalid node type. Must be built-in or custom_..." }),
   label: z.string().min(1).max(100),
   config: z.record(z.any()).optional(),
   position: z.object({ x: z.number(), y: z.number() }).optional(),
@@ -172,7 +184,7 @@ const probeApiSchema = z.object({
 
 // ---- Expanded Tool Definitions (27 tools) ----
 const TOOL_DEFINITIONS = [
-  { name: 'add_node', description: 'Add a new node to the workflow canvas', inputSchema: { type: 'object', properties: { type: { type: 'string', enum: ['api_call','transform','condition','output','delay','filter','split','merge','loop','code','webhook','ai','validator','logger','file'] }, label: { type: 'string' }, x: { type: 'number' }, y: { type: 'number' } }, required: ['type','label'] } },
+  { name: 'add_node', description: 'Add a new node to the workflow canvas', inputSchema: { type: 'object', properties: { type: { type: 'string', enum: ALL_NODE_TYPES }, label: { type: 'string' }, x: { type: 'number' }, y: { type: 'number' } }, required: ['type','label'] } },
   { name: 'connect_nodes', description: 'Connect two nodes with a directed edge', inputSchema: { type: 'object', properties: { sourceNodeId: { type: 'string' }, targetNodeId: { type: 'string' }, label: { type: 'string' } }, required: ['sourceNodeId','targetNodeId'] } },
   { name: 'execute_workflow', description: 'Execute the current workflow in topological order', inputSchema: { type: 'object', properties: { input: { type: 'object' } } } },
   { name: 'get_available_tools', description: 'List all available tool definitions', inputSchema: { type: 'object', properties: {} } },
@@ -199,6 +211,10 @@ const TOOL_DEFINITIONS = [
   { name: 'undo_last_action', description: 'Undo the last canvas mutation', inputSchema: { type: 'object', properties: {} } },
   { name: 'redo_last_action', description: 'Redo the last undone mutation', inputSchema: { type: 'object', properties: {} } },
   { name: 'get_undo_history', description: 'List undoable mutations', inputSchema: { type: 'object', properties: {} } },
+  { name: 'create_custom_node', description: 'Create a new custom node type. code is JS body for async (data,config) => { ...; return result; } . type auto-prefixed with custom_', inputSchema: { type: 'object', properties: { type: {type:'string'}, displayName:{type:'string'}, description:{type:'string'}, color:{type:'string'}, icon:{type:'string'}, fields:{type:'array'}, code:{type:'string'} }, required:['code'] } },
+  { name: 'list_custom_nodes', description: 'List all custom node definitions', inputSchema: { type: 'object', properties: {} } },
+  { name: 'delete_custom_node', description: 'Delete a custom node type', inputSchema: { type: 'object', properties: { type: {type:'string'} }, required:['type'] } },
+  { name: 'update_custom_node', description: 'Update a custom node code/fields', inputSchema: { type: 'object', properties: { type:{type:'string'}, code:{type:'string'}, fields:{type:'array'}, displayName:{type:'string'}, description:{type:'string'}, color:{type:'string'}, icon:{type:'string'} }, required:['type'] } },
 ];
 
 // ---- Persistence Helpers (P1: file persistence + indexes) ----
@@ -213,6 +229,10 @@ function persistWorkflows() {
     const data = { workflows: Array.from(workflows.entries()), templates: Array.from(templates.entries()), at: new Date().toISOString() };
     fs.writeFileSync(DATA_FILE, JSON.stringify(data), 'utf8');
   } catch (e) { logger.warn({ err: e.message }, 'persist failed'); }
+  // Also persist to Supabase if enabled (fire-and-forget)
+  if (isSupabaseEnabled()) {
+    dbPersistWorkflows(workflows, templates).catch(e=> logger.warn({err:e.message}, 'supabase persist failed'));
+  }
 }
 function loadPersisted() {
   try {
@@ -226,15 +246,55 @@ function loadPersisted() {
   } catch (e) { logger.warn({ err: e.message }, 'load persisted failed'); }
 }
 loadPersisted();
-
-function createDefaultWorkflow() {
-  const id = 'default';
-  if (!workflows.has(id)) {
-    workflows.set(id, { id, nodes: [{ id: 'start', type: 'start', label: 'Start', config: {}, position: { x: 40, y: 200 } }], edges: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-    persistWorkflows();
-  }
-  return workflows.get(id);
+// If Supabase configured, also load from Supabase (merge, Supabase wins for newer)
+if (isSupabaseEnabled()) {
+  dbLoadWorkflows(workflows, templates, nodeIndex, edgeIndex).then(()=> {
+    logger.info({ count: workflows.size }, 'supabase workflows merged');
+  }).catch(e=> logger.warn({err:e.message}, 'supabase load failed'));
 }
+
+function getWorkflowKey(userId, id) {
+  if (isSupabaseEnabled() && userId && userId !== 'dev-anon' && userId !== 'anonymous') return `${userId}:${id}`;
+  return id;
+}
+function createDefaultWorkflow(userId = 'dev-anon') {
+  const id = 'default';
+  const key = getWorkflowKey(userId, id);
+  if (!workflows.has(key)) {
+    workflows.set(key, { id, userId, nodes: [{ id: 'start', type: 'start', label: 'Start', config: {}, position: { x: 40, y: 200 } }], edges: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    persistWorkflows(); maybeSaveVersion(workflows.get(key)).catch(()=>{});
+  }
+  return workflows.get(key);
+}
+async function saveWorkflowVersion(workflowId, userId, nodes, edges) {
+  try {
+    // also enforce quota: keep only last 20 versions per workflow (already handled in Supabase helper, but for file we do here)
+  } catch {}
+  if (!isSupabaseEnabled()) {
+    // file fallback: append to workflow_versions.json
+    try {
+      const vFile = require('path').join(DATA_DIR, 'workflow_versions.json');
+      let arr = [];
+      if (require('fs').existsSync(vFile)) arr = JSON.parse(require('fs').readFileSync(vFile,'utf8'));
+      arr.push({ id: require('uuid').v4().slice(0,8), workflow_id: workflowId, user_id: userId, nodes, edges, created_at: new Date().toISOString() });
+      if (arr.length > 100) arr = arr.slice(-100);
+      require('fs').writeFileSync(vFile, JSON.stringify(arr,null,2));
+    } catch {}
+    return;
+  }
+  try {
+    const sb = getClient();
+    const id = require('uuid').v4().slice(0,8);
+    await sb.from('workflow_versions').insert({ id, workflow_id: workflowId, user_id: userId, nodes, edges });
+    // keep only last 20 per workflow
+    const { data } = await sb.from('workflow_versions').select('id').eq('workflow_id', workflowId).order('created_at', {ascending:false}).range(20, 100);
+    if (data && data.length) {
+      const ids = data.map(r=>r.id);
+      await sb.from('workflow_versions').delete().in('id', ids);
+    }
+  } catch {}
+}
+async function maybeSaveVersion(wf) { try { if (wf && wf.id) await saveWorkflowVersion(wf.id, wf.userId || wf.user_id || 'dev-anon', wf.nodes, wf.edges); } catch {} }
 function invalidateCache(workflowId) {
   cache.del(CACHE_KEYS.workflowStatus(workflowId));
   cache.del(CACHE_KEYS.executionDetails(workflowId));
@@ -316,6 +376,194 @@ async function runAi(data, cfg) {
   const j = await res.json(); return { response: j.choices?.[0]?.message?.content || 'no response' };
 }
 
+
+// ---- New major n8n nodes (mirrors frontend/src/engine.ts) ----
+async function runSchedule(_data, cfg) {
+  const cron = cfg?.cron || cfg?.schedule || '*/5 * * * *';
+  const intervalMs = cfg?.intervalMs ?? cfg?.ms ?? 0;
+  if (intervalMs) await sleep(Number(intervalMs));
+  return { scheduled: true, cron, nextRun: new Date(Date.now() + Number(intervalMs || 60000)).toISOString() };
+}
+async function runGraphQL(_data, cfg) {
+  const url = cfg?.url || cfg?.endpoint;
+  const query = cfg?.query || cfg?.graphql || '{ __typename }';
+  const variables = cfg?.variables || {};
+  const headers = cfg?.headers || {};
+  if (!url) throw new Error('GraphQL requires url/endpoint');
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ query, variables: typeof variables === 'string' ? JSON.parse(variables) : variables }), signal: AbortSignal.timeout(8000) });
+  const text = await res.text(); const parsed = parseMaybeJson(text);
+  if (!res.ok) throw new Error(`GraphQL HTTP ${res.status}: ${String(text).slice(0,400)}`);
+  return parsed;
+}
+function runSet(data, cfg) {
+  const keepOnlySet = cfg?.keepOnlySet ?? cfg?.keepOnly ?? false;
+  const fields = cfg?.fields || cfg?.set || cfg?.values || {};
+  let parsedFields = {};
+  if (typeof fields === 'string') { try { parsedFields = JSON.parse(fields); } catch { parsedFields = {}; } }
+  else if (typeof fields === 'object') parsedFields = fields;
+  if (Object.keys(parsedFields).length === 0) {
+    const reserved = new Set(['keepOnlySet','keepOnly','fields','set','values']);
+    for (const [k,v] of Object.entries(cfg)) if (!reserved.has(k)) parsedFields[k]=v;
+  }
+  const base = keepOnlySet ? {} : (typeof data === 'object' && data!==null ? { ...data } : {});
+  for (const [k,v] of Object.entries(parsedFields)) {
+    if (typeof v === 'string' && v.includes('{{')) base[k]=v.replace(/\{\{\s*\$json\.([\w.]+)\s*\}\}/g, (_m,p)=>String(getPath(data,p)??''));
+    else base[k]=v;
+  }
+  return base;
+}
+async function runSwitch(data, cfg) {
+  const rules = cfg?.rules || cfg?.cases || cfg?.switch || [];
+  const expression = cfg?.expression || cfg?.code;
+  let matched = 'default';
+  if (expression) { const fn = new AsyncFunction('data', `"use strict"; return await (${expression})(data);`); const res = await fn(data); matched = String(res); }
+  else if (Array.isArray(rules) && rules.length) {
+    for (const rule of rules) {
+      const expr = rule.expression || rule.condition;
+      if (expr) { const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr})(data));`); if (await fn(data)) { matched = rule.value ?? rule.case ?? 'true'; break; } }
+    }
+  } else if (cfg?.value !== undefined) matched = String(cfg.value);
+  return { case: matched, data, matchedCase: matched };
+}
+function runAggregate(data, cfg) {
+  const field = cfg?.field || cfg?.groupBy || '';
+  const operation = cfg?.operation || cfg?.aggregate || 'count';
+  const items = Array.isArray(data) ? data : data?.items || data?.data || [data];
+  if (operation === 'count') return { count: items.length, field, operation };
+  if (operation === 'sum' && field) { const sum = items.reduce((s,it)=> s + Number(getPath(it, field) ?? it[field] ?? 0),0); return { sum, field, count: items.length }; }
+  if (operation === 'avg' && field) { const sum = items.reduce((s,it)=> s + Number(getPath(it, field) ?? 0),0); return { avg: items.length ? sum / items.length : 0, field, count: items.length }; }
+  if (field) { const groups={}; for(const it of items){ const key=String(getPath(it, field) ?? it[field] ?? 'null'); if(!groups[key]) groups[key]=[]; groups[key].push(it); } return { groups, count: items.length, field }; }
+  return { count: items.length, items };
+}
+function runSort(data, cfg) {
+  const field = cfg?.field || cfg?.sortBy || '';
+  const order = String(cfg?.order || cfg?.direction || 'asc').toLowerCase();
+  const items = Array.isArray(data) ? [...data] : data?.items ? [...data.items] : [data];
+  if (!field) items.sort();
+  else items.sort((a,b)=>{ const av=getPath(a,field)??a[field]; const bv=getPath(b,field)??b[field]; if(av===bv) return 0; const cmp= av > bv ? 1 : -1; return order==='desc'?-cmp:cmp; });
+  return { sorted: items, count: items.length, field, order };
+}
+function runLimit(data, cfg) {
+  const max = Number(cfg?.max ?? cfg?.limit ?? 10);
+  const offset = Number(cfg?.offset ?? 0);
+  const items = Array.isArray(data) ? data : data?.items || data?.data || [data];
+  const sliced = items.slice(offset, offset+max);
+  return { limited: sliced, count: sliced.length, total: items.length, offset, max };
+}
+function runItemLists(data, cfg) {
+  const operation = cfg?.operation || 'union';
+  const a = Array.isArray(data) ? data : data?.a || data?.items || [data];
+  const b = Array.isArray(cfg?.list) ? cfg.list : cfg?.b ? (Array.isArray(cfg.b) ? cfg.b : [cfg.b]) : [];
+  if (operation === 'union') return { result: [...a, ...b], count: a.length + b.length };
+  if (operation === 'intersect') { const setB=new Set(b.map(x=>JSON.stringify(x))); return { result: a.filter(x=>setB.has(JSON.stringify(x))), operation }; }
+  if (operation === 'difference') { const setB=new Set(b.map(x=>JSON.stringify(x))); return { result: a.filter(x=>!setB.has(JSON.stringify(x))), operation }; }
+  return { result: a, operation };
+}
+async function runFunction(data, cfg) {
+  const code = cfg?.code || cfg?.functionCode || cfg?.expression || 'return data;';
+  const fn = new AsyncFunction('data', 'items', `"use strict"; ${code}`);
+  const items = Array.isArray(data) ? data : [data];
+  if (cfg?.perItem) { const out=[]; for(const it of items) out.push(await fn(it, items)); return { results: out, count: out.length }; }
+  return await fn(data, items);
+}
+function runNoOp(data, _cfg) { return data; }
+async function runWebhookResponse(data, cfg) {
+  const status = Number(cfg?.status ?? 200);
+  const body = cfg?.body ?? data;
+  const headers = cfg?.headers || {};
+  return { status, body: typeof body === 'string' ? body : JSON.stringify(body).slice(0,2000), headers, simulated: true };
+}
+async function runHtml(data, cfg) {
+  const operation = cfg?.operation || 'extract';
+  const html = String(cfg?.html ?? data?.html ?? data ?? '');
+  const selector = cfg?.selector || cfg?.css || '';
+  const attribute = cfg?.attribute || 'textContent';
+  if (operation === 'extract' && selector) {
+    return { html: html.slice(0,5000), selector, attribute, note: 'HTML extract requires browser DOMParser — returning raw. Configure selector to parse client-side.' };
+  }
+  return { html: html.slice(0,5000), operation, selector };
+}
+function runDateTime(data, cfg) {
+  const operation = cfg?.operation || 'now';
+  const input = cfg?.date ?? cfg?.value ?? data;
+  const format = cfg?.format || 'iso';
+  const parse = (v)=>{ if(v instanceof Date) return v; if(typeof v==='number') return new Date(v); if(typeof v==='string'){ const d=new Date(v); if(!isNaN(d.getTime())) return d; } return new Date(); };
+  if (operation === 'now') return { now: new Date().toISOString(), timestamp: Date.now() };
+  if (operation === 'format') { const d=parse(input); if(format==='iso') return { formatted:d.toISOString(), input }; if(format==='locale') return { formatted:d.toLocaleString(), input }; return { formatted:d.toISOString(), format, input }; }
+  if (operation === 'add') { const d=parse(input); const amount=Number(cfg?.amount??1); const unit=cfg?.unit||'days'; const mul={ ms:1, seconds:1000, minutes:60000, hours:3600000, days:86400000 }; return { result: new Date(d.getTime()+amount*(mul[unit]??86400000)).toISOString(), operation, amount, unit }; }
+  return { result: parse(input).toISOString(), operation };
+}
+async function runGenericApp(app, data, cfg) {
+  const url = cfg?.url || cfg?.webhookUrl || cfg?.endpoint;
+  const method = String(cfg?.method || 'POST').toUpperCase();
+  const headers = cfg?.headers || {};
+  const body = cfg?.body ?? cfg?.payload ?? data;
+  const simulatedNote = `simulated ${app} — configure url/webhookUrl to send for real`;
+  if (!url) { return { app, simulated: true, note: simulatedNote, dataPreview: String(JSON.stringify(data)).slice(0,500), config: cfg }; }
+  const res = await fetch(url, { method, headers: { 'Content-Type':'application/json', ...headers }, body: method==='GET'?undefined:JSON.stringify(body), signal: AbortSignal.timeout(8000) });
+  const text = await res.text(); const parsed = parseMaybeJson(text);
+  if (!res.ok) throw new Error(`${app} HTTP ${res.status}: ${String(text).slice(0,400)}`);
+  return { app, status: res.status, data: parsed, simulated:false };
+}
+async function runSlack(data,cfg){ return runGenericApp('slack',data,cfg); }
+async function runDiscord(data,cfg){ return runGenericApp('discord',data,cfg); }
+async function runGithub(data,cfg){ return runGenericApp('github',data,cfg); }
+async function runGmail(data,cfg){ return runGenericApp('gmail',data,cfg); }
+async function runGoogleSheets(data,cfg){ return runGenericApp('google_sheets',data,cfg); }
+async function runNotion(data,cfg){ return runGenericApp('notion',data,cfg); }
+async function runAirtable(data,cfg){ return runGenericApp('airtable',data,cfg); }
+async function runPostgres(data,cfg){ const query=cfg?.query||cfg?.sql||'SELECT 1'; if(cfg?.url) return runGenericApp('postgres',data,{...cfg, query}); return { app:'postgres', query, simulated:true, note:'simulated — configure url to query real DB', rowCount: Array.isArray(data)?data.length:1 }; }
+async function runMySQL(data,cfg){ const query=cfg?.query||cfg?.sql||'SELECT 1'; if(cfg?.url) return runGenericApp('mysql',data,{...cfg, query}); return { app:'mysql', query, simulated:true, note:'simulated — configure url' }; }
+async function runMongoDB(data,cfg){ const operation=cfg?.operation||'find'; if(cfg?.url) return runGenericApp('mongodb',data,cfg); return { app:'mongodb', operation, simulated:true, note:'simulated — configure url' }; }
+async function runRedis(data,cfg){ const operation=cfg?.operation||'get'; const key=cfg?.key||'default'; if(cfg?.url) return runGenericApp('redis',data,cfg); return { app:'redis', operation, key, simulated:true, note:'simulated in backend — no persistent store' }; }
+async function runStripe(data,cfg){ return runGenericApp('stripe',data,cfg); }
+async function runShopify(data,cfg){ return runGenericApp('shopify',data,cfg); }
+async function runAwsS3(data,cfg){ return runGenericApp('aws_s3',data,cfg); }
+async function runOpenAI(data,cfg){
+  const prompt=cfg?.prompt||cfg?.message||'Hello'; const model=cfg?.model||'gpt-4o-mini'; const apiKey=cfg?.apiKey;
+  if(!apiKey) return { app:'openai', model, prompt, response:`[OpenAI simulated] ${prompt} | Data: ${String(JSON.stringify(data)).slice(0,200)}`, note:'No API key — simulated' };
+  const res=await fetch('https://api.openai.com/v1/chat/completions',{ method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${apiKey}`}, body: JSON.stringify({ model, messages:[{role:'user', content:`${prompt}\n\nData:\n${JSON.stringify(data,null,2)}`}]}), signal: AbortSignal.timeout(10000) });
+  if(!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0,400)}`);
+  const json=await res.json(); return { app:'openai', model, response: json.choices?.[0]?.message?.content||'', prompt };
+}
+
+const CUSTOM_NODES_FILE = path.join(DATA_DIR, 'custom_nodes.json');
+let customNodesCache = [];
+function loadCustomNodes() {
+  try {
+    if (fs.existsSync(CUSTOM_NODES_FILE)) {
+      const raw = fs.readFileSync(CUSTOM_NODES_FILE, 'utf8');
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) customNodesCache = arr;
+    }
+  } catch (e) { logger.warn({err:e.message}, 'load custom nodes failed'); }
+  if (isSupabaseEnabled()) {
+    dbLoadCustomNodes().then(nodes=> {
+      if (Array.isArray(nodes) && nodes.length) {
+        const map = new Map(customNodesCache.map(n=>[n.type,n]));
+        for (const n of nodes) if (!map.has(n.type)) customNodesCache.push(n);
+        logger.info({count: customNodesCache.length}, 'supabase custom nodes merged');
+      }
+    }).catch(e=> logger.warn({err:e.message}, 'supabase load custom failed'));
+  }
+}
+function saveCustomNodes() {
+  try {
+    ensureDataDir();
+    fs.writeFileSync(CUSTOM_NODES_FILE, JSON.stringify(customNodesCache, null, 2), 'utf8');
+  } catch (e) { logger.warn({err:e.message}, 'save custom nodes failed'); }
+  if (isSupabaseEnabled()) {
+    dbPersistCustomNodes(customNodesCache).catch(e=> logger.warn({err:e.message}, 'supabase persist custom failed'));
+  }
+}
+function getCustomDefBackend(type) { return customNodesCache.find(n=>n.type===type); }
+async function runCustomBackend(data, cfg, def) {
+  const code = cfg.code || def.code;
+  if (!code) throw new Error(`custom node ${def.type} missing code`);
+  return await runSandboxed(code, data, cfg, { timeoutMs: 2000 });
+}
+loadCustomNodes();
+
 function topologicalSort(nodes, edges) {
   const adj = {}; const indeg = {};
   nodes.forEach(n => { adj[n.id]=[]; indeg[n.id]=0; });
@@ -344,7 +592,7 @@ async function executeWorkflowReal(nodes, edges, input) {
     if (blocked) { statusMap[id]='skipped'; outputs[id]={skipped:true, reason:blocked}; continue; }
     try {
       let result; const upstreamData = incoming.length ? outputs[incoming[incoming.length-1].source] : undefined;
-      const data = upstreamData!==undefined ? upstreamData : node.type==='start' ? input||{} : {};
+      const data = upstreamData!==undefined ? upstreamData : input||{};
       switch(node.type) {
         case 'start': result = input||{}; break;
         case 'api_call': result = await runApiCall(node.config, data); break;
@@ -362,7 +610,44 @@ async function executeWorkflowReal(nodes, edges, input) {
         case 'validator': { const r=node.config?.rules||node.config?.expression; if(r){ const fn=new AsyncFunction('data', `"use strict"; return await (${r})(data);`); result={valid:Boolean(await fn(data)), data}; } else result={valid:!!data && Object.keys(data||{}).length>0, data}; break; }
         case 'logger': result={level:node.config?.level||'info', message:node.config?.message||'', data, timestamp:new Date().toISOString()}; break;
         case 'file': { if(node.config?.operation==='write') enqueueJob('file', { path: node.config?.path||'output.json', data }); result={operation: node.config?.operation||'read', path: node.config?.path}; break; }
-        default: throw new Error(`unknown type ${node.type}`);
+        case 'schedule': result=await runSchedule(data, node.config); break;
+        case 'graphql': result=await runGraphQL(data, node.config); break;
+        case 'set': result=runSet(data, node.config); break;
+        case 'switch': { const sw=await runSwitch(data, node.config); result=sw; break; }
+        case 'aggregate': result=runAggregate(data, node.config); break;
+        case 'sort': result=runSort(data, node.config); break;
+        case 'limit': result=runLimit(data, node.config); break;
+        case 'item_lists': result=runItemLists(data, node.config); break;
+        case 'function': result=await runFunction(data, node.config); break;
+        case 'noop': result=runNoOp(data, node.config); break;
+        case 'webhook_response': result=await runWebhookResponse(data, node.config); break;
+        case 'html': result=await runHtml(data, node.config); break;
+        case 'date_time': result=runDateTime(data, node.config); break;
+        case 'slack': result=await runSlack(data, node.config); break;
+        case 'discord': result=await runDiscord(data, node.config); break;
+        case 'github': result=await runGithub(data, node.config); break;
+        case 'gmail': result=await runGmail(data, node.config); break;
+        case 'google_sheets': result=await runGoogleSheets(data, node.config); break;
+        case 'notion': result=await runNotion(data, node.config); break;
+        case 'airtable': result=await runAirtable(data, node.config); break;
+        case 'postgres': result=await runPostgres(data, node.config); break;
+        case 'mysql': result=await runMySQL(data, node.config); break;
+        case 'mongodb': result=await runMongoDB(data, node.config); break;
+        case 'redis': result=await runRedis(data, node.config); break;
+        case 'stripe': result=await runStripe(data, node.config); break;
+        case 'shopify': result=await runShopify(data, node.config); break;
+        case 'aws_s3': result=await runAwsS3(data, node.config); break;
+        case 'openai': result=await runOpenAI(data, node.config); break;
+        case 'manual_trigger': result=input||{}; break;
+        default: {
+          if (isCustomType(node.type)) {
+            const def = getCustomDefBackend(node.type);
+            if (!def) throw new Error(`custom node ${node.type} not found — create it via create_custom_node`);
+            result = await runCustomBackend(data, node.config, def);
+            break;
+          }
+          throw new Error(`unknown type ${node.type}`);
+        }
       }
       statusMap[id]='done'; outputs[id]=result;
     } catch(err) { hadError=true; statusMap[id]='fault'; outputs[id]={error: err.message, stack: String(err.stack||'').slice(0,800), nodeType: node.type}; }
@@ -374,7 +659,7 @@ async function executeWorkflowReal(nodes, edges, input) {
 app.post('/api/execute-tool', async (req, res) => {
   const { tool, input } = req.body;
   if (!tool || typeof tool !== 'string') return res.status(400).json({ success: false, error: 'tool required' });
-  const workflow = createDefaultWorkflow();
+  const workflow = createDefaultWorkflow(req.userId || 'dev-anon');
   metrics.toolCalls[tool] = (metrics.toolCalls[tool]||0)+1;
 
   try {
@@ -384,11 +669,12 @@ app.post('/api/execute-tool', async (req, res) => {
         const parsed = addNodeSchema.safeParse(input||{});
         if (!parsed.success) { const issues = (parsed.error.issues || parsed.error.errors || []); result = { success:false, error: issues.map(e=>e.message).join(', ') || parsed.error.message }; break; }
         const { type, label, config, position, x, y } = parsed.data;
+        if (workflow.nodes.length >= 100) { result={success:false, error:'quota exceeded: max 100 nodes per workflow'}; break; }
         const pos = position || (x!==undefined||y!==undefined ? { x: x??250, y: y??150 } : { x: 250, y: 150 });
         pushHistory(`add_node:${type}:${label}`, workflow);
         const node = { id: `node_${uuidv4().slice(0,8)}`, type, label, config: config||{}, position: pos, createdAt: new Date().toISOString() };
         workflow.nodes.push(node); workflow.updatedAt = new Date().toISOString();
-        nodeIndex.set(node.id, workflow.id); invalidateCache(workflow.id); persistWorkflows();
+        nodeIndex.set(node.id, workflow.id); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result = { success:true, node, nodeId: node.id, message:`Added ${type} node: ${label}` }; break;
       }
       case 'connect_nodes': {
@@ -402,7 +688,7 @@ app.post('/api/execute-tool', async (req, res) => {
         pushHistory(`connect:${src}->${tgt}`, workflow);
         const edge = { id:`edge_${uuidv4().slice(0,8)}`, source:src, target:tgt, label: parsed.data?.label||'', animated:true };
         workflow.edges.push(edge); workflow.updatedAt=new Date().toISOString();
-        edgeIndex.set(edge.id, workflow.id); invalidateCache(workflow.id); persistWorkflows();
+        edgeIndex.set(edge.id, workflow.id); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, edge, edgeId:edge.id, message:`Connected ${src} → ${tgt}`}; break;
       }
       case 'execute_workflow': {
@@ -438,7 +724,7 @@ app.post('/api/execute-tool', async (req, res) => {
         if (!node) { result={success:false, error:`Node not found: ${resolvedId}`}; break; }
         pushHistory(`update:${resolvedId}`, workflow);
         node.config={...node.config, ...parsed.data.config}; workflow.updatedAt=new Date().toISOString();
-        invalidateCache(workflow.id); persistWorkflows();
+        invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, node, message:`Updated config for ${node.label}`, appliedConfig: node.config}; break;
       }
       case 'get_workflow_status': {
@@ -451,10 +737,33 @@ app.post('/api/execute-tool', async (req, res) => {
       }
       case 'validate_workflow': {
         const errors=[]; const nodeIds=new Set(workflow.nodes.map(n=>n.id));
+        const customTypes = new Set(customNodesCache.map(c=>c.type));
         workflow.nodes.forEach(n=>{
           if(!n.label) errors.push(`Node ${n.id} missing label`);
+          if(!ALL_NODE_TYPES.includes(n.type) && !isCustomType(n.type)) errors.push(`Node "${n.label}" has unknown type ${n.type}`);
+          if(isCustomType(n.type) && !customTypes.has(n.type)) errors.push(`custom node "${n.label}" type ${n.type} not found — create via create_custom_node`);
           if(n.type==='api_call' && !n.config?.url) errors.push(`api_call "${n.label}" missing url`);
+          if(n.type==='graphql' && !n.config?.url && !n.config?.endpoint) errors.push(`graphql "${n.label}" missing url/endpoint`);
+          if(n.type==='webhook' && !n.config?.url) errors.push(`webhook "${n.label}" missing url`);
+          if(n.type==='transform' && n.config?.op==='pick' && !n.config?.keys) errors.push(`transform "${n.label}" op=pick requires keys`);
+          if(n.type==='transform' && n.config?.op==='expression' && !n.config?.expression) errors.push(`transform "${n.label}" op=expression requires expression`);
+          if(n.type==='condition' && !n.config?.expression && !n.config?.path) errors.push(`condition "${n.label}" requires expression or path`);
+          if(n.type==='filter' && !n.config?.expression) errors.push(`filter "${n.label}" missing expression`);
           if(n.type==='code' && !n.config?.code && !n.config?.expression) errors.push(`code "${n.label}" missing code`);
+          if(n.type==='function' && !n.config?.code && !n.config?.functionCode && !n.config?.expression) errors.push(`function "${n.label}" missing code`);
+          if(n.type==='delay' && n.config?.ms !== undefined && isNaN(Number(n.config.ms))) errors.push(`delay "${n.label}" ms must be number`);
+          if(n.type==='output' && n.config?.kind==='webhook' && !n.config?.url) errors.push(`output "${n.label}" webhook requires url`);
+          if(n.type==='set' && !n.config?.fields && !n.config?.set && !n.config?.values && Object.keys(n.config||{}).length===0) errors.push(`set "${n.label}" has no fields`);
+          if(n.type==='switch' && !n.config?.expression && !n.config?.rules && !n.config?.cases && n.config?.value===undefined) errors.push(`switch "${n.label}" requires expression or rules`);
+          if(n.type==='aggregate' && ['sum','avg'].includes(String(n.config?.operation||'')) && !n.config?.field && !n.config?.groupBy) errors.push(`aggregate "${n.label}" operation ${n.config?.operation} requires field`);
+          if(n.type==='html' && n.config?.operation==='extract' && !n.config?.selector && !n.config?.css) errors.push(`html "${n.label}" extract requires selector`);
+          if(n.type==='date_time' && n.config?.operation==='add' && n.config?.amount===undefined) errors.push(`date_time "${n.label}" add requires amount`);
+          if(n.type==='openai' && !n.config?.prompt && !n.config?.message) errors.push(`openai "${n.label}" missing prompt`);
+          if(n.type==='ai' && !n.config?.prompt) errors.push(`ai "${n.label}" missing prompt`);
+          // app nodes: warn if no url (simulated is ok, but info)
+          if(['slack','discord','github','gmail','google_sheets','notion','airtable','stripe','shopify','aws_s3'].includes(n.type) && !n.config?.url && !n.config?.webhookUrl && !n.config?.endpoint) {
+            // simulated is allowed, no error, but we could add info
+          }
         });
         workflow.edges.forEach(e=>{
           if(!nodeIds.has(e.source)) errors.push(`Edge ${e.id} missing source ${e.source}`);
@@ -462,7 +771,10 @@ app.post('/api/execute-tool', async (req, res) => {
         });
         const order=topologicalSort(workflow.nodes, workflow.edges);
         if(order.length!==workflow.nodes.length) errors.push('Circular dependency detected');
-        result={success:true, valid:errors.length===0 && workflow.nodes.length>0, errors}; break;
+        // Check for disconnected start
+        const hasStart = workflow.nodes.some(n=> n.type==='start' || n.type==='manual_trigger');
+        if (!hasStart) errors.push('Workflow should have a Start or Manual Trigger');
+        result={success:true, valid:errors.length===0 && workflow.nodes.length>0, errors, warnings: []}; break;
       }
       case 'delete_node': {
         const id = input?.nodeId || input?.label;
@@ -472,14 +784,14 @@ app.post('/api/execute-tool', async (req, res) => {
         const node=workflow.nodes.find(n=>n.id===resolved); if(!node) { result={success:false, error:`Node not found: ${resolved}`}; break; }
         pushHistory(`delete:${resolved}`, workflow);
         workflow.nodes=workflow.nodes.filter(n=>n.id!==resolved); workflow.edges=workflow.edges.filter(e=>e.source!==resolved&&e.target!==resolved);
-        nodeIndex.delete(resolved); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows();
+        nodeIndex.delete(resolved); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, message:`Deleted ${resolved}`, deletedId:resolved, undo:'call undo_last_action'}; break;
       }
       case 'clone_node': {
         const orig=workflow.nodes.find(n=>n.id===input?.nodeId); if(!orig) { result={success:false, error:`Node not found: ${input?.nodeId}`}; break; }
         pushHistory(`clone:${input.nodeId}`, workflow);
         const nid=`node_${uuidv4().slice(0,8)}`; const pos={ x:(orig.position?.x||0)+(input?.offsetX??120), y:(orig.position?.y||0)+(input?.offsetY??0) };
-        const clone={ ...JSON.parse(JSON.stringify(orig)), id:nid, position:pos, label:`${orig.label} (copy)` }; workflow.nodes.push(clone); nodeIndex.set(nid, workflow.id); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows();
+        const clone={ ...JSON.parse(JSON.stringify(orig)), id:nid, position:pos, label:`${orig.label} (copy)` }; workflow.nodes.push(clone); nodeIndex.set(nid, workflow.id); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, nodeId:nid, message:`Cloned ${input.nodeId} → ${nid}`}; break;
       }
       case 'get_node_connections': {
@@ -497,7 +809,7 @@ app.post('/api/execute-tool', async (req, res) => {
         if(!input?.name) { result={success:false, error:'name required'}; break; }
         const key=`wf_${input.name}`; const data=workflows.get(key); if(!data) { result={success:false, error:`No workflow "${input.name}"`}; break; }
         pushHistory(`load:${input.name}`, workflow);
-        workflow.nodes=JSON.parse(JSON.stringify(data.nodes)); workflow.edges=JSON.parse(JSON.stringify(data.edges)); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows();
+        workflow.nodes=JSON.parse(JSON.stringify(data.nodes)); workflow.edges=JSON.parse(JSON.stringify(data.edges)); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, message:`Loaded "${input.name}"`, nodeCount:data.nodes.length}; break;
       }
       case 'run_node': {
@@ -510,7 +822,7 @@ app.post('/api/execute-tool', async (req, res) => {
         if(!input?.nodeId|| input?.x===undefined|| input?.y===undefined) { result={success:false, error:'nodeId,x,y required'}; break; }
         const n=workflow.nodes.find(x=>x.id===input.nodeId); if(!n) { result={success:false, error:`Node not found: ${input.nodeId}`}; break; }
         pushHistory(`move:${input.nodeId}`, workflow);
-        n.position={x:Math.round(input.x), y:Math.round(input.y)}; workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows();
+        n.position={x:Math.round(input.x), y:Math.round(input.y)}; workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, message:`Moved ${input.nodeId} to (${n.position.x},${n.position.y})`, position:n.position}; break;
       }
       case 'get_workflow_history': {
@@ -531,7 +843,7 @@ app.post('/api/execute-tool', async (req, res) => {
         if(!input?.json) { result={success:false, error:'json required'}; break; }
         try { const data=JSON.parse(input.json); if(!data.nodes||!data.edges) { result={success:false, error:'Invalid workflow JSON'}; break; } pushHistory(`import:${input.merge?'merge':'replace'}`, workflow);
           if(input.merge){ workflow.nodes.push(...data.nodes); workflow.edges.push(...data.edges); data.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); data.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); } else { workflow.nodes=data.nodes; workflow.edges=data.edges; nodeIndex.clear(); edgeIndex.clear(); data.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); data.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); }
-          workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); result={success:true, message:`Imported ${data.nodes.length} nodes, ${data.edges.length} edges`};
+          workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{}); result={success:true, message:`Imported ${data.nodes.length} nodes, ${data.edges.length} edges`};
         } catch(e){ result={success:false, error:`Invalid JSON: ${e.message}`}; } break;
       }
       case 'find_nodes': {
@@ -568,43 +880,100 @@ app.post('/api/execute-tool', async (req, res) => {
       case 'undo_last_action': {
         if(mutationHistory.length===0) { result={success:false, error:'Nothing to undo'}; break; }
         const prev=mutationHistory.pop(); redoStack.push({ nodes: JSON.parse(JSON.stringify(workflow.nodes)), edges: JSON.parse(JSON.stringify(workflow.edges)), label:`redo:${prev.label}`, at:new Date().toISOString()});
-        workflow.nodes=prev.nodes; workflow.edges=prev.edges; workflow.updatedAt=new Date().toISOString(); nodeIndex.clear(); edgeIndex.clear(); workflow.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); workflow.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); invalidateCache(workflow.id); persistWorkflows();
+        workflow.nodes=prev.nodes; workflow.edges=prev.edges; workflow.updatedAt=new Date().toISOString(); nodeIndex.clear(); edgeIndex.clear(); workflow.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); workflow.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, restoredLabel:prev.label, at:prev.at, nodes:prev.nodes.length, edges:prev.edges.length}; break;
       }
       case 'redo_last_action': {
         if(redoStack.length===0) { result={success:false, error:'Nothing to redo'}; break; }
         const next=redoStack.pop(); mutationHistory.push({ nodes:JSON.parse(JSON.stringify(workflow.nodes)), edges:JSON.parse(JSON.stringify(workflow.edges)), label:`undo:${next.label}`, at:new Date().toISOString()});
-        workflow.nodes=next.nodes; workflow.edges=next.edges; workflow.updatedAt=new Date().toISOString(); nodeIndex.clear(); edgeIndex.clear(); workflow.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); workflow.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); invalidateCache(workflow.id); persistWorkflows();
+        workflow.nodes=next.nodes; workflow.edges=next.edges; workflow.updatedAt=new Date().toISOString(); nodeIndex.clear(); edgeIndex.clear(); workflow.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); workflow.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, restoredLabel:next.label, nodes:next.nodes.length, edges:next.edges.length}; break;
       }
       case 'get_undo_history': {
         result={success:true, undoCount:mutationHistory.length, redoCount:redoStack.length, history:mutationHistory.map(h=>({label:h.label,at:h.at,nodes:h.nodes.length,edges:h.edges.length})), redo:redoStack.map(h=>({label:h.label,at:h.at}))}; break;
+      }
+      case 'create_custom_node': {
+        const { type, displayName, description, color, icon, fields, code } = input;
+        if (!code) { result={success:false, error:'code required'}; break; }
+        try { validateCode(code); } catch(e){ result={success:false, error:e.message}; break; }
+        let t = String(type || displayName || 'custom_node').toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/__+/g,'_').replace(/^_+|_+$/g,'');
+        if (!t.startsWith('custom_')) t = `custom_${t}`;
+        if (t.length>32) t=t.slice(0,32);
+        if (ALL_NODE_TYPES.includes(t)) { result={success:false, error:`type ${t} conflicts with built-in`}; break; }
+        const userId = req.userId || 'dev-anon';
+        const userCustomCount = customNodesCache.filter(n=> !n.user_id || n.user_id===userId || (!isSupabaseEnabled() && n.user_id==='dev-anon')).length;
+        if (userCustomCount >= 20) { result={success:false, error:'quota exceeded: max 20 custom nodes per user'}; break; }
+        if (customNodesCache.find(n=>n.type===t && (n.user_id===userId || (!n.user_id && userId==='dev-anon')))) { result={success:false, error:`custom node ${t} already exists, use update_custom_node`}; break; }
+        const def = { type:t, user_id: userId, displayName: String(displayName||t.replace('custom_','').replace(/_/g,' ')).slice(0,40), description: String(description||'Custom node').slice(0,120), color: color||'#a8d8a8', icon: icon||'CodeIcon', fields: Array.isArray(fields)? fields.slice(0,12): [], code, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        customNodesCache.push(def); saveCustomNodes();
+        result={success:true, node:def, message:`Created custom node ${t}`}; break;
+      }
+      case 'list_custom_nodes': {
+        const userId = req.userId || 'dev-anon';
+        let nodes = customNodesCache;
+        if (isSupabaseEnabled() && userId !== 'dev-anon') {
+          nodes = nodes.filter(n=> !n.user_id || n.user_id === userId);
+        }
+        result={success:true, nodes, count: nodes.length}; break;
+      }
+      case 'delete_custom_node': {
+        const t = String(input.type||'').toLowerCase();
+        const userId = req.userId || 'dev-anon';
+        const idx = customNodesCache.findIndex(n=>n.type===t && (n.user_id===userId || (!n.user_id && userId==='dev-anon') || !isSupabaseEnabled()));
+        if (idx<0) { result={success:false, error:`not found ${t}`}; break; }
+        const removed = customNodesCache.splice(idx,1)[0]; saveCustomNodes();
+        result={success:true, deleted:removed.type}; break;
+      }
+      case 'update_custom_node': {
+        const t = String(input.type||'').toLowerCase();
+        const userId = req.userId || 'dev-anon';
+        const def = customNodesCache.find(n=>n.type===t && (n.user_id===userId || (!n.user_id && userId==='dev-anon') || !isSupabaseEnabled()));
+        if (!def) { result={success:false, error:`not found ${t}`}; break; }
+        if (input.code) {
+          try { validateCode(input.code); } catch(e){ result={success:false, error:e.message}; break; }
+          def.code = input.code;
+        }
+        if (input.displayName) def.displayName = String(input.displayName).slice(0,40);
+        if (input.description) def.description = String(input.description).slice(0,120);
+        if (input.color) def.color = input.color;
+        if (input.icon) def.icon = input.icon;
+        if (Array.isArray(input.fields)) def.fields = input.fields.slice(0,12);
+        def.updatedAt = new Date().toISOString();
+        saveCustomNodes();
+        result={success:true, node:def}; break;
       }
       default: result={success:false, error:`Unknown tool: ${tool}`};
     }
     res.json(result);
   } catch (err) {
     logger.error({ err: err.message, tool }, 'tool error');
+    if (Sentry) Sentry.captureException(err, { extra: { tool } });
     metrics.errors++;
+    recordMetric('tool_error', 1, { tool });
     res.status(500).json({ success:false, error: err.message });
   }
 });
 
 // ---- Other Routes (P1: clean queries) ----
 app.get('/api/workflow', (req, res) => {
-  const workflow = createDefaultWorkflow();
+  const workflow = createDefaultWorkflow(req.userId || 'dev-anon');
   const verbose = req.query.verbose === 'true';
   // P1: only send needed fields unless verbose
   const payload = verbose ? workflow : { id: workflow.id, nodeCount: workflow.nodes.length, edgeCount: workflow.edges.length, nodes: workflow.nodes.map(n=>({id:n.id,type:n.type,label:n.label,position:n.position})), edges: workflow.edges, updatedAt: workflow.updatedAt };
   res.json(payload);
 });
 app.get('/api/workflows', (req, res) => {
-  // P1: paginated, light payload
+  // P1: paginated, light payload - per-user if auth enabled
   const page = Math.max(1, parseInt(req.query.page)||1);
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit)||20));
-  const all = Array.from(workflows.values()).map(w=>({ id:w.id, name:w.name||w.id, nodeCount:w.nodes?.length||0, edgeCount:w.edges?.length||0, updatedAt:w.updatedAt }));
-  all.sort((a,b)=> new Date(b.updatedAt)-new Date(a.updatedAt));
-  const start=(page-1)*limit; res.json({ workflows: all.slice(start,start+limit), total: all.length, page, limit });
+  const userId = req.userId || 'dev-anon';
+  let all = Array.from(workflows.values());
+  if (isSupabaseEnabled() && userId !== 'dev-anon') {
+    all = all.filter(w=> w.userId === userId || w.user_id === userId || w.id === 'default' || w.id.startsWith(userId+':'));
+  }
+  const mapped = all.map(w=>({ id:w.id, name:w.name||w.id, nodeCount:w.nodes?.length||0, edgeCount:w.edges?.length||0, updatedAt:w.updatedAt }));
+  mapped.sort((a,b)=> new Date(b.updatedAt)-new Date(a.updatedAt));
+  const start=(page-1)*limit; res.json({ workflows: mapped.slice(start,start+limit), total: mapped.length, page, limit });
 });
 app.get('/api/health', (req, res) => {
   res.json({ status:'ok', tools: TOOL_DEFINITIONS.length, uptime: process.uptime(), workflows: workflows.size, cache: cache.getStats(), queue: { pending: backgroundQueue.length, ...queueMetrics } });
@@ -636,6 +1005,49 @@ app.get('/api/stats', (req,res)=>{
   res.json({ workflows: workflows.size, executions: execs.length, successRate: execs.length? Math.round(success/execs.length*100):0, avgDurationMs: execs.length? Math.round(execs.reduce((s,e)=>s+(e.durationMs||0),0)/execs.length):0, timestamp: new Date().toISOString() });
 });
 
+// Workflow versions (P2: history)
+app.get('/api/workflows/:id/versions', async (req,res)=>{
+  const workflowId = req.params.id;
+  const userId = req.userId || 'dev-anon';
+  try {
+    if (isSupabaseEnabled()) {
+      const sb = getClient();
+      const { data, error } = await sb.from('workflow_versions').select('id, workflow_id, created_at').eq('workflow_id', workflowId).eq('user_id', userId).order('created_at', {ascending:false}).limit(20);
+      if (error) throw error;
+      return res.json({ success:true, versions: data||[] });
+    } else {
+      const vFile = require('path').join(DATA_DIR, 'workflow_versions.json');
+      let arr = [];
+      if (require('fs').existsSync(vFile)) arr = JSON.parse(require('fs').readFileSync(vFile,'utf8'));
+      const filtered = arr.filter(v=> v.workflow_id===workflowId && (v.user_id===userId || v.user_id==='dev-anon')).slice(-20).reverse();
+      return res.json({ success:true, versions: filtered });
+    }
+  } catch (e) {
+    return res.status(500).json({ success:false, error:e.message });
+  }
+});
+app.get('/api/workflows/:id/versions/:versionId', async (req,res)=>{
+  const { id, versionId } = req.params;
+  const userId = req.userId || 'dev-anon';
+  try {
+    if (isSupabaseEnabled()) {
+      const sb = getClient();
+      const { data, error } = await sb.from('workflow_versions').select('*').eq('id', versionId).eq('workflow_id', id).single();
+      if (error || !data) return res.status(404).json({ success:false, error:'not found' });
+      return res.json({ success:true, version: data });
+    } else {
+      const vFile = require('path').join(DATA_DIR, 'workflow_versions.json');
+      let arr = [];
+      if (require('fs').existsSync(vFile)) arr = JSON.parse(require('fs').readFileSync(vFile,'utf8'));
+      const v = arr.find(x=> x.id===versionId && x.workflow_id===id);
+      if (!v) return res.status(404).json({ success:false, error:'not found' });
+      return res.json({ success:true, version: v });
+    }
+  } catch (e) {
+    return res.status(500).json({ success:false, error:e.message });
+  }
+});
+
 // Cache stats for debugging
 app.get('/api/cache/stats', (req,res)=> res.json(cache.getStats()));
 app.delete('/api/cache', (req,res)=> { cache.flushAll(); res.json({ success:true, message:'Cache cleared' }); });
@@ -647,9 +1059,56 @@ app.post('/api/queue/enqueue', (req,res)=>{
   const job=enqueueJob(type, payload||{}); res.json({success:true, job});
 });
 
+// Custom nodes REST (sync with frontend localStorage)
+app.get('/api/custom-nodes', (req,res)=> {
+  const userId = req.userId || 'dev-anon';
+  let nodes = customNodesCache;
+  if (isSupabaseEnabled() && userId !== 'dev-anon') {
+    nodes = nodes.filter(n=> !n.user_id || n.user_id === userId);
+  }
+  res.json({success:true, nodes, count: nodes.length});
+});
+app.post('/api/custom-nodes', (req,res)=>{
+  const { nodes, type, displayName, description, color, icon, fields, code } = req.body;
+  if (Array.isArray(nodes)) {
+    const userId = req.userId || 'dev-anon';
+    if (isSupabaseEnabled() && userId !== 'dev-anon') {
+      const other = customNodesCache.filter(n=> n.user_id && n.user_id !== userId);
+      const withUser = nodes.map(n=> ({...n, user_id: userId}));
+      customNodesCache = [...other, ...withUser];
+    } else {
+      customNodesCache = nodes;
+    }
+    saveCustomNodes();
+    return res.json({success:true, count: customNodesCache.length, nodes: customNodesCache});
+  }
+  if (code) {
+    let t = String(type || displayName || 'custom_node').toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/__+/g,'_').replace(/^_+|_+$/g,'');
+    if (!t.startsWith('custom_')) t = `custom_${t}`;
+    if (t.length>32) t=t.slice(0,32);
+    if (ALL_NODE_TYPES.includes(t)) return res.status(400).json({success:false, error:`type ${t} conflicts with built-in`});
+    const userId = req.userId || 'dev-anon';
+    if (customNodesCache.find(n=>n.type===t && (n.user_id===userId || (!n.user_id && userId==='dev-anon')))) return res.status(400).json({success:false, error:`custom node ${t} already exists`});
+    try { validateCode(code); } catch(e){ return res.status(400).json({success:false, error:e.message}); }
+    const def = { type:t, user_id: userId, displayName: String(displayName||t.replace('custom_','').replace(/_/g,' ')).slice(0,40), description: String(description||'Custom node').slice(0,120), color: color||'#a8d8a8', icon: icon||'CodeIcon', fields: Array.isArray(fields)? fields.slice(0,12): [], code, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    customNodesCache.push(def); saveCustomNodes();
+    return res.json({success:true, node:def});
+  }
+  res.status(400).json({success:false, error:'nodes array or code required'});
+});
+app.delete('/api/custom-nodes/:type', (req,res)=>{
+  const t = String(req.params.type||'').toLowerCase();
+  const userId = req.userId || 'dev-anon';
+  const idx = customNodesCache.findIndex(n=> n.type===t && (n.user_id===userId || (!n.user_id && userId==='dev-anon') || !isSupabaseEnabled()));
+  if (idx<0) return res.status(404).json({success:false, error:`not found ${t}`});
+  const removed = customNodesCache.splice(idx,1)[0]; saveCustomNodes();
+  res.json({success:true, deleted:removed.type});
+});
+
 // Error handler
 app.use((err, req, res, next) => {
   logger.error({ err: err.message, stack: err.stack }, 'unhandled error');
+  if (Sentry) Sentry.captureException(err);
   res.status(500).json({ success:false, error: 'Internal server error' });
 });
 

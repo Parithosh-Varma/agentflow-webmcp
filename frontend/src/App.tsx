@@ -17,8 +17,6 @@ import {
 import '@xyflow/react/dist/style.css';
 import { registerWebMCPTools } from './webmcp';
 import { Sidebar } from './components/Sidebar';
-import { ExecutionPanel } from './components/ExecutionPanel';
-import { ToolLog } from './components/ToolLog';
 import { NodePopover } from './components/NodePopover';
 import { WorkflowManager } from './components/WorkflowManager';
 import { nodeTypes } from './components/nodes';
@@ -127,7 +125,7 @@ const WEBMCP_TOOLS_27: Array<{ name: string; desc: string; group: 'core' | 'adva
   { name: 'redo_last_action', desc: 'Redo', group: 'advanced' },
   { name: 'get_undo_history', desc: 'Mutation history', group: 'advanced' },
 ];
-const WEBMCP_TOOLS_19 = WEBMCP_TOOLS_27; // compat alias
+const WEBMCP_TOOLS_19 = WEBMCP_TOOLS_27; void WEBMCP_TOOLS_27; void WEBMCP_TOOLS_19; // kept for docs, formerly shown in right drawer
 
 const CANVAS_TOUR_STEPS = [
   { id: 'canvas-intro', target: 'canvas-root', title: 'Your canvas', body: 'Drag nodes here to build a flow.' },
@@ -291,42 +289,6 @@ function useCtaKeyframes() {
   }, []);
 }
 
-function AvailableToolsDrawer({ hasWebMCP }: { hasWebMCP: boolean }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="available-tools">
-      <button className="available-tools-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        <span className="available-tools-title">Available Tools (27)</span>
-        <span className={`available-tools-badge ${hasWebMCP ? 'ready' : 'needs'}`}>{hasWebMCP ? '● ready' : '○ needs enable'}</span>
-        <span className="available-tools-caret">{open ? '▾' : '▸'}</span>
-      </button>
-      {open && (
-        <div className="available-tools-body">
-          <div className="available-tools-hint">Exposed via <code>document.modelContext.registerTool()</code> — agent calls these, you see ToolLog live. 8 new tools (find_nodes, get_execution_details, probe_api, undo…) fix the 10 reported limitations.</div>
-          <div className="available-tools-group">
-            <div className="available-tools-group-title">8 core</div>
-            {WEBMCP_TOOLS_19.filter((t) => t.group === 'core').map((t) => (
-              <div key={t.name} className="available-tool-row">
-                <code className="available-tool-name">{t.name}</code>
-                <span className="available-tool-desc">{t.desc}</span>
-              </div>
-            ))}
-          </div>
-          <div className="available-tools-group">
-            <div className="available-tools-group-title">19 advanced (11+8 new)</div>
-            {WEBMCP_TOOLS_19.filter((t) => t.group === 'advanced').map((t) => (
-              <div key={t.name} className="available-tool-row">
-                <code className="available-tool-name">{t.name}</code>
-                <span className="available-tool-desc">{t.desc}</span>
-              </div>
-            ))}
-          </div>
-          <div className="available-tools-foot">See <code>webmcp.ts:22 registerTool</code> + <code>engine.ts:42 async runners</code> for execution. New tools: find_nodes, get_canvas_snapshot, probe_api, undo/redo.</div>
-        </div>
-      )}
-    </div>
-  );
-}
 import './App.css';
 import './components/Sidebar.css';
 
@@ -376,12 +338,10 @@ function CanvasPage() {
   const SIDEBAR_MIN = 220;
   const SIDEBAR_MAX = 520;
   const SIDEBAR_DEFAULT = 276;
-  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [snapEnabled, setSnapEnabled] = useState(false);
   const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
   const [currentWorkflowName, setCurrentWorkflowName] = useState('Untitled');
   const [helpOpen, setHelpOpen] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
   const onboarding = useOnboarding();
   const [showTour, setShowTour] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -529,7 +489,6 @@ function CanvasPage() {
       };
       setNodes((nds: Node[]) => [...nds, newNode]);
       setSelectedId(newNode.id);
-      setRightPanelOpen(true);
       addToolLog('add_node', { type, via: 'drag' }, { success: true, nodeId: newNode.id }, 'you');
     } catch {
       // ignore malformed payload
@@ -624,12 +583,7 @@ function CanvasPage() {
         : 'complete'
       : 'idle';
 
-  useEffect(() => {
-    if (runState === 'complete' || runState === 'fault') {
-      const timer = setTimeout(() => setRightPanelOpen(false), 800);
-      return () => clearTimeout(timer);
-    }
-  }, [runState]);
+
 
   // Build replay data when execution completes
   useEffect(() => {
@@ -758,44 +712,6 @@ function CanvasPage() {
     setHelpOpen(false);
     setShowTour(true);
   }, [onboarding]);
-
-  const handleShareWorkflow = useCallback(async () => {
-    const data = { nodes: nodesRef.current, edges: edgesRef.current, version: 1, sharedAt: new Date().toISOString() };
-    const json = JSON.stringify(data);
-    // encode safely for btoa (json is ascii-only in practice)
-    const b64 = btoa(json);
-    const url = `${window.location.origin}${window.location.pathname}?workflow=${encodeURIComponent(b64)}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 1800);
-      addToolLog('export_workflow', { via: 'share' }, { success: true, url, byteLength: json.length }, 'you');
-    } catch {
-      window.prompt('Share this workflow URL:', url);
-    }
-    try {
-      const u = new URL(window.location.href);
-      u.searchParams.set('workflow', b64);
-      window.history.replaceState({}, '', u.toString());
-    } catch {}
-  }, [addToolLog]);
-
-  const handleShareJudgeDemo = useCallback(async () => {
-    const url = `${window.location.origin}${window.location.pathname}?workflow=judge-demo`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 1800);
-      addToolLog('export_workflow', { via: 'share-judge' }, { success: true, url }, 'you');
-    } catch {
-      window.prompt('Share Judge Demo URL:', url);
-    }
-    try {
-      const u = new URL(window.location.href);
-      u.searchParams.set('workflow', 'judge-demo');
-      window.history.replaceState({}, '', u.toString());
-    } catch {}
-  }, [addToolLog]);
 
   // WebMCP pill — persistent agent-ready indicator
   const [hasWebMCP, setHasWebMCP] = useState(false);
@@ -933,7 +849,7 @@ function CanvasPage() {
 
       <CollaborationBar recentLogs={recentCollabEvents} />
 
-      <div className={`main ${sidebarOpen ? '' : 'sidebar-closed'} ${rightPanelOpen ? '' : 'right-closed'} ${isResizing ? 'resizing' : ''}`}>
+      <div className={`main ${sidebarOpen ? '' : 'sidebar-closed'} ${isResizing ? 'resizing' : ''}`}>
         <div
           className={`sidebar-wrap ${sidebarOpen ? 'sidebar-wrap--open' : 'sidebar-wrap--closed'} ${isResizing ? 'resizing' : ''}`}
           aria-hidden={!sidebarOpen}
@@ -1066,7 +982,6 @@ function CanvasPage() {
                 inspectNode(node.id, null); // Will find latest event
               } else {
                 setSelectedId(node.id);
-                setRightPanelOpen(true);
               }
             }}
             onPaneClick={() => {
@@ -1126,46 +1041,7 @@ function CanvasPage() {
           )}
         </div>
 
-        <div className={`right-panel ${rightPanelOpen ? '' : 'collapsed'}`} data-tour="run">
-          <button
-            className="right-panel-toggle"
-            onClick={() => setRightPanelOpen((v) => !v)}
-            title={rightPanelOpen ? 'Hide panel' : 'Show panel'}
-          >
-            {rightPanelOpen ? '▶' : '◀'}
-          </button>
-          
-          {rightPanelOpen && (
-            <>
-              <ExecutionPanel
-                executionResult={executionResult}
-                isExecuting={isExecuting}
-                nodes={nodes}
-                edges={edges}
-                addToolLog={addToolLog}
-                setExecutionResult={setExecutionResult}
-                setIsExecuting={setIsExecuting}
-                setLiveStatus={setLiveStatus}
-              />
-              <div className="share-row">
-                <button className="btn-ghost btn-small" onClick={handleShareWorkflow} title="Copy shareable URL with current workflow encoded (?workflow=...)">
-                  {shareCopied ? '✓ Copied link' : '↗ Share workflow URL'}
-                </button>
-                <button className="btn-ghost btn-small" onClick={handleShareJudgeDemo} title="Copy Judge Demo link (?workflow=judge-demo)">
-                  ★ Judge link
-                </button>
-              </div>
-              <AvailableToolsDrawer hasWebMCP={hasWebMCP} />
-              <div className="tool-log-highlight">
-                <span className="actor-tag you">YOU</span> <span style={{ color: 'var(--faint)' }}>vs</span> <span className="actor-tag agent">AGENT</span>
-                <span className="tool-log-highlight-desc">— every tool call streams here live with actor tags</span>
-              </div>
-              <ToolLog logs={toolLogs} />
-            </>
-          )}
-        </div>
-
-        {selectedId && rightPanelOpen && (
+        {selectedId && (
           <NodePopover
             node={nodes.find((n) => n.id === selectedId) || null}
             onChange={applyConfig}
@@ -1228,3 +1104,84 @@ export default function App() {
     </Routes>
   );
 }
+
+// Analytics Dashboard
+const AnalyticsDashboard = () => {
+  const { user } = useAuth();
+  const [metrics, setMetrics] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const token = localStorage.getItem('agentflow_access_token');
+        if (!token) return;
+        const res = await fetch('https://agentflow.parithosh.workers.dev/api/stats', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setMetrics([
+            { name: 'Workflows', value: data.workflows || 0 },
+            { name: 'Executions', value: data.executions || 0 },
+            { name: 'Success Rate', value: (data.successRate || 0) + '%' },
+            { name: 'Unique Users', value: data.uniqueWorkflowUsers || 0 },
+          ]);
+        }
+      } catch (e) {}
+      setLoading(false);
+    };
+    fetchMetrics();
+  }, [user]);
+
+  if (loading) return null;
+  return (
+    <div style={{ padding: '1rem', background: 'var(--panel)', borderRadius: 8, margin: '1rem 0' }}>
+      <h4>Analytics</h4>
+      {metrics.map((m, i) => (
+        <div key={i} style={{ marginBottom: '0.5rem' }}>
+          <span>{m.name}: </span>
+          <span>{m.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Version History Panel
+const VersionHistoryPanel = () => {
+  const { id: workflowId } = useParams();
+  const [versions, setVersions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!workflowId) return;
+    const fetchVersions = async () => {
+      try {
+        const token = localStorage.getItem('agentflow_access_token');
+        if (!token) return;
+        const res = await fetch(`https://agentflow.parithosh.workers.dev/api/workflows/${workflowId}/versions`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) setVersions(data.versions || []);
+      } catch (e) {}
+      setLoading(false);
+    };
+    fetchVersions();
+  }, [workflowId]);
+
+  if (loading) return <span>Loading versions...</span>;
+  return (
+    <div style={{ padding: '1rem', background: 'var(--panel)', borderRadius: 8, margin: '1rem 0' }}>
+      <h4>Version History ({versions.length})</h4>
+      {versions.map((v: any, i) => (
+        <div key={i} style={{ marginBottom: '0.5rem', fontSize: 12 }}>
+          <span>{v.created_at?.split(' ')[0] || 'unknown'}</span>
+          <button style={{ marginLeft: '0.5rem', cursor: 'pointer' }}>Restore</button>
+        </div>
+      ))}
+      {versions.length === 0 && <p>No versions yet.</p>}
+    </div>
+  );
+};

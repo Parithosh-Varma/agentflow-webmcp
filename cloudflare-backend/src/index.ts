@@ -207,6 +207,14 @@ export default {
         cacheDel(`wfs:${userId}:`);
         return logDone(res);
       }
+      if (path.match(/^\/api\/workflows\/[^/]+\/versions$/) && request.method === 'GET') {
+        const workflowId = path.split('/')[3];
+        return logDone(await listWorkflowVersions(workflowId, userId!, env, headers));
+      }
+      if (path.match(/^\/api\/workflows\/[^/]+\/versions\/[^/]+$/) && request.method === 'GET') {
+        const parts = path.split('/'); const workflowId = parts[3]; const versionId = parts[5];
+        return logDone(await getWorkflowVersion(workflowId, versionId, userId!, env, headers));
+      }
 
       // Execution routes
       if (path === '/api/execute' && request.method === 'POST') {
@@ -227,6 +235,32 @@ export default {
         const parsed = workflowSchema.safeParse(body);
         if (!parsed.success) { const issues=(parsed.error as any).issues || (parsed.error as any).errors || []; return logDone(new Response(JSON.stringify({ error: issues.map((e:any)=>e.message).join(', ') || (parsed.error as any).message }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } })); }
         return logDone(await createTemplate(request, userId!, env, headers, parsed.data));
+      }
+
+      // Custom nodes — D1 prod
+      if (path === '/api/custom-nodes' && request.method === 'GET') {
+        return logDone(await listCustomNodes(userId!, env, headers));
+      }
+      if (path === '/api/custom-nodes' && request.method === 'POST') {
+        const body = await request.json().catch(()=> ({} as any));
+        // bulk sync: { nodes: [...] } or single { type, displayName, ... }
+        if (Array.isArray(body.nodes)) {
+          return logDone(await bulkSyncCustomNodes(userId!, env, headers, body.nodes));
+        }
+        return logDone(await createCustomNode(userId!, env, headers, body));
+      }
+      if (path.match(/^\/api\/custom-nodes\/[^/]+$/) && request.method === 'PUT') {
+        const type = decodeURIComponent(path.split('/').pop()!);
+        const body = await request.json().catch(()=> ({} as any));
+        return logDone(await updateCustomNode(type, userId!, env, headers, body));
+      }
+      if (path.match(/^\/api\/custom-nodes\/[^/]+$/) && request.method === 'DELETE') {
+        const type = decodeURIComponent(path.split('/').pop()!);
+        return logDone(await deleteCustomNode(type, userId!, env, headers));
+      }
+      if (path === '/api/custom-nodes' && request.method === 'DELETE') {
+        // bulk delete via query? not needed
+        return logDone(new Response(JSON.stringify({ error: 'Use DELETE /api/custom-nodes/:type' }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } }));
       }
 
       if (path === '/' || path === '') {
@@ -365,6 +399,9 @@ async function getWorkflows(userId: string, env: Env, headers: Record<string, st
 }
 async function createWorkflow(request: Request, userId: string, env: Env, headers: Record<string, string>, data: any): Promise<Response> {
   const { name, description, nodes, edges } = data;
+  if ((nodes||[]).length > 100) return new Response(JSON.stringify({ error: 'quota exceeded: max 100 nodes per workflow' }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } });
+  const cnt = await env.DB.prepare('SELECT COUNT(*) as c FROM workflows WHERE user_id = ?').bind(userId).first<{c:number}>();
+  if ((cnt?.c||0) >= 50) return new Response(JSON.stringify({ error: 'quota exceeded: max 50 workflows per user' }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } });
   const id = crypto.randomUUID();
   await env.DB.prepare('INSERT INTO workflows (id, user_id, name, description, nodes, edges) VALUES (?, ?, ?, ?, ?, ?)').bind(id, userId, name, description || '', JSON.stringify(nodes || []), JSON.stringify(edges || [])).run();
   return new Response(JSON.stringify({ id, name, message: 'Workflow created' }), { headers: { ...headers, 'Content-Type': 'application/json' } });
@@ -378,7 +415,11 @@ async function getWorkflow(id: string, userId: string, env: Env, headers: Record
 }
 async function updateWorkflow(request: Request, id: string, userId: string, env: Env, headers: Record<string, string>, data: any): Promise<Response> {
   const { name, description, nodes, edges } = data;
+  if ((nodes||[]).length > 100) return new Response(JSON.stringify({ error: 'quota exceeded: max 100 nodes per workflow' }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } });
   await env.DB.prepare('UPDATE workflows SET name = ?, description = ?, nodes = ?, edges = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?').bind(name, description || '', JSON.stringify(nodes || []), JSON.stringify(edges || []), id, userId).run();
+  try { await env.DB.prepare('INSERT INTO workflow_versions (id, workflow_id, user_id, nodes, edges) VALUES (?, ?, ?, ?, ?)').bind(crypto.randomUUID(), id, userId, JSON.stringify(nodes||[]), JSON.stringify(edges||[])).run(); } catch {}
+  // prune old versions keep 20
+  try { const rows = await env.DB.prepare('SELECT id FROM workflow_versions WHERE workflow_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT -1 OFFSET 20').bind(id, userId).all(); if (rows.results && rows.results.length) { const ids = (rows.results as any[]).map(r=>r.id); for (const delId of ids) await env.DB.prepare('DELETE FROM workflow_versions WHERE id = ?').bind(delId).run(); } } catch {}
   return new Response(JSON.stringify({ message: 'Workflow updated' }), { headers: { ...headers, 'Content-Type': 'application/json' } });
 }
 async function deleteWorkflow(id: string, userId: string, env: Env, headers: Record<string, string>): Promise<Response> {
@@ -387,21 +428,114 @@ async function deleteWorkflow(id: string, userId: string, env: Env, headers: Rec
 }
 async function executeWorkflow(request: Request, userId: string, env: Env, headers: Record<string, string>): Promise<Response> {
   const { workflowId, input } = await request.json() as any;
-  // P1: only fetch nodes/edges needed
+  if (!workflowId) return new Response(JSON.stringify({ error: 'workflowId required' }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } });
   const workflow = await env.DB.prepare('SELECT nodes, edges FROM workflows WHERE id = ? AND user_id = ?').bind(workflowId, userId).first<{nodes:string, edges:string}>();
-  if (!workflow) {
-    return new Response(JSON.stringify({ error: 'Workflow not found' }), { status: 404, headers: { ...headers, 'Content-Type': 'application/json' } });
+  if (!workflow) return new Response(JSON.stringify({ error: 'Workflow not found' }), { status: 404, headers: { ...headers, 'Content-Type':'application/json' } });
+  const nodes = JSON.parse(workflow.nodes as any) as any[];
+  const edges = JSON.parse(workflow.edges as any) as any[];
+  // Load custom nodes for user
+  const customRes = await env.DB.prepare('SELECT type, code, fields FROM custom_nodes WHERE user_id = ?').bind(userId).all();
+  const customMap = new Map<string, any>();
+  for (const r of (customRes.results || [])) {
+    try { customMap.set(r.type, { type: r.type, code: r.code, fields: JSON.parse(r.fields||'[]') }); } catch {}
   }
-  const startTime = Date.now();
-  const nodes = JSON.parse(workflow.nodes as any);
-  const edges = JSON.parse(workflow.edges as any);
-  const result = { success: true, output: { message: 'Workflow executed', nodes: nodes.length } };
-  const durationMs = Date.now() - startTime;
+  const t0 = Date.now();
+  // --- helpers (mirrors backend/index.js engine) ---
+  const sleep = (ms:number)=> new Promise(r=>setTimeout(r, Math.max(0, ms)));
+  const getPath = (obj:any, p:string)=> p.split('.').filter(Boolean).reduce((o,k)=> o==null?undefined:o[k], obj);
+  const parseMaybeJson = (t:string)=> { try{ return JSON.parse(t); }catch{ return t; } };
+  const AsyncFunction: any = Object.getPrototypeOf(async function(){}).constructor;
+  const BLOCKED = [/require\s*\(/, /process\./, /child_process/, /fs\./, /eval\s*\(/, /Function\s*\(/, /while\s*\(\s*true\s*\)/, /for\s*\(\s*;\s*;\s*\)/];
+  const validateCode = (c:string)=> { if(c.length>10000) throw new Error('code too large'); for(const pat of BLOCKED) if(pat.test(c)) throw new Error(`blocked ${pat}`); };
+  async function runCustom(data:any, cfg:any, def:any){
+    const code = cfg.code || def.code;
+    if(!code) throw new Error(`custom ${def.type} missing code`);
+    validateCode(code);
+    // In Workers, new Function is blocked, so we simulate execution by returning code + data
+    // For real execution, the frontend's engine will handle it client-side
+    // Here we just return a simulated result that shows the code would run
+    return { simulated: true, note: `custom ${def.type} executed in Worker (simulated)`, code: code.slice(0,200), data, config: cfg };
+  }
+  // topological order
+  const adj: Record<string,string[]> = {}; const indeg: Record<string,number> = {};
+  nodes.forEach((n:any)=>{ adj[n.id]=[]; indeg[n.id]=0; });
+  edges.forEach((e:any)=>{ if(adj[e.source]!==undefined && indeg[e.target]!==undefined){ adj[e.source].push(e.target); indeg[e.target]++; } });
+  const q = nodes.filter((n:any)=> indeg[n.id]===0).map((n:any)=>n.id);
+  const order: string[] = [];
+  while(q.length){ const cur=q.shift()!; order.push(cur); for(const nb of adj[cur]){ indeg[nb]--; if(indeg[nb]===0) q.push(nb); } }
+  nodes.forEach((n:any)=>{ if(!order.includes(n.id)) order.push(n.id); });
+  const byId = new Map(nodes.map((n:any)=>[n.id,n]));
+  const status: Record<string,string> = {}; const outputs: Record<string,any> = {};
+  let lastCondition: boolean|null = null; let hadError=false;
+  for(const id of order){
+    const node = byId.get(id) as any; if(!node) continue;
+    const incoming = edges.filter((e:any)=>e.target===id);
+    let blocked: string|null=null;
+    for(const e of incoming){
+      if(hadError && status[e.source]==='fault'){ blocked=`upstream ${e.source} faulted`; break; }
+      if(status[e.source]==='skipped'){ blocked=`upstream ${e.source} skipped`; break; }
+      const lbl = String(e.label||'').trim().toLowerCase();
+      if((lbl==='true'||lbl==='false') && lastCondition!==null){ if((lbl==='true')!==lastCondition){ blocked=`branch ${lastCondition} vs ${lbl}`; break; } }
+    }
+    if(blocked){ status[id]='skipped'; outputs[id]={skipped:true, reason:blocked}; continue; }
+    try{
+      let result:any; const upstreamData = incoming.length ? outputs[incoming[incoming.length-1].source] : undefined;
+      const data = upstreamData!==undefined ? upstreamData : (node.type==='start'||node.type==='manual_trigger' ? (input||{}) : (input||{}));
+      const cfg = node.config||{};
+      const t = node.type;
+      if(t==='start'||t==='manual_trigger') result = input||{};
+      else if(t==='api_call'){
+        const url=cfg.url; if(!url) throw new Error('no URL'); const method=String(cfg.method||'GET').toUpperCase(); const headers2={...(cfg.headers||{})}; let body:any; if(method!=='GET'&&method!=='HEAD'){ const raw=cfg.body ?? input; if(raw!==undefined&&raw!==null&&raw!==''){ body=typeof raw==='string'?raw:JSON.stringify(raw); if(!headers2['Content-Type']) headers2['Content-Type']='application/json'; } }
+        const res=await fetch(url,{method, headers:headers2, body, signal: AbortSignal.timeout(8000)}); const text=await res.text(); const parsed=parseMaybeJson(text); if(!res.ok) throw new Error(`HTTP ${res.status}`); result=parsed;
+      } else if(t==='transform'){
+        const op=cfg.op||'passthrough';
+        if(op==='pick'){ const keys=String(cfg.keys||'').split(',').map((k:string)=>k.trim()).filter(Boolean); const out:any={}; for(const k of keys) out[k]=getPath(data,k); result=out; }
+        else if(op==='count') result= Array.isArray(data)?{count:data.length}:{count:Object.keys(data||{}).length};
+        else if(op==='first') result= Array.isArray(data)?data[0]:data;
+        else if(op==='expression'){ if(!cfg.expression) throw new Error('no expression'); try { const fn=new AsyncFunction('data', `"use strict"; return (${String(cfg.expression).trim()})(data);`); result=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) result={ simulated:true, expression: cfg.expression, data }; else throw e; } }
+        else result=data;
+      } else if(t==='condition'){ let passed:boolean; if(cfg.expression){ try { const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`); passed=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) passed=true; else throw e; } } else { passed = cfg.path ? getPath(data,cfg.path)=== (cfg.equals===undefined?true:cfg.equals) : true; } lastCondition=passed; result={passed, checked: node.label}; }
+      else if(t==='delay'){ await sleep(Number(cfg.ms||1000)); result={waitedMs:Number(cfg.ms||1000)}; }
+      else if(t==='output'){ result={delivered:'console', data}; }
+      else if(t==='filter'){ if(!cfg.expression) throw new Error('filter requires expression'); let pass:boolean; try { const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`); pass=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) pass=true; else throw e; } result={passed:pass, data}; }
+      else if(t==='split'){ if(Array.isArray(data)){ const bs=Number(cfg.batchSize||1); const batches=[]; for(let i=0;i<data.length;i+=bs) batches.push(data.slice(i,i+bs)); result={batches, count:batches.length}; } else if(typeof data==='object'&&data!==null){ const ks=Object.keys(data); result={items:ks.map(k=>({key:k,value:data[k]})), count:ks.length}; } else result={items:[data],count:1}; }
+      else if(t==='merge'){ if(Array.isArray(data)) result=data.reduce((a:any,it:any)=> Array.isArray(it)?a.concat(it): (typeof it==='object'&&it!==null?{...a,...it}:a),{}); else result=data; }
+      else if(t==='loop'){ const items=Array.isArray(data)?data:data?.items||data?.batches||[data]; const max=Number(cfg.maxIterations||10); const res=[]; for(let i=0;i<Math.min(items.length,max);i++) res.push({index:i,value:items[i]}); result={iterations:res,total:items.length}; }
+      else if(t==='code'){ const code=cfg.code||cfg.expression; if(!code) throw new Error('code requires code'); validateCode(code); try { const fn=new AsyncFunction('data', `"use strict"; ${code}`); result=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) result={ simulated:true, code: code.slice(0,200), data }; else throw e; } }
+      else if(t==='webhook'){ const url=cfg.url; if(!url) throw new Error('webhook requires URL'); const method=String(cfg.method||'POST').toUpperCase(); const h={'Content-Type':'application/json',...(cfg.headers||{})}; const res=await fetch(url,{method, headers:h, body:JSON.stringify(data), signal: AbortSignal.timeout(8000)}); const txt=await res.text(); const parsed=parseMaybeJson(txt); if(!res.ok) throw new Error(`webhook ${res.status}`); result={status:res.status, data:parsed}; }
+      else if(t==='ai'){ const prompt=cfg.prompt||'Summarize'; const apiKey=cfg.apiKey; if(!apiKey) result={prompt, response:`[AI simulated] ${prompt}`}; else { const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${apiKey}`}, body: JSON.stringify({model:cfg.model||'gpt-3.5-turbo', messages:[{role:'user', content:`${prompt}\n\n${JSON.stringify(data,null,2)}`}]}), signal: AbortSignal.timeout(10000)}); if(!res.ok) throw new Error(`AI ${res.status}`); const j:any=await res.json(); result={response:j.choices?.[0]?.message?.content||''}; } }
+      else if(t==='validator'){ const r=cfg.rules||cfg.expression; if(r){ let v:boolean; try { const fn=new AsyncFunction('data', `"use strict"; return await (${r})(data);`); v=Boolean(await fn(data)); } catch(e:any){ if(String(e.message).includes('Code generation')) v=true; else throw e; } result={valid:v, data}; } else result={valid:!!data, data}; }
+      else if(t==='logger'){ result={level:cfg.level||'info', message:cfg.message||'', data, timestamp:new Date().toISOString()}; }
+      else if(t==='file'){ result={operation:cfg.operation||'read', path:cfg.path||'output.json'}; }
+      else if(t==='schedule'){ const intervalMs=cfg.intervalMs||cfg.ms||0; if(intervalMs) await sleep(Number(intervalMs)); result={scheduled:true, cron:cfg.cron||'*/5 * * * *'}; }
+      else if(t==='graphql'){ const url=cfg.url||cfg.endpoint; if(!url) throw new Error('GraphQL requires url'); const res=await fetch(url,{method:'POST', headers:{'Content-Type':'application/json',...(cfg.headers||{})}, body: JSON.stringify({query:cfg.query||'{ __typename }', variables: typeof cfg.variables==='string'?JSON.parse(cfg.variables):cfg.variables||{}}), signal: AbortSignal.timeout(8000)}); const txt=await res.text(); const parsed=parseMaybeJson(txt); if(!res.ok) throw new Error(`GraphQL ${res.status}`); result=parsed; }
+      else if(t==='set'){ const keepOnly=cfg.keepOnlySet||cfg.keepOnly||false; const fields=cfg.fields||cfg.set||cfg.values||{}; let parsedFields:any={}; if(typeof fields==='string') try{parsedFields=JSON.parse(fields);}catch{parsedFields={}} else if(typeof fields==='object') parsedFields=fields; if(Object.keys(parsedFields).length===0){ const reserved=new Set(['keepOnlySet','keepOnly','fields','set','values']); for(const [k,v] of Object.entries(cfg)) if(!reserved.has(k)) parsedFields[k]=v; } const base= keepOnly?{}: (typeof data==='object'&&data!==null?{...data}:{}); for(const [k,v] of Object.entries(parsedFields)){ if(typeof v==='string'&& (v as string).includes('{{')) (base as any)[k]=(v as string).replace(/\{\{\s*\$json\.([\w.]+)\s*\}\}/g, (_m,p)=>String(getPath(data,p)??'')); else (base as any)[k]=v; } result=base; }
+      else if(t==='switch'){ const rules=cfg.rules||cfg.cases||[]; const expr=cfg.expression||cfg.code; let matched='default'; if(expr){ try { const fn=new AsyncFunction('data', `"use strict"; return await (${expr})(data);`); matched=String(await fn(data)); } catch(e:any){ if(String(e.message).includes('Code generation')) matched='default'; else throw e; } } else if(Array.isArray(rules)&&rules.length){ for(const rule of rules){ const ex=rule.expression||rule.condition; if(ex){ try { const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${ex})(data));`); if(await fn(data)){ matched=rule.value||rule.case||'true'; break; } } catch(e:any){ if(String(e.message).includes('Code generation')) { matched=rule.value||'true'; break; } else throw e; } } } } else if(cfg.value!==undefined) matched=String(cfg.value); result={case:matched, data, matchedCase:matched}; }
+      else if(t==='aggregate'){ const field=cfg.field||cfg.groupBy||''; const op=cfg.operation||cfg.aggregate||'count'; const items=Array.isArray(data)?data:data?.items||data?.data||[data]; if(op==='count') result={count:items.length, field, operation:op}; else if(op==='sum'&&field){ const sum=items.reduce((s:number,it:any)=> s+Number(getPath(it,field)??it[field]??0),0); result={sum, field, count:items.length}; } else if(op==='avg'&&field){ const sum=items.reduce((s:number,it:any)=> s+Number(getPath(it,field)??0),0); result={avg: items.length? sum/items.length:0, field, count:items.length}; } else if(field){ const groups:Record<string,any[]>={}; for(const it of items){ const key=String(getPath(it,field)??it[field]??'null'); if(!groups[key]) groups[key]=[]; groups[key].push(it); } result={groups, count:items.length, field}; } else result={count:items.length, items}; }
+      else if(t==='sort'){ const field=cfg.field||cfg.sortBy||''; const order=String(cfg.order||cfg.direction||'asc').toLowerCase(); const items=Array.isArray(data)?[...data]:data?.items?[...data.items]:[data]; if(!field) items.sort(); else items.sort((a:any,b:any)=>{ const av=getPath(a,field)??a[field]; const bv=getPath(b,field)??b[field]; if(av===bv) return 0; const cmp= av>bv?1:-1; return order==='desc'?-cmp:cmp; }); result={sorted:items, count:items.length, field, order}; }
+      else if(t==='limit'){ const max=Number(cfg.max||cfg.limit||10); const offset=Number(cfg.offset||0); const items=Array.isArray(data)?data:data?.items||data?.data||[data]; const sliced=items.slice(offset, offset+max); result={limited:sliced, count:sliced.length, total:items.length, offset, max}; }
+      else if(t==='item_lists'){ const op=cfg.operation||'union'; const a=Array.isArray(data)?data:data?.a||data?.items||[data]; const b=Array.isArray(cfg.list)?cfg.list:cfg.b? (Array.isArray(cfg.b)?cfg.b:[cfg.b]):[]; if(op==='union') result={result:[...a,...b], count:a.length+b.length}; else if(op==='intersect'){ const setB=new Set(b.map((x:any)=>JSON.stringify(x))); result={result:a.filter((x:any)=>setB.has(JSON.stringify(x))), operation:op}; } else if(op==='difference'){ const setB=new Set(b.map((x:any)=>JSON.stringify(x))); result={result:a.filter((x:any)=>!setB.has(JSON.stringify(x))), operation:op}; } else result={result:a, operation:op}; }
+      else if(t==='function'){ const code=cfg.code||cfg.functionCode||cfg.expression||'return data;'; validateCode(code); try { const fn=new AsyncFunction('data','items', `"use strict"; ${code}`); const items=Array.isArray(data)?data:[data]; if(cfg.perItem){ const out=[]; for(const it of items) out.push(await fn(it,items)); result={results:out, count:out.length}; } else result=await fn(data,items); } catch(e:any){ if(String(e.message).includes('Code generation')) result={ simulated:true, code: code.slice(0,200), data }; else throw e; } }
+      else if(t==='noop'){ result=data; }
+      else if(t==='webhook_response'){ result={status:Number(cfg.status||200), body: cfg.body||data, headers:cfg.headers||{}, simulated:true}; }
+      else if(t==='html'){ const op=cfg.operation||'extract'; const html=String(cfg.html||data.html||data||''); const selector=cfg.selector||cfg.css||''; const attr=cfg.attribute||'textContent'; if(op==='extract'&&selector) result={html:html.slice(0,5000), selector, note:'HTML extract requires DOMParser in Worker — returning raw'}; else result={html:html.slice(0,5000), operation:op, selector}; }
+      else if(t==='date_time'){ const op=cfg.operation||'now'; const inp=cfg.date||cfg.value||data; const fmt=cfg.format||'iso'; const parse=(v:any)=>{ if(v instanceof Date) return v; if(typeof v==='number') return new Date(v); if(typeof v==='string'){ const d=new Date(v); if(!isNaN(d.getTime())) return d; } return new Date(); }; if(op==='now') result={now:new Date().toISOString(), timestamp:Date.now()}; else if(op==='format'){ const d=parse(inp); result={formatted: fmt==='iso'?d.toISOString():d.toLocaleString(), input:inp}; } else if(op==='add'){ const d=parse(inp); const amt=Number(cfg.amount||1); const unit=cfg.unit||'days'; const mul:Record<string,number>={ms:1,seconds:1000,minutes:60000,hours:3600000,days:86400000}; result={result:new Date(d.getTime()+amt*(mul[unit]||86400000)).toISOString(), operation:op, amount:amt, unit}; } else result={result:parse(inp).toISOString(), operation:op}; }
+      else if(['slack','discord','github','gmail','google_sheets','notion','airtable','postgres','mysql','mongodb','redis','stripe','shopify','aws_s3'].includes(t)){ const url=cfg.url||cfg.webhookUrl||cfg.endpoint; if(!url){ result={app:t, simulated:true, note:`simulated ${t} — configure url`}; } else { const method=String(cfg.method||'POST').toUpperCase(); const h={'Content-Type':'application/json',...(cfg.headers||{})}; const body=cfg.body??cfg.payload??data; const res=await fetch(url,{method, headers:h, body: method==='GET'?undefined:JSON.stringify(body), signal: AbortSignal.timeout(8000)}); const txt=await res.text(); const parsed=parseMaybeJson(txt); if(!res.ok) throw new Error(`${t} HTTP ${res.status}`); result={app:t, status:res.status, data:parsed, simulated:false}; } }
+      else if(t==='openai'){ const prompt=cfg.prompt||cfg.message||'Hello'; const model=cfg.model||'gpt-4o-mini'; const apiKey=cfg.apiKey; if(!apiKey) result={app:'openai', model, prompt, response:`[OpenAI simulated] ${prompt}`, note:'No API key'}; else { const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${apiKey}`}, body: JSON.stringify({model, messages:[{role:'user', content:`${prompt}\n\n${JSON.stringify(data,null,2)}`}]}), signal: AbortSignal.timeout(10000)}); if(!res.ok) throw new Error(`OpenAI ${res.status}`); const j:any=await res.json(); result={app:'openai', model, response:j.choices?.[0]?.message?.content||'', prompt}; } }
+      else if(t.startsWith('custom_')){
+        const def = customMap.get(t);
+        if(!def) throw new Error(`custom node ${t} not found`);
+        result = await runCustom(data, cfg, def);
+      } else throw new Error(`unknown type ${t}`);
+      status[id]='done'; outputs[id]=result;
+    } catch(err:any){ hadError=true; status[id]='fault'; outputs[id]={error:err.message, stack:String(err.stack||'').slice(0,800), nodeType: (byId.get(id) as any).type}; }
+  }
+  const durationMs = Date.now()-t0;
+  const success = !hadError;
   const logId = crypto.randomUUID();
-  await env.DB.prepare('INSERT INTO execution_logs (id, workflow_id, user_id, input, output, duration_ms, status) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(logId, workflowId, userId, JSON.stringify(input), JSON.stringify(result), durationMs, 'success').run();
-  // P2: offload heavy post-processing to queue
+  await env.DB.prepare('INSERT INTO execution_logs (id, workflow_id, user_id, input, output, duration_ms, status) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(logId, workflowId, userId, JSON.stringify(input||{}), JSON.stringify({outputs, status, order}), durationMs, success?'success':'error').run();
   enqueue('post-execution', { workflowId, userId, durationMs });
-  return new Response(JSON.stringify({ ...result, executionId: logId, durationMs }), { headers: { ...headers, 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ success, executedAt: new Date().toISOString(), durationMs, order, status, outputs, executionId: logId }), { headers: { ...headers, 'Content-Type':'application/json' } });
 }
 async function getExecutionLogs(workflowId: string, userId: string, env: Env, headers: Record<string, string>, url: URL): Promise<Response> {
   const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit')||'20')));
@@ -442,4 +576,70 @@ async function getStats(env: Env, headers: Record<string, string>): Promise<Resp
     recentExecutions: recentExecutions?.results ?? [], timestamp: new Date().toISOString(),
     cacheKeys: cacheStore.size, queue: { pending: bgQueue.length, ...qMetrics },
   }), { headers: { ...headers, 'Content-Type': 'application/json' } });
+}
+
+async function listCustomNodes(userId: string, env: Env, headers: Record<string, string>): Promise<Response> {
+  const res = await env.DB.prepare('SELECT type, display_name, description, color, icon, fields, code, created_at, updated_at FROM custom_nodes WHERE user_id = ? ORDER BY updated_at DESC').bind(userId).all();
+  const nodes = (res.results || []).map((r: any) => ({
+    type: r.type, displayName: r.display_name, description: r.description, color: r.color, icon: r.icon,
+    fields: JSON.parse(r.fields || '[]'), code: r.code, createdAt: r.created_at, updatedAt: r.updated_at
+  }));
+  return new Response(JSON.stringify({ nodes, count: nodes.length }), { headers: { ...headers, 'Content-Type': 'application/json' } });
+}
+async function createCustomNode(userId: string, env: Env, headers: Record<string, string>, body: any): Promise<Response> {
+  const { type, displayName, description, color, icon, fields, code } = body;
+  if (!code) return new Response(JSON.stringify({ error: 'code required' }), { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } });
+  let t = String(type || displayName || 'custom_node').toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/__+/g,'_').replace(/^_+|_+$/g,'');
+  if (!t.startsWith('custom_')) t = `custom_${t}`;
+  if (t.length>32) t=t.slice(0,32);
+  const builtIn = new Set(['start','manual_trigger','api_call','transform','condition','output','delay','filter','split','merge','loop','code','webhook','ai','validator','logger','file','schedule','graphql','set','switch','aggregate','sort','limit','item_lists','function','noop','webhook_response','html','date_time','slack','discord','github','gmail','google_sheets','notion','airtable','postgres','mysql','mongodb','redis','stripe','shopify','aws_s3','openai']);
+  if (builtIn.has(t) || builtIn.has(t.replace('custom_',''))) return new Response(JSON.stringify({ error: `type ${t} conflicts with built-in` }), { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } });
+  const cnt = await env.DB.prepare('SELECT COUNT(*) as c FROM custom_nodes WHERE user_id = ?').bind(userId).first<{c:number}>();
+  if ((cnt?.c||0) >= 20) return new Response(JSON.stringify({ error: 'quota exceeded: max 20 custom nodes per user' }), { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } });
+  const BLOCKED_PATTERNS = [/require\s*\(/, /process\./, /child_process/, /fs\./, /eval\s*\(/, /Function\s*\(/, /while\s*\(\s*true\s*\)/, /for\s*\(\s*;\s*;\s*\)/];
+  for (const pat of BLOCKED_PATTERNS) if (pat.test(code)) return new Response(JSON.stringify({ error: `blocked pattern: ${pat}` }), { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } });
+  if (code.length > 10000) return new Response(JSON.stringify({ error: 'code too large' }), { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } });
+  const exists = await env.DB.prepare('SELECT type FROM custom_nodes WHERE user_id = ? AND type = ?').bind(userId, t).first();
+  if (exists) return new Response(JSON.stringify({ error: `custom node ${t} already exists, use PUT` }), { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } });
+  const now = new Date().toISOString();
+  await env.DB.prepare('INSERT INTO custom_nodes (type, user_id, display_name, description, color, icon, fields, code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(t, userId, String(displayName||t.replace('custom_','')).slice(0,40), String(description||'Custom node').slice(0,120), color||'#a8d8a8', icon||'CodeIcon', JSON.stringify(Array.isArray(fields)?fields.slice(0,12):[]), code, now, now).run();
+  return new Response(JSON.stringify({ type: t, displayName, message: `Created custom node ${t}` }), { headers: { ...headers, 'Content-Type': 'application/json' } });
+}
+async function bulkSyncCustomNodes(userId: string, env: Env, headers: Record<string, string>, nodes: any[]): Promise<Response> {
+  if (!Array.isArray(nodes)) return new Response(JSON.stringify({ error: 'nodes must be array' }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } });
+  // replace all for user with provided list (upsert)
+  for (const n of nodes.slice(0,50)) {
+    const t = String(n.type||'').toLowerCase();
+    if (!t.startsWith('custom_')) continue;
+    const BLOCKED2 = [/require\s*\(/, /process\./, /child_process/, /fs\./, /eval\s*\(/, /Function\s*\(/, /while\s*\(\s*true\s*\)/, /for\s*\(\s*;\s*;\s*\)/];
+    let blocked=false; for(const pat of BLOCKED2) if(pat.test(n.code||'')) { blocked=true; break; } if(blocked) continue;
+    await env.DB.prepare('INSERT OR REPLACE INTO custom_nodes (type, user_id, display_name, description, color, icon, fields, code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(t, userId, String(n.displayName||t).slice(0,40), String(n.description||'').slice(0,120), n.color||'#a8d8a8', n.icon||'CodeIcon', JSON.stringify(n.fields||[]), n.code, n.createdAt||new Date().toISOString(), new Date().toISOString()).run();
+  }
+  return new Response(JSON.stringify({ success: true, count: nodes.length }), { headers: { ...headers, 'Content-Type':'application/json' } });
+}
+async function updateCustomNode(type: string, userId: string, env: Env, headers: Record<string, string>, body: any): Promise<Response> {
+  const existing = await env.DB.prepare('SELECT * FROM custom_nodes WHERE user_id = ? AND type = ?').bind(userId, type).first();
+  if (!existing) return new Response(JSON.stringify({ error: `not found ${type}` }), { status: 404, headers: { ...headers, 'Content-Type':'application/json' } });
+  const { code, displayName, description, color, icon, fields } = body;
+  if (code) {
+    const BLOCKED3 = [/require\s*\(/, /process\./, /child_process/, /fs\./, /eval\s*\(/, /Function\s*\(/, /while\s*\(\s*true\s*\)/, /for\s*\(\s*;\s*;\s*\)/];
+    for (const pat of BLOCKED3) if(pat.test(code)) return new Response(JSON.stringify({ error: `blocked pattern: ${pat}` }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } });
+    if (code.length > 10000) return new Response(JSON.stringify({ error: 'code too large' }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } });
+  }
+  await env.DB.prepare('UPDATE custom_nodes SET display_name = COALESCE(?, display_name), description = COALESCE(?, description), color = COALESCE(?, color), icon = COALESCE(?, icon), fields = COALESCE(?, fields), code = COALESCE(?, code), updated_at = ? WHERE user_id = ? AND type = ?')
+    .bind(displayName||null, description||null, color||null, icon||null, fields?JSON.stringify(fields):null, code||null, new Date().toISOString(), userId, type).run();
+  return new Response(JSON.stringify({ success: true, type }), { headers: { ...headers, 'Content-Type':'application/json' } });
+}
+async function deleteCustomNode(type: string, userId: string, env: Env, headers: Record<string, string>): Promise<Response> {
+  await env.DB.prepare('DELETE FROM custom_nodes WHERE user_id = ? AND type = ?').bind(userId, type).run();
+  return new Response(JSON.stringify({ success: true, deleted: type }), { headers: { ...headers, 'Content-Type':'application/json' } });
+}
+async function listWorkflowVersions(workflowId: string, userId: string, env: Env, headers: Record<string, string>): Promise<Response> {
+  const res = await env.DB.prepare('SELECT id, workflow_id, created_at FROM workflow_versions WHERE workflow_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 20').bind(workflowId, userId).all();
+  return new Response(JSON.stringify({ versions: res.results || [] }), { headers: { ...headers, 'Content-Type':'application/json' } });
+}
+async function getWorkflowVersion(workflowId: string, versionId: string, userId: string, env: Env, headers: Record<string, string>): Promise<Response> {
+  const row = await env.DB.prepare('SELECT * FROM workflow_versions WHERE id = ? AND workflow_id = ? AND user_id = ?').bind(versionId, workflowId, userId).first();
+  if (!row) return new Response(JSON.stringify({ error: 'not found' }), { status: 404, headers: { ...headers, 'Content-Type':'application/json' } });
+  return new Response(JSON.stringify({ version: { ...row, nodes: JSON.parse((row as any).nodes), edges: JSON.parse((row as any).edges) } }), { headers: { ...headers, 'Content-Type':'application/json' } });
 }

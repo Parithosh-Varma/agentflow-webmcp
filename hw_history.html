@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Homework Solution Log — Mechanics Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,600;9..144,1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true},{left: '$', right: '$', display: false},{left: '\\(', right: '\\)', display: false},{left: '\\[', right: '\\]', display: true}],throwOnError: false});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --paper: #FCFCF9;
+      --card: #FFFFFF;
+      --ink: #0F1D2F;
+      --ink-soft: #5A6B84;
+      --ink-faint: #8A9BB0;
+      --brass: #B68D4A;
+      --brass-dark: #8C6A2E;
+      --pool: #2A6B7A;
+      --pool-light: #E6F0F3;
+      --grid: #E9EEF2;
+      --border: #E6E9EF;
+      --shadow: 0 12px 40px -16px rgba(15,29,47,0.12), 0 4px 12px -4px rgba(15,29,47,0.08);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      line-height: 2.0;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(to right, var(--grid) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: -1;
+    }
+    .shell {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+      position: relative;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 28px;
+      align-items: center;
+      padding: 36px 0 28px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 36px;
+      position: relative;
+    }
+    @media (max-width: 720px) {
+      .hero { grid-template-columns: 1fr; padding: 24px 0 20px; }
+      .hero-visual { order: -1; }
+    }
+    .eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pool);
+      background: var(--pool-light);
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+      font-weight: 500;
+    }
+    .hero h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(32px, 5vw, 42px);
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      margin: 0 0 12px 0;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .hero h1 i {
+      font-weight: 600;
+      color: var(--brass);
+      font-style: italic;
+    }
+    .hero-copy {
+      color: var(--ink-soft);
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 0 0 18px 0;
+      max-width: 36ch;
+    }
+    .hero-meta {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--ink-faint);
+    }
+    .hero-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--brass); display: inline-block;
+    }
+    .hero-visual {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-visual::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 50%; width: 2px; height: 18px;
+      background: linear-gradient(to bottom, var(--brass), transparent);
+      transform: translateX(-50%);
+    }
+    .pulley-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .hero-visual figcaption {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      text-align: center;
+      margin-top: 10px;
+    }
+    .history-wrap {
+      position: relative;
+      padding-left: 28px;
+    }
+    .history-wrap::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: -36px;
+      bottom: -40px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--brass) 0%, #D6B88A 12%, var(--brass) 24%, #C9A86A 100%);
+      opacity: 0.9;
+      border-radius: 999px;
+    }
+    .entry {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px 26px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+    .entry::before {
+      content: "";
+      position: absolute;
+      left: -24px;
+      top: 28px;
+      width: 14px;
+      height: 14px;
+      background: var(--card);
+      border: 2.5px solid var(--brass);
+      border-radius: 50%;
+      box-shadow: 0 0 0 4px var(--paper), 0 2px 8px rgba(0,0,0,0.08);
+      z-index: 1;
+    }
+    .entry::after {
+      content: "";
+      position: absolute;
+      left: -20px;
+      top: 32px;
+      width: 6px; height: 6px;
+      background: var(--brass-dark);
+      border-radius: 50%;
+      z-index: 2;
+    }
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid #F0F2F5;
+      flex-wrap: wrap;
+    }
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink);
+      background: #F2F5F9;
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge::before {
+      content: "";
+      width: 7px; height: 7px; border-radius: 50%; background: var(--pool);
+    }
+    .timestamp {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--ink-faint);
+      background: var(--paper);
+      border: 1px solid var(--border);
+      padding: 5px 9px;
+      border-radius: 999px;
+    }
+    .entry-content {
+      font-size: 15.5px;
+      color: var(--ink);
+      line-height: 1.95;
+    }
+    .entry-content h3 {
+      font-family: 'Fraunces', serif;
+      font-size: 20px;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+      margin: 1.9em 0 0.85em 0;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .entry-content h3:first-child { margin-top: 0; }
+    .entry-content p { margin: 1.35em 0; color: #1E2A3A; line-height: 1.95; }
+    .entry-content strong { font-weight: 600; color: var(--ink); }
+    .entry-content ul, .entry-content ol { margin: 1.1em 0; padding-left: 1.25em; }
+    .entry-content li { margin: 0.65em 0; line-height: 1.9; }
+    .entry-content li::marker { color: var(--brass); }
+    .entry-content blockquote {
+      border-left: 3px solid var(--brass);
+      background: #FDF8EF;
+      margin: 1.6em 0;
+      padding: 10px 14px 10px 16px;
+      border-radius: 0 10px 10px 0;
+      color: #3D2E12;
+      font-size: 14px;
+    }
+    .entry-content code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88em;
+      background: #F2F5F9;
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .entry-content pre {
+      background: #0F1D2F;
+      color: #E6EAF2;
+      padding: 16px;
+      border-radius: 12px;
+      overflow-x: auto;
+      border: 1px solid #1C2E4A;
+    }
+    .entry-content pre code { background: transparent; border: none; color: inherit; padding: 0; }
+    .katex-display {
+      margin: 1.6em 0 !important;
+      padding: 10px 12px !important;
+      background: #F8FAFC;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .reveal.in-view { transition: none !important; opacity: 1 !important; transform: none !important; }
+    }
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.62s cubic-bezier(0.16,1,0.3,1), transform 0.62s cubic-bezier(0.16,1,0.3,1);
+      will-change: opacity, transform;
+    }
+    .reveal.in-view {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .entry-header.reveal { transform: translateY(10px); }
+  
+    /* Inspiration formatting - boxed answers, diagram row, component heads */
+    .boxed-answer {
+      display: block;
+      width: fit-content;
+      max-width: 90%;
+      margin: 1.9em auto;
+      text-align: center;
+      border: 1.8px solid var(--ink);
+      border-radius: 6px;
+      padding: 8px 18px;
+      background: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(15,29,47,0.06);
+    }
+    .boxed-answer .katex-display {
+      margin: 0 !important;
+      background: transparent !important;
+      border: none !important;
+      padding: 4px 0 !important;
+    }
+    .boxed-answer p {
+      margin: 0 !important;
+    }
+    .diagram-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 1.2em 0;
+    }
+    @media (max-width: 680px) { .diagram-row { grid-template-columns: 1fr; } }
+    .diagram-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(15,29,47,0.04);
+    }
+    .diagram-card figcaption {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--ink-faint);
+      margin-top: 6px;
+    }
+    .component-head {
+      font-weight: 700;
+      font-size: 15px;
+      margin: 1.1em 0 0.25em 0;
+      color: var(--ink);
+    }
+    .final-divider {
+      text-align: center;
+      margin: 1.2em 0 0.6em 0;
+      color: var(--ink-faint);
+    }
+    .final-divider::before {
+      content: "↓";
+      display: inline-block;
+      width: 28px; height: 28px;
+      line-height: 28px;
+      text-align: center;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: var(--card);
+      font-size: 14px;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <div class="hero-text">
+        <div class="eyebrow">Phys 101 — Classical Mechanics · Lab Notebook</div>
+        <h1>Homework <i>Solution Log</i></h1>
+        <p class="hero-copy">Mechanics derivations, rendered as lab sheets. Each entry is a pinned sheet on the rope — the same rope that holds the Massive string blocks. Scroll to pull the system through its motion.</p>
+        <div class="hero-meta">
+          <span><span class="dot"></span> 6 sheets</span>
+          <span>6 sheets · Spring balance & Atwood pulley</span>
+        </div>
+      </div>
+                              <figure class="hero-visual" aria-label="Two spring balances A and B in series with 4 kg block">
+        <svg class="pulley-svg" viewBox="0 0 320 160" fill="none" xmlns="http://www.w3.org/2000/svg" role="img">
+          <title>Spring balances A and B in series supporting 4 kg</title>
+          <!-- ceiling -->
+          <rect x="120" y="14" width="80" height="8" rx="4" fill="#0F1D2F"/>
+          <!-- Spring A -->
+          <line x1="160" y1="22" x2="160" y2="38" stroke="#0F1D2F" stroke-width="2"/>
+          <rect x="146" y="38" width="28" height="34" rx="4" fill="#FFFFFF" stroke="#0F1D2F" stroke-width="2"/>
+          <text x="160" y="58" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600" fill="#0F1D2F">A</text>
+          <!-- connector -->
+          <line x1="160" y1="72" x2="160" y2="88" stroke="#0F1D2F" stroke-width="2"/>
+          <!-- Spring B -->
+          <rect x="146" y="88" width="28" height="34" rx="4" fill="#FFFFFF" stroke="#0F1D2F" stroke-width="2"/>
+          <text x="160" y="108" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600" fill="#0F1D2F">B</text>
+          <!-- connector to block -->
+          <line x1="160" y1="122" x2="160" y2="134" stroke="#0F1D2F" stroke-width="2"/>
+          <!-- 4kg block -->
+          <rect x="140" y="134" width="40" height="22" rx="4" fill="#FFFFFF" stroke="#0F1D2F" stroke-width="2"/>
+          <text x="160" y="149" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600" fill="#0F1D2F">4 kg</text>
+        </svg>
+        <figcaption>Springs A and B in series · Light springs ($m=0$) · Both read $4	ext{ kg}$</figcaption>
+      </figure>
+
+
+    </header>
+    <div class="history-wrap">
+      <main id="history-container">
+
+      <div class="entry">
+        <div class="entry-header">
+          <span class="badge">Physics • Spring Balances in Series</span>
+          <span class="timestamp">August 30, 2026 • 06:53 PM</span>
+        </div>
+        <div class="entry-content markdown-body">
+<h3>Question 2. Two Light Spring Balances A and B in Series Supporting a 4 kg Block</h3>
+<p>Let's break this down from the <strong>light spring balance</strong> concept — this question is mainly testing whether you understand that <strong>light spring balances have negligible mass ($m = 0$)</strong>, so internal tension is uniform through connected series links.</p>
+<p><strong>What to do first:</strong> A block of mass $4\text{ kg}$ is suspended by two light spring balances A and B (usually one below the other in series, or supporting each other). </p>
+<h3>1. How to analyze the lower spring balance</h3>
+<p><em>Suppose balance B is directly holding the $4\text{ kg}$ block.</em>
+* For balance B to hold a $4\text{ kg}$ block in equilibrium (or at rest), the spring inside B must experience a tension equal to the weight of the block:
+$$ W = m g = 4 \times g = 4\text{ kg wt} $$
+* So balance B reads <strong>$4\text{ kg}$</strong>.</p>
+<h3>2. How to analyze the upper spring balance (Balance A)</h3>
+<p><em>Since both balances are </em><em>light</em><em> (negligible mass, $m_{\text{spring}} = 0$):</em>
+* Consider balance B itself: it has negligible mass, so the net force on balance B is zero ($m_{\text{spring}} a = 0$).
+* The upward pull on B from A must balance the downward pull on B from the $4\text{ kg}$ block.
+* Therefore, the tension pulling on balance A is <em>also</em> equal to the weight of the $4\text{ kg}$ block ($4\text{ kg wt}$).
+* So balance A <em>also</em> reads <strong>$4\text{ kg}$</strong>.</p>
+<p><em>Try it:</em> If balances had mass, tensions could differ. But because they are <strong>light</strong>, what does $\sum F = m_{\text{spring}} a$ tell you about the tension above and below each spring?</p>
+<div class="boxed-answer">$$ \text{Balance A} = 4\text{ kg},\quad \text{Balance B} = 4\text{ kg} $$</div>
+
+<h3>Final answers</h3>
+<p>Compare with the options (A, B, C, D):</p>
+<div class="boxed-answer">$$ \text{Readings: } 4\text{ kg and } 4\text{ kg} \quad \textbf{(Option C)} $$</div>
+
+<blockquote>
+<p><strong>Self-check:</strong> A light spring balance simply measures the tension in the string passing through/supporting it. Since string tension is uniform throughout a light string/spring system holding a static $4\text{ kg}$ mass, both show $4\text{ kg}$.</p>
+</blockquote>
+        </div>
+      </div>
+
+
+      <div class="entry">
+        <div class="entry-header">
+          <span class="badge">Physics • Spring Balance & Atwood Pulley</span>
+          <span class="timestamp">August 30, 2026 • 06:32 PM</span>
+        </div>
+        <div class="entry-content markdown-body">
+<h3>Question 1. Spring Balance Reading with a Moving Pulley (Atwood Machine)</h3>
+<p>Let's break this down from the <strong>suspension tension</strong> idea — this question is mainly testing whether you know what a spring balance actually measures (the upward force holding the pulley, which is equal to the <strong>two downward tensions</strong> from the string).</p>
+<p><strong>What to do first:</strong> Recall that a spring balance measures the force pulling on its hook. Here, the frictionless pulley of negligible weight is suspended from the balance, and the string holding $m_1 = 1\text{ kg}$ and $m_2 = 5\text{ kg}$ passes over it.</p>
+<h3>1. How to find the string tension $T$</h3>
+<p><strong>Key idea:</strong> This is our standard Atwood machine! You already know how to find the tension $T$ in the string connecting two masses $m_1$ and $m_2$.</p>
+<p><em>Recall formula for tension $T$:</em>
+$$ T = \frac{2 m_1 m_2}{m_1 + m_2} \, g $$</p>
+<p><em>Try it:</em> Substitute $m_1 = 1\text{ kg}$ and $m_2 = 5\text{ kg}$ into this formula. What do you get for $T$ in terms of $g$?</p>
+<div class="boxed-answer">$$ T = \frac{2(1)(5)}{1+5}\,g = \frac{10}{6}\,g = \frac{5}{3}\,g $$</div>
+
+<h3>2. What force does the spring balance experience?</h3>
+<p><strong>What to do:</strong> Look at the forces pulling <strong>down</strong> on the suspended pulley.</p>
+<ul>
+<li>The string goes up over the pulley on both sides.</li>
+<li>Each side exerts a tension $T$ pulling <strong>downward</strong> on the axle of the pulley.</li>
+<li>Since the pulley is massless, the spring balance must support both downward tensions:</li>
+</ul>
+<p>$$ F_{\text{spring}} = T + T = 2T $$</p>
+<p><em>Try it:</em> Multiply your tension $T = \frac{5}{3}g$ by 2. What total force does the spring balance read?</p>
+<div class="boxed-answer">$$ F_{\text{spring}} = 2 \left( \frac{5}{3}g \right) = \frac{10}{3}\,g \implies \frac{10}{3}\text{ kg wt} $$</div>
+
+<h3>Final answers</h3>
+<p>Compare with the options (A, B, C, D):</p>
+<div class="boxed-answer">$$ \text{Reading} = \frac{10}{3}\text{ kg wt} \quad \textbf{(Option B)} $$</div>
+
+<blockquote>
+<p><strong>Self-check:</strong> Notice $2T$ is less than $(m_1+m_2)g = 6\,g$ because the masses are accelerating, relieving some of the static load on the ceiling/spring balance.</p>
+</blockquote>
+        </div>
+      </div>
+
+
+      <div class="entry">
+        <div class="entry-header">
+          <span class="badge">Physics • Illustration 12 — 3 Blocks</span>
+          <span class="timestamp">August 30, 2026 • 05:04 PM</span>
+        </div>
+        <div class="entry-content markdown-body">
+<h3>Illustration 12. Three Identical Blocks $A,B,C$ — How to Find $F$, Tensions, and $a$</h3>
+<p>Let's break this down from the <strong>connected-system</strong> idea — this question is mainly testing whether you can correctly use <strong>same acceleration for all blocks</strong> and <strong>isolate each block</strong>.</p>
+<p><strong>What to do first:</strong> All three blocks are linked by light, inextensible strings $\implies$ they move together with <strong>same $a$</strong> to the right. A light string has same tension throughout, but $T_{AB}$ and $T_{BC}$ are different. The measured $T_{AB}=8.0\text{ N}$ is your key — start from the block that has only one force.</p>
+<h3>1. How to link tension to acceleration</h3>
+<p><strong>Key idea:</strong> For any block, $\sum F = ma$ to the right.</p>
+<p>Look at <strong>block $C$</strong> (leftmost, simplest — only one horizontal force).</p>
+<p><em>Forces on $C$:</em> $T_{BC}$ to the right, nothing else (smooth floor, no friction).</p>
+<p>So for $C$:
+$$ T_{BC} = m\,a \tag{always true} $$</p>
+<p><em>Try it:</em> You don't know $T_{BC}$ yet, so also look at the pair $B+C$ together. What forces pull $B+C$ to the right?</p>
+<blockquote>
+<p><strong>Hint:</strong> $B+C$ together are pulled only by $T_{AB}=8.0\text{ N}$ (the string $A!-!B$ drags $B$, $B$ drags $C$). So for system $B+C$:
+$$ T_{AB} = (m_B + m_C)a = (2.0+2.0)a $$</p>
+</blockquote>
+<p><strong>Horizontal component:</strong> Here horizontally the net force on $B+C$ is just $T_{AB}$.</p>
+<p>$$ T_{AB} = (m_B+m_C)a \implies 8.0 = 4.0\,a $$</p>
+<p><em>This tells you $a$ immediately — try solving for $a$ before scrolling.</em></p>
+<div class="boxed-answer">$$ a = \frac{8.0}{4.0}=2.0\text{ m/s}^2 $$</div>
+
+<p>This $a$ is the same for $A$, $B$, and $C$.</p>
+<h3>2. How to find $T_{BC}$ (string $B$–$C$)</h3>
+<p><strong>What to do:</strong> Now that you have $a$, go back to block $C$ alone: $T_{BC}=ma$.</p>
+<p>So:
+$$ T_{BC}=m_C\,a = 2.0\times 2.0 $$</p>
+<p><em>Try: multiply — what do you get?</em></p>
+<div class="boxed-answer">$$ T_{BC}=4.0\text{ N} $$</div>
+
+<p>This pushes block $C$ to the right. Notice $T_{BC}&lt;T_{AB}$ — it only has to drag $C$, while $T_{AB}$ drags $B+C$.</p>
+<p>Check via $B$: $T_{AB}-T_{BC}=ma \implies 8.0-4.0=4.0=2.0\times2.0$ ✓</p>
+<h3>3. How to find the pull $F$</h3>
+<p><strong>What to do:</strong> Isolate <strong>block $A$</strong> (rightmost, where $F$ acts).</p>
+<p>Forces on $A$: $F$ to the right, $T_{AB}=8.0\text{ N}$ to the left.</p>
+<p>$$ F - T_{AB}= m_A\,a $$</p>
+<p>So:
+$$ F = T_{AB}+m_A a = 8.0 + 2.0\times 2.0 $$</p>
+<p><em>Try: add them.</em></p>
+<p><div class="boxed-answer">$$ F = 12\text{ N} $$</div></p>
+<p><strong>Alternative (whole system check):</strong> $A+B+C$ total mass $=6.0\text{ kg}$, so $F = (m_A+m_B+m_C)a =6.0\times2.0=12\text{ N}$ — same result. Use this to verify.</p>
+<h3>Final answers</h3>
+<p>Try writing them yourself first, then compare:</p>
+<div class="boxed-answer">$$ a = 2.0\text{ m/s}^2\text{ for all blocks (to the right)} $$</div>
+<div class="boxed-answer">$$ T_{BC}=4.0\text{ N},\quad T_{AB}=8.0\text{ N (given)} $$</div>
+<div class="boxed-answer">$$ F = 12\text{ N} $$</div>
+
+<blockquote>
+<p><strong>Self-check:</strong> Is $T_{BC}&lt;T_{AB}&lt;F$? Yes $4&lt;8&lt;12$. Does $F =6a$? $12=6\times2$ ✓. If you got a different $a$, re-examine which mass $T_{AB}$ is pulling.</p>
+</blockquote>
+        </div>
+      </div>
+
+
+      <div class="entry">
+        <div class="entry-header">
+          <span class="badge">Physics • Massive String on Smooth Floor</span>
+          <span class="timestamp">August 30, 2026 • 04:54 PM</span>
+        </div>
+        <div class="entry-content markdown-body">
+<h3>Two Blocks Connected by a Massive Uniform String on a Smooth Floor — Pulled by $F$</h3>
+<strong>Problem:</strong> Two blocks $A$ and $B$ of masses $m_1$ and $m_2$ (let $A$ = pulled block $=m_1$, $B$ = rear block $=m_2$; if swapped, interchange $m_1\leftrightarrow m_2$) are connected by a uniform string of mass $m$ and length $\ell$ lying on a smooth (frictionless) horizontal floor. Block $A$ is pulled by a constant horizontal force $F$ as in the figure ($B$ — string — $A \rightarrow F$). The string also lies on the floor.</p>
+<p><strong>(a)</strong> Find the common acceleration $a$ and the tensions $T_A$ (at the $A$-end) and $T_B$ (at the $B$-end).<br />
+<strong>(b)</strong> Find tension $T(x)$ at a distance $x$ from the rear block $B$ ($0\le x\le\ell$), in terms of $T_A, T_B, m, \ell, x$.</p>
+<h3>Step 1: Identify the System &amp; Constraints</h3>
+<ul>
+<li><strong>Smooth floor:</strong> No friction, normal cancels weight, only horizontal force is $F$.</li>
+<li><strong>Inextensible string:</strong> String does not stretch $\implies$ $A$, every element of the string, and $B$ have the <strong>same acceleration</strong> $a$ (to the right) and same velocity at any instant.</li>
+<li><strong>Uniform massive string:</strong> Linear mass density is constant:
+$$ \lambda = \frac{m}{\ell} \qquad \left[\frac{\text{kg}}{\text{m}}\right], \qquad dm = \lambda\,dx $$</li>
+<li><strong>Massive vs. massless:</strong> If $m=0$, tension would be uniform. With $m&gt;0$, tension must vary along the string to accelerate the string's own mass.</li>
+</ul>
+<blockquote>
+<p><strong>Total inertial mass being pulled:</strong> $M_{\text{tot}} = m_1 + m_2 + m$.</p>
+</blockquote>
+<h3>Step 2: Acceleration of the Whole System — Treat as One Body</h3>
+<p>Consider $A$ + string + $B$ as a single system. External horizontal force is only $F$.</p>
+<p>$$ F = M_{\text{tot}} \, a $$</p>
+<p>$$ a = \frac{F}{m_1 + m_2 + m} \tag{★} $$</p>
+<p>Direction: to the right (along $F$). All parts share this $a$. If $m=0$, this reduces to the familiar $a = F/(m_1+m_2)$.</p>
+<p><em>Check:</em> If $m_1\leftrightarrow m_2$ (i.e. $A$ is $m_2$), replace $m_1+m_2$ symmetrically — $a$ is unchanged.</p>
+<h3>Step 3: Tensions at the Ends — Isolate the Blocks</h3>
+<p><strong>At the rear block $B$ (mass $m_2$):</strong> Only horizontal force is $T_B$ to the right (string pulls $B$).</p>
+<p>$$ T_B = m_2 \, a $$</p>
+<p>With (★):
+$$ T_B = \frac{m_2}{m_1+m_2+m}\,F \tag{1} $$</p>
+<p><strong>At the front block $A$ (mass $m_1$):</strong> Pulled forward by $F$, backward by $T_A$.</p>
+<p>$$ F - T_A = m_1 a \implies T_A = F - m_1 a $$</p>
+<p>$$ T_A = F\left(1 - \frac{m_1}{M_{\text{tot}}}\right) = \frac{m_2 + m}{M_{\text{tot}}}\,F \tag{2} $$</p>
+<p>Alternatively, consider $B$ + string as a subsystem: $T_A = (m_2 + m) a$, same result.</p>
+<p>$$ T_A = \frac{m_2 + m}{m_1+m_2+m}\,F, \qquad T_B = \frac{m_2}{m_1+m_2+m}\,F $$</p>
+<blockquote>
+<p><strong>Inequality:</strong> $T_A &gt; T_B$ always ($T_A - T_B = m a$ is needed to accelerate the string). If string were massless ($m=0$), $T_A = T_B$.</p>
+</blockquote>
+<p>If the problem labels $A=m_2$, $B=m_1$, just swap: $T_A = (m_1+m)F/M_{\text{tot}}$, $T_B = m_1F/M_{\text{tot}}$.</p>
+<h3>Step 4: How Tension Varies Along a Massive String</h3>
+<p>Take a cut at distance $x$ from $B$ ($x=0$ at $B$-end, $x=\ell$ at $A$-end). Let $T(x)$ be the internal tension there, acting to the right on the left subsystem.</p>
+<p>Isolate the <strong>left subsystem:</strong> $B$ + string segment of length $x$ (mass $\lambda x = m x/\ell$).</p>
+<p>Mass of left part:
+$$ M(x) = m_2 + \lambda x = m_2 + \frac{m x}{\ell} $$</p>
+<p>The only horizontal external force on this isolated left part is $T(x)$ (to the right), so:</p>
+<p>$$ T(x) = M(x)\, a = \left(m_2 + \frac{m x}{\ell}\right)a \tag{3} $$</p>
+<p>Verify endpoints:
+* $x=0$: $T(0)=m_2 a = T_B$ ✓
+* $x=\ell$: $T(\ell)=(m_2+m)a = T_A$ ✓</p>
+<p>Differential view: $dT = \lambda\,a\,dx \implies \frac{dT}{dx}=\lambda a$ = constant, so $T$ varies <strong>linearly</strong> with $x$.</p>
+<h3>Step 5: Express $T(x)$ Through $T_A, T_B$</h3>
+<p>From (1)–(2): $T_A - T_B = m a$, so $a = (T_A - T_B)/m$ and $\lambda a = (T_A-T_B)/\ell$.</p>
+<p>Insert into (3):
+$$ T(x) = m_2 a + \lambda a x = T_B + \lambda a x $$</p>
+<p>$$ T(x) = T_B + \frac{x}{\ell}\,(T_A - T_B) \tag{★ ★} $$</p>
+<p>This is the required linear interpolation:</p>
+<p>$$ T(x) = T_B + (T_A - T_B)\frac{x}{\ell} = T_A - (T_A - T_B)\frac{\ell - x}{\ell} $$</p>
+<p>Using $F$ explicitly (with $B=m_2$):
+$$ T(x) = \frac{F}{M_{\text{tot}}}\left(m_2 + \frac{m x}{\ell}\right) $$</p>
+<p>If you measure $x'$ from the front ($A$-end), $x'=\ell-x$, then $T = T_A - (T_A-T_B)x'/\ell$.</p>
+<h3>Step 6: Checks &amp; Special Cases</h3>
+<ul>
+<li><strong>Massless string limit</strong> $m\to0$: $T_A = T_B = m_2F/(m_1+m_2)$, and (★★) gives $T(x)=T_A$ constant ✓</li>
+<li><strong>No rear block</strong> $m_2=0$: $T_B=0$, $T_A=mF/M_{\text{tot}}$, $T(x)=T_A\,x/\ell$ — triangular profile, zero at free end ✓</li>
+<li><strong>Dimensions:</strong> $[T]=\text{N}$, $x/\ell$ dimensionless ✓</li>
+<li><strong>Graph:</strong> $T$ vs $x$ is a straight line from $(0,T_B)$ to $(\ell,T_A)$.</li>
+</ul>
+<h3>Final Answers</h3>
+<ul>
+<li>
+<p><strong>(a)</strong> <div class="boxed-answer"><p>$$ \mathbf{a = \frac{F}{m_1+m_2+m}\ \text{(to the right)}} $$</p></div>
+<div class="boxed-answer"><p>$$ \mathbf{T_B = \frac{m_2 F}{m_1+m_2+m}},\qquad \mathbf{T_A = \frac{(m_2+m)F}{m_1+m_2+m}} $$</div>
+(Swap $m_1\leftrightarrow m_2$ if your $A=m_2$, $B=m_1$.)</p>
+</li>
+<li>
+<strong>(b)</strong> <div class="boxed-answer"><p>$$ \mathbf{T(x) = T_B + \frac{x}{\ell}\,(T_A - T_B) = \left(m_2+\frac{m x}{\ell}\right)\frac{F}{m_1+m_2+m}} $$</p></div>
+for $x$ measured from $B$ ($0$ at $B$, $\ell$ at $A$). Linear variation, slope $\lambda a$.
+</li>
+</ul>
+<blockquote>
+<strong>Mnemonic:</strong> Tension is larger nearer the pull — it must drag more mass behind it. The diagram of $T$ vs $x$ is the same as the mass-behind profile.</p>
+</blockquote>
+        </div>
+      </div>
+
+<div class="entry">
+        <div class="entry-header">
+          <span class="badge">Physics • Illustration 14 - Massive string Machine</span>
+          <span class="timestamp">August 30, 2026 • 04:02 PM</span>
+        </div>
+        <div class="entry-content markdown-body">
+<h3>Illustration 14. Massive string Machine — Released from Rest, $m_2 &gt; m_1$</h3>
+<p><strong>Problem:</strong> The system shown in the figure (two blocks $m_1$ and $m_2$ hanging vertically from a single pulley) is released from rest. Assuming $m_2 &gt; m_1$, find the accelerations of the blocks and the tension in the string.</p>
+<h3>Step 1: Understand the System &amp; Constraints</h3>
+<ul>
+<li><strong>System:</strong> Ideal Massive string machine. Blocks $m_1$ (left) and $m_2$ (right) connected by a string over a fixed pulley.</li>
+<li><strong>Key Constraints (Ideal Case):</strong><ul>
+<li>String <strong>massless &amp; inextensible</strong> $\implies$ Tension $T$ is uniform and the length constraint $y_1 + y_2 = \text{constant}$ gives:
+$$ v_1 = -v_2, \quad a_1 = -a_2 \implies |a_1| = |a_2| = a $$</li>
+<li>Pulley <strong>massless &amp; frictionless</strong> $\implies$ No rotational inertia, $T_{\text{left}} = T_{\text{right}} = T$.</li>
+<li>Released from rest $\implies$ $u=0$, so $s = \frac{1}{2}at^2$ later, but now we only need $a$.</li>
+</ul>
+</li>
+</ul>
+<p>Since $m_2 &gt; m_1$, gravity dominates on the right. So $m_2$ accelerates <strong>downward</strong> and $m_1$ accelerates <strong>upward</strong> with the same magnitude $a$.</p>
+<blockquote>
+<p>As the textbook states: <em>"It obvious that both blocks move with same acceleration magnitudes. Say it is 'a'. Since $m_2$ is heavier, it moves downwards and $m_1$ moves upwards."</em></p>
+</blockquote>
+<h3>Step 2: Draw Free-Body Diagrams (FBD)</h3>
+<p><strong>FBD for $m_1$ (taking upward as $+ve$):</strong>
+* Upward force: $T$
+* Downward force: $m_1 g$ (weight)
+* Net force upward must provide $m_1 a$:</p>
+<p>$$ T - m_1 g = m_1 a \tag{1} $$</p>
+<p><strong>FBD for $m_2$ (taking downward as $+ve$):</strong>
+* Downward force: $m_2 g$
+* Upward force: $T$
+* Net force downward must provide $m_2 a$:</p>
+<p>$$ m_2 g - T = m_2 a \tag{2} $$</p>
+<blockquote>
+<p>Intuition: Net driving force for the <em>whole</em> system = weight difference $(m_2 - m_1)g$. Total mass being accelerated = $m_1 + m_2$.</p>
+</blockquote>
+<h3>Step 3: Solve for Acceleration $a$</h3>
+<p>Add equation (1) and (2) to eliminate $T$:</p>
+<p>$$ (T - m_1 g) + (m_2 g - T) = m_1 a + m_2 a $$</p>
+<p>$$ m_2 g - m_1 g = (m_1 + m_2) a $$</p>
+<p>$$ (m_2 - m_1)g = (m_1 + m_2)a $$</p>
+<p>$$ a = \frac{m_2 - m_1}{m_1 + m_2} \, g $$</p>
+<p><strong>Direction:</strong> $\vec{a_1} = a \, \hat{y}$ (up), $\vec{a_2} = a \, (-\hat{y})$ (down). Magnitude is as above.</p>
+<p>If you use $M = m_2$ and $m = m_1$ (as in your handwritten note), this is:
+$$ a = \frac{M - m}{M + m} g $$</p>
+<h3>Step 4: Solve for Tension $T$</h3>
+<p>Use $a$ in equation (1): $T = m_1(g + a)$</p>
+<p>$$ T = m_1 g + m_1 \left( \frac{m_2 - m_1}{m_1 + m_2} g \right) = m_1 g \left[ 1 + \frac{m_2 - m_1}{m_1 + m_2} \right] $$</p>
+<p>$$ T = m_1 g \left[ \frac{(m_1 + m_2) + (m_2 - m_1)}{m_1 + m_2} \right] = m_1 g \left[ \frac{2m_2}{m_1 + m_2} \right] $$</p>
+<p>$$ T = \frac{2 m_1 m_2}{m_1 + m_2} \, g $$</p>
+<p>Check with equation (2): $T = m_2(g - a) = m_2 g \left(1 - \frac{m_2 - m_1}{m_1 + m_2}\right) = \frac{2m_1 m_2}{m_1 + m_2}g$ — same result.</p>
+<h3>Step 5: Verification &amp; Limiting Cases</h3>
+<ul>
+<li><strong>Dimensional check:</strong> $[a] = m/s^2$, $[T] = kg \cdot m/s^2 = N$ ✓</li>
+<li><strong>Equal masses:</strong> If $m_1 = m_2 = m$, then $a = 0$ and $T = mg$ — system in equilibrium, as expected.</li>
+<li><strong>One mass negligible:</strong> If $m_1 \ll m_2$, then $a \approx g$, $T \approx 2m_1 g$ — heavy mass falls almost freely.</li>
+<li><strong>Inequality:</strong> Always $m_1 g &lt; T &lt; m_2 g$ when $m_2 &gt; m_1$.</li>
+</ul>
+<h3>Final Answer</h3>
+<div class="boxed-answer"><p>$$ \mathbf{a = \frac{m_2 - m_1}{m_1 + m_2} g \quad \text{(magnitude)}} $$
+$$ \mathbf{T = \frac{2 m_1 m_2}{m_1 + m_2} g} $$</p></div>
+<p>With $g \approx 9.8 \, m/s^2$ (or $10 \, m/s^2$ for approximation). Example: if $m_1 = 2\,kg$, $m_2 = 4\,kg$: $a = \frac{1}{3}g \approx 3.27\,m/s^2$, $T \approx 26.1\,N$.
+<blockquote>
+<p><strong>Note on your handwriting:</strong> The step $T - mg = ma \implies T = ma + mg$ and then $Mg - ma - mg = Ma$ is exactly the elimination above. Just keep notation consistent ($m_1, m_2$ throughout) for full marks.</p>
+</blockquote>
+</div>
+      </div>
+
+
+      <div class="entry">
+        <div class="entry-header">
+          <span class="badge">Physics • Massive string Machine</span>
+          <span class="timestamp">August 30, 2026 • 04:01 PM</span>
+        </div>
+        <div class="entry-content markdown-body">
+<h3>14. Massive string Machine — Two Blocks Hanging from a Massless Pulley</h3>
+<p><strong>Problem Statement:</strong> The system shown in the figure is released from rest. Assuming $m_2 &gt; m_1$, find the accelerations of the blocks and the tension in the string. It is given that both blocks move with same acceleration magnitude $a$, and $m_2$ (heavier) moves downwards while $m_1$ moves upwards.</p>
+<blockquote>
+<p><strong>Verification of Your Handwritten Work:</strong> Your derivation $a = \dfrac{g(M-m)}{M+m}$ (with $M=m_2$, $m=m_1$) is <strong>correct</strong> for the acceleration. The steps $T-mg=ma$, $Mg-T=Ma$, $T=m(a+g)$ and $Mg-ma-mg=Ma$ are all valid under ideal pulley assumptions. Full credit for $a$ — below is the complete solution including tension and formal checks.</p>
+</blockquote>
+<h3>Step 1: Assumptions &amp; Kinematics</h3>
+<ul>
+<li>Pulley: <strong>massless</strong>, <strong>frictionless</strong> (moment of inertia $I=0$, no friction at axle)</li>
+<li>String: <strong>massless</strong> ($\mu = 0$) and <strong>inextensible</strong> ($L = \text{const}$)</li>
+<li>Hence tension $T$ is uniform throughout the string, and inextensibility gives constraint:</li>
+</ul>
+<p>$$ |a_1| = |a_2| = a, \quad |v_1| = |v_2|, \quad s_1 + s_2 = \text{const} $$</p>
+<ul>
+<li>Released from rest: $v(0)=0$, so motion is uniformly accelerated.</li>
+<li>Choose sign convention: $+ve$ upward for $m_1$, $+ve$ downward for $m_2$ (along direction of motion).</li>
+</ul>
+<h3>Step 2: Free-Body Diagrams</h3>
+<p><strong>For $m_1$ (lighter, moves up):</strong>
+Forces: Tension $T$ upward, weight $m_1 g$ downward.
+Net upward force = $T - m_1 g$.</p>
+<p><strong>For $m_2$ (heavier, moves down):</strong>
+Forces: Weight $m_2 g$ downward, tension $T$ upward.
+Net downward force = $m_2 g - T$.</p>
+<blockquote>
+<p>Diagram: Pulley fixed at top, $m_1$ on left, $m_2$ on right. Both hang vertically.</p>
+</blockquote>
+<h3>Step 3: Equations of Motion ($F_{net}=ma$)</h3>
+<p>For $m_1$:
+$$ T - m_1 g = m_1 a \tag{1} $$</p>
+<p>For $m_2$:
+$$ m_2 g - T = m_2 a \tag{2} $$</p>
+<p>This matches your handwritten equations $T-mg=ma$ and $Mg-T=Ma$.</p>
+<p>From (1):
+$$ T = m_1(g + a) \tag{3} $$</p>
+<p>And from (2):
+$$ T = m_2(g - a) \tag{4} $$</p>
+<h3>Step 4: Solve for Acceleration $a$</h3>
+<p>Add (1) + (2) to eliminate $T$:</p>
+<p>$$ (T - m_1 g) + (m_2 g - T) = m_1 a + m_2 a $$</p>
+<p>$$ (m_2 - m_1)g = (m_1 + m_2)a $$</p>
+<p>$$ a = \frac{m_2 - m_1}{m_1 + m_2}\, g $$</p>
+<p>In your notation $M=m_2$, $m=m_1$:</p>
+<p>$$ a = \frac{M - m}{M + m}\, g \quad \checkmark $$</p>
+<ul>
+<li><strong>Vector form:</strong> $\vec{a_1} = +a\,\hat{j}$ (up), $\vec{a_2} = -a\,\hat{j}$ (down) if $\hat{j}$ is up.</li>
+<li><strong>Physical intuition:</strong> $a = \dfrac{\text{net driving force}}{\text{total inertial mass}} = \dfrac{(m_2-m_1)g}{m_1+m_2}$.</li>
+</ul>
+<h3>Step 5: Solve for Tension $T$</h3>
+<p>Substitute $a$ into (3):</p>
+<p>$$ T = m_1 g \left(1 + \frac{m_2-m_1}{m_1+m_2}\right) = m_1 g \left(\frac{m_1+m_2 + m_2 - m_1}{m_1+m_2}\right) $$</p>
+<p>$$ T = \frac{2m_1 m_2}{m_1 + m_2}\, g $$</p>
+<p>Equivalently from (4): $T = m_2(g-a)$ gives same result. In $M,m$ notation:</p>
+<p>$$ T = \frac{2Mm}{M+m}\, g $$</p>
+<p>Check: $m_1 g &lt; T &lt; m_2 g$ always holds when $m_2 &gt; m_1$, as required for $m_1$ to accelerate up and $m_2$ to accelerate down.</p>
+<h3>Step 6: Dimensional &amp; Limiting-Case Checks</h3>
+<ul>
+<li><strong>Dimensions:</strong> $[a]=LT^{-2}$, $[T]=MLT^{-2}$ — correct.</li>
+<li>$m_1 = m_2 = m$: $a = 0$, $T = mg$ — equilibrium (no motion).</li>
+<li>$m_1 \ll m_2$: $a \to g$, $T \to 2m_1 g$ — heavy mass nearly free-falls, light mass pulled up with ~$g$.</li>
+<li>$m_2 \ll m_1$: $a \to -g$ (roles reverse) — formula still holds if $m_1&gt;m_2$.</li>
+</ul>
+<blockquote>
+<p>Your solution already passed the $Mg-mg = (M+m)a$ step correctly — this confirms no algebraic error.</p>
+</blockquote>
+<h3>Final Result</h3>
+<p>$$ |a_1| = |a_2| = \frac{m_2-m_1}{m_1+m_2}\,g \;\; \text{( $m_2$ down, $m_1$ up )} $$</p>
+<p>$$ T = \frac{2m_1 m_2}{m_1+m_2}\,g $$</p>
+<p>With $g \approx 9.8\,\text{m/s}^2$ (or $10\,\text{m/s}^2$ for estimation). If you provide numerical $m_1,m_2$, substitute directly.</p>
+<h3>Common Pitfall Addressed</h3>
+<p>Writing $a = \dfrac{T-mg}{m}$ alone is not a solution for $a$ (circular, since $T$ unknown). You correctly eliminated $T$ by equating $T=m(a+g)$ with $Mg-T=Ma$ — that's the key step.</p>
+</div>
+      </div>
+      </main>
+    </div>
+  </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.entry-content').forEach(function(container) {
+    Array.from(container.children).forEach(function(child) {
+      child.classList.add('reveal');
+    });
+  });
+  document.querySelectorAll('.entry').forEach(function(e){ e.classList.add('reveal'); });
+  document.querySelectorAll('.entry-header').forEach(function(h){ h.classList.remove('reveal'); });
+  if (!('IntersectionObserver' in window)) {
+    document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in-view'); });
+    return;
+  }
+  const observer = new IntersectionObserver(function(items) {
+    items.forEach(function(item) {
+      const el = item.target;
+      if (item.isIntersecting) {
+        const idx = Array.from(el.parentNode.children).indexOf(el);
+        const delay = Math.min(260, idx * 40);
+        setTimeout(function(){ el.classList.add('in-view'); }, delay);
+      } else {
+        el.classList.remove('in-view');
+      }
+    });
+  }, { threshold: 0.14, rootMargin: '0px 0px -7% 0px' });
+  document.querySelectorAll('.reveal').forEach(function(el){ observer.observe(el); });
+  if (typeof marked !== 'undefined') {
+    document.querySelectorAll('.entry-content').forEach(function(el){
+      if (el.dataset.rendered) return;
+      if (el.textContent.indexOf('###') !== -1 && el.innerHTML.indexOf('<h3') === -1) {
+        try { el.innerHTML = marked.parse(el.textContent); el.dataset.rendered='true'; } catch(e){}
+      }
+    });
+  }
+  if (typeof renderMathInElement !== 'undefined') {
+    renderMathInElement(document.body, {delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}], throwOnError:false});
+  }
+});
+</script>
+</body>
+</html>
