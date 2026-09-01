@@ -50,7 +50,7 @@ export function GoogleAuthButton({ onSuccess, onError, text = 'continue_with', l
       <button
         type="button"
         disabled
-        title="Set VITE_GOOGLE_CLIENT_ID in .env to enable Google Sign-In"
+        title="Set VITE_GOOGLE_CLIENT_ID (or GOOGLE_CLIENT_ID) in .env / Cloudflare Pages env to enable Google Sign-In"
         style={{
           width: '100%',
           padding: '10px 14px',
@@ -70,7 +70,7 @@ export function GoogleAuthButton({ onSuccess, onError, text = 'continue_with', l
         }}
       >
         <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', color: '#4285F4', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, border: '1px solid #dadce0' }}>G</span>
-        {label} — configure VITE_GOOGLE_CLIENT_ID
+        {label} — configure VITE_GOOGLE_CLIENT_ID (or GOOGLE_CLIENT_ID)
       </button>
     );
   }

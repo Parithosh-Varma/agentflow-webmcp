@@ -9,7 +9,9 @@ export const AUTH_URL =
   'https://agentflow-auth.pages.dev'
 
 export const GOOGLE_CLIENT_ID =
-  (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || ''
+  (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ||
+  (import.meta as any).env?.GOOGLE_CLIENT_ID ||
+  ''
 
 // After auth success, redirect to tool with tokens in query (cross-origin bridge via /auth/callback)
 export function buildToolCallbackUrl(params: { token?: string | null; accessToken?: string | null; redirect?: string | null }) {

@@ -8,4 +8,6 @@ export const TOOL_URL =
   'https://agentflow-hackathon.pages.dev'
 
 export const GOOGLE_CLIENT_ID =
-  (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || ''
+  (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ||
+  (import.meta as any).env?.GOOGLE_CLIENT_ID ||
+  ''
