@@ -3,8 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { executeWorkflow, toEngineNodes, toEngineEdges, type NodeStatus } from './engine';
 import { getSmartPlacement, localWireAdjust, snapToGrid, findNearestOpenSlot } from './utils/grid';
 
-const API_BASE = 'https://agentflow.parithosh.workers.dev';
-
 interface WebMCPContext {
   nodes: Node[];
   edges: Edge[];

@@ -36,6 +36,7 @@ export interface ExecResult {
 export interface ExecuteOptions {
   input?: any;
   onEvent?: (e: ExecEvent) => void;
+  customCode?: string;
 }
 
 // ---- shared mappers -------------------------------------------------------
@@ -627,8 +628,8 @@ function getCustomDef(type: string): any | undefined {
   } catch {}
   return undefined;
 }
-async function runCustom(data: any, cfg: any, def: any): Promise<any> {
-  const code = cfg.code || def.code;
+async function runCustom(data: any, cfg: any, def: any, overrideCode?: string): Promise<any> {
+  const code = overrideCode || cfg.code || def.code;
   if (!code) throw new Error(`custom node ${def.type} missing code`);
   const fn = new AsyncFunction('data', 'config', `"use strict"; ${code}`);
   return await fn(data, cfg);
@@ -867,8 +868,8 @@ export async function executeWorkflow(
           break;
         default: {
           const custom = getCustomDef(node.type);
-          if (custom) {
-            result = await runCustom(data, node.config, custom);
+          if (custom || opts.customCode) {
+            result = await runCustom(data, node.config, custom || { type: node.type }, opts.customCode);
             break;
           }
           throw new Error(`unknown module type: ${node.type}`);
