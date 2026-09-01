@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   envPrefix: ['VITE_', 'GOOGLE_'],
   server: {
-    port: 5173,
+    port: 3000,
     headers: {
       'Origin-Agent-Cluster': '?1',
     },
