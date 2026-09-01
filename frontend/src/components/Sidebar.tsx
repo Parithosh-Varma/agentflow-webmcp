@@ -6,11 +6,9 @@ import {
   PlayIcon, GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon,
   FilterIcon, SplitIcon, MergeIcon, LoopIcon, CodeIcon, WebhookIcon,
   AiIcon, ValidatorIcon, LoggerIcon, FileIcon,
-  PlayIcon, ScheduleIcon,
-  CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon, StarIcon,
-  CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon,
   ScheduleIcon, GraphQLIcon, SetIcon, SwitchIcon, AggregateIcon, SortIcon, LimitIcon, ItemListsIcon, FunctionIcon, NoOpIcon, WebhookResponseIcon, HtmlIcon, DateTimeIcon,
   SlackIcon, DiscordIcon, GithubIcon, GmailIcon, GoogleSheetsIcon, NotionIcon, AirtableIcon, PostgresIcon, MySQLIcon, MongoDBIcon, RedisIcon, StripeIcon, ShopifyIcon, AwsS3Icon, OpenAIIcon,
+  CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon, StarIcon,
 } from './icons';
 import { getSmartPlacement, snapToGrid } from '../utils/grid';
 import type { NodeStatus } from '../engine';
@@ -20,7 +18,6 @@ import { CustomNodeCreator } from './CustomNodeCreator';
 import './CustomNodeCreator.css';
 
 // ——— catalog with categories + descriptions ———
-type Category = 'Triggers' | 'Connect' | 'Logic' | 'Transform' | 'Output' | 'AI';
 type Category = 'Trigger' | 'Connect' | 'Logic' | 'Transform' | 'Output' | 'AI' | 'Custom';
 
 export const NODE_CATALOG: Array<{
@@ -32,10 +29,6 @@ export const NODE_CATALOG: Array<{
   icon: ReactNode;
   color: string;
 }> = [
-  // Triggers
-  { type: 'manual_trigger', nodeType: 'startNode', label: 'Manual Trigger', category: 'Triggers', desc: 'Click RUN to start',     icon: <PlayIcon size={13} />,     color: '#9ba657' },
-  { type: 'schedule',  nodeType: 'scheduleNode', label: 'Schedule',  category: 'Triggers',   desc: 'Cron / interval tick',  icon: <ScheduleIcon size={13} />, color: '#f59e0b' },
-  { type: 'webhook',   nodeType: 'webhookNode',  label: 'Webhook',   category: 'Triggers',   desc: 'Incoming HTTP trigger',    icon: <WebhookIcon size={13} />,   color: '#f0a07a' },
   // Trigger — n8n-style
   { type: 'webhook',   nodeType: 'webhookNode',  label: 'Webhook',   category: 'Trigger',   desc: 'Incoming HTTP trigger',    icon: <WebhookIcon size={13} />,   color: '#f0a07a' },
   { type: 'schedule',  nodeType: 'scheduleNode', label: 'Schedule',  category: 'Trigger',   desc: 'Cron / every X min',      icon: <ScheduleIcon size={13} />,  color: '#f59e0b' },
@@ -89,7 +82,6 @@ export const NODE_CATALOG: Array<{
   { type: 'webhook_response', nodeType: 'webhookResponseNode', label: 'Webhook Response', category: 'Output', desc: 'Respond to webhook', icon: <WebhookResponseIcon size={13} />, color: '#f0a07a' },
 ];
 
-const CATEGORIES: Category[] = ['Triggers', 'Connect', 'Logic', 'Transform', 'Output', 'AI'];
 const CATEGORIES: Category[] = ['Trigger', 'Connect', 'Logic', 'Transform', 'Output', 'AI', 'Custom'];
 
 interface Props {
