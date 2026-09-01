@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { ChallengeBanner } from '../components/ChallengeBanner';
-import { BoltIcon, EmptyIcon, ExternalLinkIcon } from '../components/icons';
+import { BoltIcon } from '../components/icons';
 import './DashboardPage.css';
 
 export function DashboardPage() {
@@ -46,7 +46,7 @@ export function DashboardPage() {
 
         <section className="dash-features">
           <div className="dash-feature-card highlight">
-            <div className="dash-feature-icon"><EmptyIcon size={14} /></div>
+            <div className="dash-feature-icon">◎</div>
             <h3>Save to database — sign in required</h3>
             <p>If you <b>sign in</b>, your workflows are saved in the database and persist across devices. <b>Skip</b> to try anonymously — you can always sign in later from the tool.</p>
             <span className="dash-feature-badge">Database • Sync</span>
@@ -87,7 +87,7 @@ export function DashboardPage() {
         <div className="dash-footer-links">
           <Link to="/auth">Sign in</Link>
           <Link to="/tool">Open tool</Link>
-          <a href="https://developer.chrome.com/docs/ai/webmcp" target="_blank" rel="noreferrer"><ExternalLinkIcon size={16} /> WebMCP</a>
+          <a href="https://developer.chrome.com/docs/ai/webmcp" target="_blank" rel="noreferrer">WebMCP ↗</a>
         </div>
       </footer>
     </div>

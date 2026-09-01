@@ -6,7 +6,7 @@
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: var(--z-toast);
+  z-index: 1000;
   width: 420px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
@@ -75,7 +75,7 @@
 
 .agent-toast-badge {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--amber);
@@ -90,7 +90,7 @@
   align-items: center;
   gap: 5px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--dim);
 }
 
@@ -149,7 +149,7 @@
 
 .agent-toast-setting-head {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--faint);
@@ -246,7 +246,7 @@
 .agent-toast-example-label {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--cyan-dim);
@@ -277,7 +277,7 @@
   padding: 8px 10px;
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--faint);

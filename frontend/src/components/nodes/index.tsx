@@ -6,7 +6,6 @@ import {
   AiIcon, ValidatorIcon, LoggerIcon, FileIcon,
   ScheduleIcon, GraphQLIcon, SetIcon, SwitchIcon, AggregateIcon, SortIcon, LimitIcon, ItemListsIcon, FunctionIcon, NoOpIcon, WebhookResponseIcon, HtmlIcon, DateTimeIcon,
   SlackIcon, DiscordIcon, GithubIcon, GmailIcon, GoogleSheetsIcon, NotionIcon, AirtableIcon, PostgresIcon, MySQLIcon, MongoDBIcon, RedisIcon, StripeIcon, ShopifyIcon, AwsS3Icon, OpenAIIcon,
-  WarningIcon,
 } from '../icons';
 
 // Custom nodes — lazy to avoid circular import (engine imports nodes)
@@ -177,10 +176,9 @@ function Module(props: NodeProps) {
   const displayName = NODE_DISPLAY_NAMES[key] || key.replace('_', ' ').split(' ').map((s: string) => s[0].toUpperCase() + s.slice(1)).join(' ');
   const typeLabel = displayName;
   const status = (data?.status as string) || 'idle';
-  const validationError = (data as any)?.validationError as string | undefined;
 
   return (
-    <div className="module" style={{ ['--tint' as any]: meta.tint, borderColor: validationError ? 'var(--red)' : undefined, boxShadow: validationError ? '0 0 0 1px rgba(224,93,68,0.35) inset' : undefined }}>
+    <div className="module" style={{ ['--tint' as any]: meta.tint }}>
       <Handle
         type="target"
         position={Position.Left}
@@ -191,10 +189,8 @@ function Module(props: NodeProps) {
       <div className="module-body">
         <span className="module-type">{typeLabel}</span>
         <span className="module-label">{String(data?.label)}</span>
-        {validationError && <span title={validationError} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--red)', background: 'rgba(224,93,68,0.1)', border: '1px solid rgba(224,93,68,0.25)', borderRadius: 4, padding: '1px 4px', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 3, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><WarningIcon size={9} /> {validationError}</span>}
       </div>
       <span className="module-led" data-status={status} title={status} />
-      {validationError && <span style={{ position: 'absolute', top: -6, right: -6, width: 14, height: 14, borderRadius: '50%', background: 'var(--red)', color: 'white', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, lineHeight: 1 }}>!</span>}
       <Handle
         type="source"
         position={Position.Right}

@@ -21,7 +21,7 @@
   background: var(--panel);
   position: sticky;
   top: 0;
-  z-index: var(--z-node);
+  z-index: 10;
 }
 
 .auth-page-brand {
@@ -47,7 +47,7 @@
 
 .auth-page-tag {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--faint);
@@ -90,7 +90,7 @@
 
 .auth-page-kicker {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--amber);
@@ -173,7 +173,7 @@
 
 .auth-page-quote span {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--faint);
@@ -325,7 +325,7 @@
 }
 
 .auth-row { margin-bottom: 0; }
-.auth-row span { font-size: 10px; letter-spacing: 0.18em; }
+.auth-row span { font-size: 9px; letter-spacing: 0.18em; }
 
 .auth-input {
   height: 42px;
@@ -357,7 +357,7 @@
 
 .auth-pass-hint {
   font-family: var(--font-mono) !important;
-  font-size: 10px !important;
+  font-size: 9px !important;
   color: var(--faint) !important;
   letter-spacing: 0.04em !important;
   text-transform: none !important;
@@ -451,7 +451,7 @@
 .auth-card-badge {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--cyan);

@@ -6,7 +6,7 @@
   inset: 0;
   background: rgba(0,0,0,0.32);
   backdrop-filter: blur(1px);
-  z-index: var(--z-drawer);
+  z-index: 380;
   animation: help-fade 0.18s ease;
 }
 @keyframes help-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -15,17 +15,19 @@
   position: fixed;
   top: 0;
   right: 0;
-  width: 360px;
+  width: min(360px, 92vw);
   max-width: 92vw;
   height: 100%;
+  height: 100dvh;
   background: linear-gradient(180deg, var(--panel) 0%, var(--bg-raised) 100%);
   border-left: 1px solid var(--border);
   box-shadow: -16px 0 48px rgba(0,0,0,0.45);
-  z-index: calc(var(--z-drawer) + 1);
+  z-index: 381;
   display: flex;
   flex-direction: column;
   animation: help-slide 0.26s cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 @keyframes help-slide {
   from { transform: translateX(100%); opacity: 0.6; }
@@ -43,7 +45,7 @@
 
 .help-kicker {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--amber);
@@ -80,11 +82,22 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 480px) {
+  .help-drawer { width: 100vw; max-width: 100vw; }
+  .help-body { padding: 12px 14px; gap: 12px; }
+  .help-header { padding: 14px 14px 10px; }
+  .help-footer { padding: 10px 14px calc(14px + env(safe-area-inset-bottom, 0px)); flex-wrap: wrap; }
+}
+@media (max-width: 360px) {
+  .help-title { font-size: 13px; }
+  .help-steps, .help-list { font-size: 11px; }
 }
 
 .help-section h3 {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--faint);
@@ -184,34 +197,11 @@
 }
 .help-link:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(86,205,189,0.05); }
 
-/* FAB + rail help button */
-.help-fab {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  color: var(--ink-2);
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  z-index: var(--z-popover);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-.help-fab:hover {
-  border-color: var(--amber);
-  color: var(--amber);
-  background: var(--panel);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+/* FAB removed — was overlapping +/- controls (see screenshot) */
+.help-fab,
+button.help-fab {
+  display: none !important;
+  pointer-events: none !important;
 }
 
 .rail-help-btn {

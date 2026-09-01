@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { CheckIcon, EmptyIcon } from '../components/icons';
 import './onboarding.css';
 
 export type ChecklistItem = { id: string; label: string; done: boolean; onClick?: () => void };
@@ -18,7 +17,7 @@ export function Checklist({ items, title = 'Get started' }: { items: ChecklistIt
         <ul className="onboarding-checklist-list">
           {items.map((it) => (
             <li key={it.id} className={`onboarding-checklist-item ${it.done ? 'done' : ''}`}>
-              <span className="onboarding-checklist-icon">{it.done ? <CheckIcon size={12} /> : <EmptyIcon size={12} />}</span>
+              <span className="onboarding-checklist-icon">{it.done ? '✓' : '○'}</span>
               <span className="onboarding-checklist-label">{it.label}</span>
               {!it.done && it.onClick && <button className="onboarding-btn-ghost" onClick={it.onClick}>Go</button>}
             </li>

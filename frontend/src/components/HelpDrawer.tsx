@@ -47,9 +47,7 @@ export function HelpDrawer({ open, onClose, onReplay }: Props) {
             <div className="help-shortcuts">
               <div><code>?</code> <span>Open this guide</span></div>
               <div><code>Esc</code> <span>Close modal / drawer / popover</span></div>
-              <div><code>Drag</code> <span>Pan canvas — 1-finger / grab & move</span></div>
-              <div><code>2-finger drag</code> <span>Pan · Pinch to zoom</span></div>
-              <div><code>Shift + drag</code> <span>Draw rectangle to box-select nodes</span></div>
+              <div><code>Drag</code> <span>Move modules on canvas</span></div>
               <div><code>Click</code> <span>Select module to tune</span></div>
             </div>
           </section>
@@ -75,10 +73,4 @@ export function HelpDrawer({ open, onClose, onReplay }: Props) {
   );
 }
 
-export function HelpButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button className="help-fab" onClick={onClick} aria-label="How to use" title="How to use ( ? )">
-      ?
-    </button>
-  );
-}
+// HelpButton removed — was overlapping +/- controls

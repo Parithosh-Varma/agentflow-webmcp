@@ -3,14 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../api';
 import { TOOL_URL, buildToolCallbackUrl } from '../config';
-import { GoogleAuthButton } from '../components/GoogleAuthButton';
 import logo from '../assets/logo.png';
 import './AuthPage.css';
 
 // Auth is a SEPARATE Cloudflare Pages (agentflow-auth.pages.dev).
 // On success we bridge tokens cross-origin via TOOL_URL/auth/callback?token=&accessToken=
 export function AuthPage() {
-  const { user, login, register, googleLogin, logout } = useAuth();
+  const { user, login, register, logout } = useAuth();
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get('redirect') || `${TOOL_URL}/tool`;
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -20,7 +19,6 @@ export function AuthPage() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
 
   const bridgeToTool = () => {
     const token = localStorage.getItem('agentflow_token');
@@ -180,31 +178,6 @@ export function AuthPage() {
           </div>
 
           {error && <div className="auth-error" role="alert">{error}</div>}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-            <GoogleAuthButton
-              text={mode === 'login' ? 'signin_with' : 'signup_with'}
-              label={mode === 'login' ? 'Sign in with Google' : 'Sign up with Google'}
-              disabled={googleLoading || loading}
-              onSuccess={async (cred) => {
-                setError('');
-                setGoogleLoading(true);
-                try {
-                  await googleLogin(cred);
-                  setTimeout(bridgeToTool, 200);
-                } catch (err: any) {
-                  setError(err?.message || 'Google sign-in failed');
-                  setGoogleLoading(false);
-                }
-              }}
-              onError={(msg) => setError(msg)}
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--faint)' }}>
-              <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-              or with email
-              <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            </div>
-          </div>
 
           <form onSubmit={handleSubmit} className="auth-form">
             {mode === 'register' && (

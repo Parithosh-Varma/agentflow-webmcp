@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-tooltip);
+  z-index: 400;
   padding: 24px;
   animation: ob-fade-in 0.2s ease;
 }
@@ -132,7 +132,7 @@
 
 .ob-feature-kicker {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--amber);
@@ -164,7 +164,7 @@
 
 .ob-step-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--faint);

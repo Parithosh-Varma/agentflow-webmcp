@@ -31,11 +31,12 @@ export function LabeledEdge({
         <EdgeLabelRenderer>
           <div
             className="edge-label"
+            title={String(label)}
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             }}
           >
-            {label}
+            {String(label).length > 22 ? `${String(label).slice(0, 22)}…` : String(label)}
           </div>
         </EdgeLabelRenderer>
       ) : null}

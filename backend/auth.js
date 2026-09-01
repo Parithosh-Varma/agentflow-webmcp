@@ -19,7 +19,6 @@ const PUBLIC_ROUTES = [
   '/api/cache/stats',
   '/api/auth/login',
   '/api/auth/register',
-  '/api/auth/google',
   '/api/auth/verify-access',
   '/api/auth/check-access',
   '/demo-key.json',

@@ -4,13 +4,7 @@ compatibility_date = "2024-01-01"
 
 [vars]
 ENVIRONMENT = "production"
-# --- Editable in Cloudflare Dashboard ---
-# Dashboard: Cloudflare → Workers & Pages → agentflow → Settings → Variables and Secrets
-# Do NOT set GOOGLE_CLIENT_ID here — set it in Dashboard as a Variable so `wrangler deploy` doesn't overwrite it.
-# Dashboard > Add Variable > GOOGLE_CLIENT_ID = your-client-id.apps.googleusercontent.com > Save > Redeploy
 JWT_SECRET = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
-# Optional — add in Dashboard if you use Supabase (do not commit secrets here)
-# SUPABASE_URL, SUPABASE_ANON_KEY, etc. — add via Dashboard > Add Variable/Secret
 
 [[d1_databases]]
 binding = "DB"

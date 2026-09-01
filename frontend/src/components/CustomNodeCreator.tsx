@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { createCustomNode, listCustomNodes, deleteCustomNode, type CustomNodeDef, type CustomField, CUSTOM_ICON_OPTIONS } from '../customNodes';
-import { CloseIcon, EmptyIcon } from './icons';
+import { saveCustomNode, listCustomNodes, deleteCustomNode, type CustomNodeDef, type CustomField } from '../customNodes';
+import { CloseIcon } from './icons';
 
 const PRESET_COLORS = ['#a8d8a8','#8f9fdd','#e0b45c','#d98aa6','#6cc7ba','#ab97d4','#e8a33d','#56cdbd','#7ec8e3','#c9a0dc','#f0a07a','#ff6b9d','#7dd3fc','#93c5fd','#f59e0b','#34d399','#f43f5e','#8b5cf6','#06b6d4','#f97316'];
 
@@ -118,7 +118,7 @@ return { hello: "world", input: data, config };`);
           <div className="custom-list">
             {customNodes.length===0 ? (
               <div className="sb-empty" style={{padding:'20px 0'}}>
-                <div className="sb-empty-icon"><EmptyIcon size={20} /></div>
+                <div className="sb-empty-icon">◎</div>
                 <p>No custom nodes yet</p>
                 <p className="hint" style={{fontSize:11}}>Create one to turn any JS (fetch, transform, API) into a reusable module.</p>
                 <button className="btn-run btn-small" onClick={()=>setMode('create')}>Create your first node</button>
@@ -175,7 +175,7 @@ return { hello: "world", input: data, config };`);
               <label className="cfg-row" style={{flex:1}}>
                 <span>Icon</span>
                 <select className="cfg-input" value={icon} onChange={e=>setIcon(e.target.value)}>
-                  {CUSTOM_ICON_OPTIONS.map(ic=> <option key={ic} value={ic}>{ic}</option>)}
+                  {["CodeIcon","BoltIcon","StarIcon","SparkIcon","APIIcon","CodeIcon","EmailIcon","FileIcon","ScheduleIcon","GitHubIcon","SlackIcon","SheetsIcon","NotionIcon","DiscordIcon","AIIcon","FilterIcon","LoopIcon","MergeIcon","SplitIcon","AggregateIcon","SortIcon","LimitIcon","SetIcon","TransformIcon","ConditionIcon","ValidatorIcon","LoggerIcon","HTMLIcon","DateTimeIcon","ItemListsIcon","FunctionIcon","NoopIcon","WebhookResponseIcon","WebhookIcon","ResponseIcon","OutputIcon","StartIcon","TriggerIcon","InputIcon","FlowIcon","CustomNodeIcon"].map(ic=> <option key={ic} value={ic}>{ic}</option>)}
                 </select>
               </label>
             </div>
