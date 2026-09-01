@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { executeWorkflow, toEngineNodes, toEngineEdges, type NodeStatus } from './engine';
 import { getSmartPlacement, localWireAdjust, snapToGrid, findNearestOpenSlot } from './utils/grid';
 
+const API_BASE = 'https://agentflow.parithosh.workers.dev';
+
 interface WebMCPContext {
   nodes: Node[];
   edges: Edge[];
@@ -329,7 +331,8 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
         });
         ctx.setExecutionResult(result);
         lastResultRef.current = result;
-        // results kept in-memory only for get_execution_details — not persisted to history/storage
+        // also push to workflowHistory for get_workflow_history (#8)
+        try { ctx.workflowHistory?.current?.push({ at: result.executedAt, input, result }); } catch {}
         // truncate outputs for agent (full via get_execution_details) but keep traceability
         ctx.addToolLog('execute_workflow', { input }, result);
         return JSON.stringify(result);
@@ -499,18 +502,31 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       const engineNodes = toEngineNodes(ctx.nodesRef.current);
       const engineEdges = toEngineEdges(ctx.edgesRef.current);
       const errors: string[] = [];
+      let customTypes = new Set<string>();
+      try { const raw = localStorage.getItem('agentflow_custom_nodes_v1'); if (raw) customTypes = new Set((JSON.parse(raw) as any[]).map((c:any)=>c.type)); } catch {}
+      const ALL_BUILTIN = new Set(['start','manual_trigger','api_call','transform','condition','output','delay','filter','split','merge','loop','code','webhook','ai','validator','logger','file','schedule','graphql','set','switch','aggregate','sort','limit','item_lists','function','noop','webhook_response','html','date_time','slack','discord','github','gmail','google_sheets','notion','airtable','postgres','mysql','mongodb','redis','stripe','shopify','aws_s3','openai']);
       engineNodes.forEach((n) => {
         if (!n.label) errors.push(`module ${n.id} has no label`);
-        if (n.type === 'api_call' && !n.config?.url)
-          errors.push(`api_call "${n.label}" has no URL configured`);
-        if (n.type === 'output' && n.config?.kind === 'webhook' && !n.config?.url)
-          errors.push(`output "${n.label}" is a webhook with no URL`);
-        if (n.type === 'filter' && !n.config?.expression)
-          errors.push(`filter "${n.label}" has no expression`);
-        if (n.type === 'code' && !n.config?.code && !n.config?.expression)
-          errors.push(`code "${n.label}" has no code`);
-        if (n.type === 'webhook' && !n.config?.url)
-          errors.push(`webhook "${n.label}" has no URL`);
+        if (!ALL_BUILTIN.has(n.type) && !n.type.startsWith('custom_')) errors.push(`module "${n.label}" unknown type ${n.type}`);
+        if (n.type.startsWith('custom_') && !customTypes.has(n.type)) errors.push(`custom node "${n.label}" type ${n.type} not found — create via create_custom_node`);
+        if (n.type === 'api_call' && !n.config?.url) errors.push(`api_call "${n.label}" has no URL configured`);
+        if (n.type === 'graphql' && !n.config?.url && !n.config?.endpoint) errors.push(`graphql "${n.label}" missing url/endpoint`);
+        if (n.type === 'webhook' && !n.config?.url) errors.push(`webhook "${n.label}" has no URL`);
+        if (n.type === 'transform' && n.config?.op==='pick' && !n.config?.keys) errors.push(`transform "${n.label}" op=pick requires keys`);
+        if (n.type === 'transform' && n.config?.op==='expression' && !n.config?.expression) errors.push(`transform "${n.label}" op=expression requires expression`);
+        if (n.type === 'condition' && !n.config?.expression && !n.config?.path) errors.push(`condition "${n.label}" requires expression or path`);
+        if (n.type === 'output' && n.config?.kind === 'webhook' && !n.config?.url) errors.push(`output "${n.label}" is a webhook with no URL`);
+        if (n.type === 'filter' && !n.config?.expression) errors.push(`filter "${n.label}" has no expression`);
+        if (n.type === 'code' && !n.config?.code && !n.config?.expression) errors.push(`code "${n.label}" has no code`);
+        if (n.type === 'function' && !n.config?.code && !n.config?.functionCode && !n.config?.expression) errors.push(`function "${n.label}" missing code`);
+        if (n.type === 'delay' && n.config?.ms!==undefined && isNaN(Number(n.config.ms))) errors.push(`delay "${n.label}" ms must be number`);
+        if (n.type === 'set' && !n.config?.fields && !n.config?.set && !n.config?.values && Object.keys(n.config||{}).length===0) errors.push(`set "${n.label}" has no fields`);
+        if (n.type === 'switch' && !n.config?.expression && !n.config?.rules && !n.config?.cases && n.config?.value===undefined) errors.push(`switch "${n.label}" requires expression or rules`);
+        if (n.type === 'aggregate' && ['sum','avg'].includes(String(n.config?.operation||'')) && !n.config?.field && !n.config?.groupBy) errors.push(`aggregate "${n.label}" operation ${n.config?.operation} requires field`);
+        if (n.type === 'html' && n.config?.operation==='extract' && !n.config?.selector && !n.config?.css) errors.push(`html "${n.label}" extract requires selector`);
+        if (n.type === 'date_time' && n.config?.operation==='add' && n.config?.amount===undefined) errors.push(`date_time "${n.label}" add requires amount`);
+        if (n.type === 'openai' && !n.config?.prompt && !n.config?.message) errors.push(`openai "${n.label}" missing prompt`);
+        if (n.type === 'ai' && !n.config?.prompt) errors.push(`ai "${n.label}" missing prompt`);
       });
       engineEdges.forEach((e) => {
         if (!engineNodes.find((n) => n.id === e.source))
@@ -1096,7 +1112,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       list.push(def);
       localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
       try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
-      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{}); } catch{}
+      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch(`${API_BASE}/api/custom-nodes`, {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=> fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{})); } catch{}
       const result={success:true, node:def, message:`Created custom node ${t}`};
       ctx.addToolLog('create_custom_node', {type:t}, result);
       return JSON.stringify(result);
@@ -1113,8 +1129,12 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       try {
         const headers: Record<string,string> = {};
         try { const tok = localStorage.getItem('agentflow_token'); if (tok) headers['Authorization'] = `Bearer ${tok}`; } catch {}
-        const res = await fetch('/api/custom-nodes', { headers });
-        if (res.ok) {
+        let res: Response | null = null;
+        try { res = await fetch(`${API_BASE}/api/custom-nodes`, { headers }); } catch {}
+        if (!res || !res.ok) {
+          try { res = await fetch('/api/custom-nodes', { headers }); } catch {}
+        }
+        if (res && res.ok) {
           const data = await res.json();
           const backendNodes = data.nodes || [];
           const seen = new Set(list.map((n:any)=>n.type));
@@ -1139,7 +1159,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       const removed=list.splice(idx,1)[0];
       localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
       try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
-      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{}); } catch{}
+      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch(`${API_BASE}/api/custom-nodes`, {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=> fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{})); } catch{}
       const result={success:true, deleted:removed.type};
       ctx.addToolLog('delete_custom_node', {type:t}, result);
       return JSON.stringify(result);
@@ -1169,7 +1189,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       def.updatedAt=new Date().toISOString();
       localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
       try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
-      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{}); } catch{}
+      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch(`${API_BASE}/api/custom-nodes`, {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=> fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{})); } catch{}
       const result={success:true, node:def};
       ctx.addToolLog('update_custom_node', {type:t}, result);
       return JSON.stringify(result);

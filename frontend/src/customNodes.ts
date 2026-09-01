@@ -21,6 +21,7 @@ export interface CustomNodeDef {
 }
 
 const STORAGE_KEY = 'agentflow_custom_nodes_v1';
+const API_BASE = 'https://agentflow.parithosh.workers.dev';
 
 function normalizeType(raw: string): string {
   let t = raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/__+/g, '_').replace(/^_+|_+$/g, '');
@@ -49,11 +50,13 @@ export function saveCustomNodes(list: CustomNodeDef[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   // notify listeners
   try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', { detail: list })); } catch {}
-  // also sync to backend if available (fire-and-forget)
+  // also sync to backend if available (fire-and-forget) — try Worker D1 first, then Express
   try {
     const headers: Record<string,string> = { 'Content-Type': 'application/json' };
     try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch {}
-    fetch('/api/custom-nodes', { method: 'POST', headers, body: JSON.stringify({ nodes: list }) }).catch(()=>{});
+    fetch(`${API_BASE}/api/custom-nodes`, { method: 'POST', headers, body: JSON.stringify({ nodes: list }) }).catch(()=>{
+      fetch('/api/custom-nodes', { method: 'POST', headers, body: JSON.stringify({ nodes: list }) }).catch(()=>{});
+    });
   } catch {}
 }
 
@@ -118,8 +121,13 @@ export async function syncCustomNodesFromBackend() {
   try {
     const headers: Record<string,string> = {};
     try { const tok = localStorage.getItem('agentflow_token'); if (tok) headers['Authorization'] = `Bearer ${tok}`; } catch {}
-    const res = await fetch('/api/custom-nodes', { headers });
-    if (!res.ok) return;
+    // Try Worker D1 first, then fallback to Express local
+    let res: Response | null = null;
+    try { res = await fetch(`${API_BASE}/api/custom-nodes`, { headers }); } catch {}
+    if (!res || !res.ok) {
+      try { res = await fetch('/api/custom-nodes', { headers }); } catch {}
+    }
+    if (!res || !res.ok) return;
     const data = await res.json();
     const backendNodes: CustomNodeDef[] = data.nodes || [];
     if (!Array.isArray(backendNodes) || backendNodes.length===0) return;

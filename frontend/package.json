@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@sentry/react": "^10.73.0",
     "@xyflow/react": "^12.11.5",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -23,10 +26,12 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
+    "jsdom": "^24.1.0",
     "oxlint": "^1.79.0",
     "playwright": "^1.62.1",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
+    "vitest": "^1.6.0",
     "wrangler": "^4.126.0"
   }
 }

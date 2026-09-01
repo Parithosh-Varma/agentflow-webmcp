@@ -3,18 +3,25 @@ import type { Node, Edge } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
 import { getInstanceCount, NODE_DISPLAY_NAMES } from './nodes';
 import {
-  GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon,
+  PlayIcon, GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon,
   FilterIcon, SplitIcon, MergeIcon, LoopIcon, CodeIcon, WebhookIcon,
   AiIcon, ValidatorIcon, LoggerIcon, FileIcon,
   PlayIcon, ScheduleIcon,
   CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon, StarIcon,
+  CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon,
+  ScheduleIcon, GraphQLIcon, SetIcon, SwitchIcon, AggregateIcon, SortIcon, LimitIcon, ItemListsIcon, FunctionIcon, NoOpIcon, WebhookResponseIcon, HtmlIcon, DateTimeIcon,
+  SlackIcon, DiscordIcon, GithubIcon, GmailIcon, GoogleSheetsIcon, NotionIcon, AirtableIcon, PostgresIcon, MySQLIcon, MongoDBIcon, RedisIcon, StripeIcon, ShopifyIcon, AwsS3Icon, OpenAIIcon,
 } from './icons';
 import { getSmartPlacement, snapToGrid } from '../utils/grid';
 import type { NodeStatus } from '../engine';
 import './Sidebar.css';
+import { listCustomNodes, type CustomNodeDef } from '../customNodes';
+import { CustomNodeCreator } from './CustomNodeCreator';
+import './CustomNodeCreator.css';
 
 // ——— catalog with categories + descriptions ———
 type Category = 'Triggers' | 'Connect' | 'Logic' | 'Transform' | 'Output' | 'AI';
+type Category = 'Trigger' | 'Connect' | 'Logic' | 'Transform' | 'Output' | 'AI' | 'Custom';
 
 export const NODE_CATALOG: Array<{
   type: string;
@@ -29,27 +36,61 @@ export const NODE_CATALOG: Array<{
   { type: 'manual_trigger', nodeType: 'startNode', label: 'Manual Trigger', category: 'Triggers', desc: 'Click RUN to start',     icon: <PlayIcon size={13} />,     color: '#9ba657' },
   { type: 'schedule',  nodeType: 'scheduleNode', label: 'Schedule',  category: 'Triggers',   desc: 'Cron / interval tick',  icon: <ScheduleIcon size={13} />, color: '#f59e0b' },
   { type: 'webhook',   nodeType: 'webhookNode',  label: 'Webhook',   category: 'Triggers',   desc: 'Incoming HTTP trigger',    icon: <WebhookIcon size={13} />,   color: '#f0a07a' },
+  // Trigger — n8n-style
+  { type: 'webhook',   nodeType: 'webhookNode',  label: 'Webhook',   category: 'Trigger',   desc: 'Incoming HTTP trigger',    icon: <WebhookIcon size={13} />,   color: '#f0a07a' },
+  { type: 'schedule',  nodeType: 'scheduleNode', label: 'Schedule',  category: 'Trigger',   desc: 'Cron / every X min',      icon: <ScheduleIcon size={13} />,  color: '#f59e0b' },
+  { type: 'manual_trigger', nodeType: 'startNode', label: 'Manual Trigger', category: 'Trigger', desc: 'Click to run',        icon: <PlayIcon size={13} />,      color: '#9ba657' },
   // Connect
   { type: 'api_call',  nodeType: 'apiCallNode',  label: 'API Call',  category: 'Connect',   desc: 'Fetch any REST API',      icon: <GlobeIcon size={13} />,     color: '#8f9fdd' },
   { type: 'file',      nodeType: 'fileNode',     label: 'File',      category: 'Connect',   desc: 'Read / write files',      icon: <FileIcon size={13} />,      color: '#93c5fd' },
+  { type: 'graphql',   nodeType: 'graphqlNode',  label: 'GraphQL',   category: 'Connect',   desc: 'GraphQL query',           icon: <GraphQLIcon size={13} />,   color: '#e535ab' },
+  // Apps — Connect
+  { type: 'slack',     nodeType: 'slackNode',    label: 'Slack',     category: 'Connect',   desc: 'Post to Slack',           icon: <SlackIcon size={13} />,     color: '#e01e5a' },
+  { type: 'discord',   nodeType: 'discordNode',  label: 'Discord',   category: 'Connect',   desc: 'Send Discord msg',        icon: <DiscordIcon size={13} />,   color: '#5865f2' },
+  { type: 'github',    nodeType: 'githubNode',   label: 'GitHub',    category: 'Connect',   desc: 'GitHub API',              icon: <GithubIcon size={13} />,    color: '#24292e' },
+  { type: 'gmail',     nodeType: 'gmailNode',    label: 'Gmail',     category: 'Connect',   desc: 'Send email',              icon: <GmailIcon size={13} />,     color: '#ea4335' },
+  { type: 'google_sheets', nodeType: 'googleSheetsNode', label: 'Google Sheets', category: 'Connect', desc: 'Append/read sheet', icon: <GoogleSheetsIcon size={13} />, color: '#0f9d58' },
+  { type: 'notion',    nodeType: 'notionNode',   label: 'Notion',    category: 'Connect',   desc: 'Notion database',         icon: <NotionIcon size={13} />,    color: '#000000' },
+  { type: 'airtable',  nodeType: 'airtableNode', label: 'Airtable',  category: 'Connect',   desc: 'Airtable records',        icon: <AirtableIcon size={13} />,  color: '#18bfff' },
+  { type: 'postgres',  nodeType: 'postgresNode', label: 'Postgres',  category: 'Connect',   desc: 'Postgres query',          icon: <PostgresIcon size={13} />,  color: '#336791' },
+  { type: 'mysql',     nodeType: 'mysqlNode',    label: 'MySQL',     category: 'Connect',   desc: 'MySQL query',             icon: <MySQLIcon size={13} />,     color: '#00758f' },
+  { type: 'mongodb',   nodeType: 'mongodbNode',  label: 'MongoDB',   category: 'Connect',   desc: 'MongoDB op',              icon: <MongoDBIcon size={13} />,   color: '#47a248' },
+  { type: 'redis',     nodeType: 'redisNode',    label: 'Redis',     category: 'Connect',   desc: 'Redis get/set',           icon: <RedisIcon size={13} />,     color: '#dc382d' },
+  { type: 'stripe',    nodeType: 'stripeNode',   label: 'Stripe',    category: 'Connect',   desc: 'Stripe API',              icon: <StripeIcon size={13} />,    color: '#635bff' },
+  { type: 'shopify',   nodeType: 'shopifyNode',  label: 'Shopify',   category: 'Connect',   desc: 'Shopify store',           icon: <ShopifyIcon size={13} />,   color: '#96bf48' },
+  { type: 'aws_s3',    nodeType: 'awsS3Node',    label: 'AWS S3',    category: 'Connect',   desc: 'S3 upload/list',          icon: <AwsS3Icon size={13} />,     color: '#ff9900' },
   // Logic
   { type: 'condition', nodeType: 'conditionNode',label: 'Condition', category: 'Logic',     desc: 'If / else branch',        icon: <BranchIcon size={13} />,    color: '#d98aa6' },
   { type: 'filter',    nodeType: 'filterNode',   label: 'Filter',    category: 'Logic',     desc: 'Keep matching rows',      icon: <FilterIcon size={13} />,    color: '#e8a33d' },
   { type: 'split',     nodeType: 'splitNode',    label: 'Split',     category: 'Logic',     desc: 'Fan-out parallel',        icon: <SplitIcon size={13} />,     color: '#56cdbd' },
   { type: 'merge',     nodeType: 'mergeNode',    label: 'Merge',     category: 'Logic',     desc: 'Join streams',            icon: <MergeIcon size={13} />,     color: '#7ec8e3' },
   { type: 'loop',      nodeType: 'loopNode',     label: 'Loop',      category: 'Logic',     desc: 'Repeat over items',       icon: <LoopIcon size={13} />,      color: '#c9a0dc' },
+  { type: 'switch',    nodeType: 'switchNode',   label: 'Switch',    category: 'Logic',     desc: 'Multi-way route',         icon: <SwitchIcon size={13} />,    color: '#f43f5e' },
+  { type: 'aggregate', nodeType: 'aggregateNode',label: 'Aggregate', category: 'Logic',     desc: 'Group + sum/count',       icon: <AggregateIcon size={13} />, color: '#8b5cf6' },
+  { type: 'sort',      nodeType: 'sortNode',     label: 'Sort',      category: 'Logic',     desc: 'Sort items',              icon: <SortIcon size={13} />,      color: '#06b6d4' },
+  { type: 'limit',     nodeType: 'limitNode',    label: 'Limit',     category: 'Logic',     desc: 'Limit / offset',          icon: <LimitIcon size={13} />,     color: '#a3a3a3' },
+  { type: 'item_lists',nodeType: 'itemListsNode',label: 'Item Lists',category: 'Logic',     desc: 'Union/intersect',         icon: <ItemListsIcon size={13} />, color: '#f97316' },
+  { type: 'function',  nodeType: 'functionNode', label: 'Function',  category: 'Logic',     desc: 'JS function item',        icon: <FunctionIcon size={13} />,  color: '#a8d8a8' },
+  { type: 'noop',      nodeType: 'noopNode',     label: 'NoOp',      category: 'Logic',     desc: 'Do nothing',              icon: <NoOpIcon size={13} />,      color: '#a8a3a3' },
   // Transform
   { type: 'transform', nodeType: 'transformNode',label: 'Transform', category: 'Transform', desc: 'Map & reshape data',      icon: <TransformIcon size={13} />, color: '#e0b45c' },
   { type: 'code',      nodeType: 'codeNode',     label: 'Code',      category: 'Transform', desc: 'Run JS snippet',          icon: <CodeIcon size={13} />,      color: '#a8d8a8' },
   { type: 'validator', nodeType: 'validatorNode',label: 'Validator', category: 'Transform', desc: 'Schema check',            icon: <ValidatorIcon size={13} />, color: '#7dd3fc' },
   { type: 'delay',     nodeType: 'delayNode',    label: 'Delay',     category: 'Transform', desc: 'Wait / throttle',         icon: <ClockIcon size={13} />,     color: '#ab97d4' },
-{ type: 'ai', nodeType: 'aiNode', label: 'AI', category: 'AI', desc: 'LLM inference', icon: <AiIcon size={13} />, color: '#ff6b9d' },
+  { type: 'set',       nodeType: 'setNode',      label: 'Set',       category: 'Transform', desc: 'Set fields',              icon: <SetIcon size={13} />,       color: '#34d399' },
+  { type: 'html',      nodeType: 'htmlNode',     label: 'HTML',      category: 'Transform', desc: 'Extract HTML',            icon: <HtmlIcon size={13} />,      color: '#ea580c' },
+  { type: 'date_time', nodeType: 'dateTimeNode', label: 'Date & Time', category: 'Transform', desc: 'Date math',             icon: <DateTimeIcon size={13} />,  color: '#0ea5e9' },
+  // AI
+  { type: 'ai',        nodeType: 'aiNode',       label: 'AI',        category: 'AI',        desc: 'LLM inference',            icon: <AiIcon size={13} />,       color: '#ff6b9d' },
+  { type: 'openai',    nodeType: 'openaiNode',   label: 'OpenAI',    category: 'AI',        desc: 'OpenAI chat/completions', icon: <OpenAIIcon size={13} />,    color: '#10a37f' },
   // Output
   { type: 'output',    nodeType: 'outputNode',   label: 'Output',    category: 'Output',    desc: 'Save or POST result',     icon: <SendIcon size={13} />,      color: '#6cc7ba' },
   { type: 'logger',    nodeType: 'loggerNode',   label: 'Logger',    category: 'Output',    desc: 'Console telemetry',       icon: <LoggerIcon size={13} />,    color: '#d4a574' },
+  { type: 'webhook_response', nodeType: 'webhookResponseNode', label: 'Webhook Response', category: 'Output', desc: 'Respond to webhook', icon: <WebhookResponseIcon size={13} />, color: '#f0a07a' },
 ];
 
 const CATEGORIES: Category[] = ['Triggers', 'Connect', 'Logic', 'Transform', 'Output', 'AI'];
+const CATEGORIES: Category[] = ['Trigger', 'Connect', 'Logic', 'Transform', 'Output', 'AI', 'Custom'];
 
 interface Props {
   nodes: Node[];
@@ -173,6 +214,70 @@ export function Sidebar({
   const [activeCat, setActiveCat] = useState<Category | 'All'>('All');
   const [collapsed, setCollapsed] = useState<Set<Category>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
+  const [showCustomCreator, setShowCustomCreator] = useState(false);
+  const [customNodes, setCustomNodes] = useState<CustomNodeDef[]>(() => {
+    try { return listCustomNodes(); } catch { return []; }
+  });
+  useEffect(() => {
+    const refresh = () => { try { setCustomNodes(listCustomNodes()); } catch {} };
+    window.addEventListener('custom-nodes-updated', refresh as any);
+    const onStorage = (e: StorageEvent) => { if (e.key === 'agentflow_custom_nodes_v1') refresh(); };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('custom-nodes-updated', refresh as any);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  const iconForCustom = (name: string, _col: string) => {
+    const props = { size: 13 } as any;
+    const map: Record<string, ReactNode> = {
+      CodeIcon: <CodeIcon {...props} />,
+      GlobeIcon: <GlobeIcon {...props} />,
+      TransformIcon: <TransformIcon {...props} />,
+      BranchIcon: <BranchIcon {...props} />,
+      SendIcon: <SendIcon {...props} />,
+      ClockIcon: <ClockIcon {...props} />,
+      FilterIcon: <FilterIcon {...props} />,
+      SplitIcon: <SplitIcon {...props} />,
+      MergeIcon: <MergeIcon {...props} />,
+      LoopIcon: <LoopIcon {...props} />,
+      WebhookIcon: <WebhookIcon {...props} />,
+      AiIcon: <AiIcon {...props} />,
+      ValidatorIcon: <ValidatorIcon {...props} />,
+      LoggerIcon: <LoggerIcon {...props} />,
+      FileIcon: <FileIcon {...props} />,
+      ScheduleIcon: <ScheduleIcon {...props} />,
+      GraphQLIcon: <GraphQLIcon {...props} />,
+      SetIcon: <SetIcon {...props} />,
+      SwitchIcon: <SwitchIcon {...props} />,
+      AggregateIcon: <AggregateIcon {...props} />,
+      SortIcon: <SortIcon {...props} />,
+      LimitIcon: <LimitIcon {...props} />,
+      ItemListsIcon: <ItemListsIcon {...props} />,
+      FunctionIcon: <FunctionIcon {...props} />,
+      NoOpIcon: <NoOpIcon {...props} />,
+      WebhookResponseIcon: <WebhookResponseIcon {...props} />,
+      HtmlIcon: <HtmlIcon {...props} />,
+      DateTimeIcon: <DateTimeIcon {...props} />,
+      SlackIcon: <SlackIcon {...props} />,
+      DiscordIcon: <DiscordIcon {...props} />,
+      GithubIcon: <GithubIcon {...props} />,
+      GmailIcon: <GmailIcon {...props} />,
+      GoogleSheetsIcon: <GoogleSheetsIcon {...props} />,
+      NotionIcon: <NotionIcon {...props} />,
+      AirtableIcon: <AirtableIcon {...props} />,
+      PostgresIcon: <PostgresIcon {...props} />,
+      MySQLIcon: <MySQLIcon {...props} />,
+      MongoDBIcon: <MongoDBIcon {...props} />,
+      RedisIcon: <RedisIcon {...props} />,
+      StripeIcon: <StripeIcon {...props} />,
+      ShopifyIcon: <ShopifyIcon {...props} />,
+      AwsS3Icon: <AwsS3Icon {...props} />,
+      OpenAIIcon: <OpenAIIcon {...props} />,
+    };
+    return map[name] || <CodeIcon {...props} />;
+  };
 
   // "/" to focus search
   useEffect(() => {
@@ -186,9 +291,22 @@ export function Sidebar({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  const allCatalog = useMemo(() => {
+    const customs = customNodes.map(c => ({
+      type: c.type,
+      nodeType: 'customNode' as const,
+      label: c.displayName,
+      category: 'Custom' as Category,
+      desc: c.description || 'Custom node',
+      icon: iconForCustom(c.icon, c.color),
+      color: c.color,
+    }));
+    return [...NODE_CATALOG, ...customs];
+  }, [customNodes]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return NODE_CATALOG.filter((nt) => {
+    return allCatalog.filter((nt) => {
       const catOk = activeCat === 'All' || nt.category === activeCat;
       if (!catOk) return false;
       if (!q) return true;
@@ -199,12 +317,15 @@ export function Sidebar({
         nt.category.toLowerCase().includes(q)
       );
     });
-  }, [search, activeCat]);
+  }, [search, activeCat, allCatalog]);
 
   const grouped = useMemo(() => {
-    const map: Record<string, typeof NODE_CATALOG> = {};
+    const map: Record<string, typeof allCatalog> = {};
     for (const cat of CATEGORIES) map[cat] = [];
-    for (const nt of filtered) map[nt.category].push(nt);
+    for (const nt of filtered) {
+      if (!map[nt.category]) map[nt.category] = [];
+      map[nt.category].push(nt);
+    }
     return map;
   }, [filtered]);
 
@@ -354,7 +475,8 @@ export function Sidebar({
       <div className="sb-header">
         <div className="sb-title-row">
           <h2 className="sidebar-section-title" style={{ margin: 0 }}>Modules</h2>
-          <span className="sb-count">{filtered.length} / {NODE_CATALOG.length}</span>
+          <span className="sb-count">{filtered.length} / {allCatalog.length}</span>
+          <button className="btn-ghost btn-small" onClick={()=> setShowCustomCreator(true)} title="Create your own node" style={{marginLeft:'auto', fontSize:11, padding:'4px 8px', border:'1px solid var(--border)', borderRadius:8}}>+ Custom Node</button>
         </div>
 
         <div className="kumo-search-outer">
@@ -507,6 +629,8 @@ export function Sidebar({
                 ai: '#ff6b9d', validator: '#7dd3fc', logger: '#d4a574',
                 file: '#93c5fd',
               };
+              const customDefForDot = t.startsWith('custom_') ? customNodes.find(c=>c.type===t) : null;
+              const dotBg = customDefForDot ? customDefForDot.color : (dotColor[t] || '#8f867a');
               return (
                 <div
                   key={n.id}
@@ -517,7 +641,7 @@ export function Sidebar({
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); focusNode(n.id); } }}
                   title="Click to focus • hover for actions"
                 >
-                  <span className="node-dot" style={{ background: dotColor[t] || '#8f867a' }} />
+                  <span className="node-dot" style={{ background: dotBg }} />
                   <span className="node-item-label">{String(n.data?.label)}</span>
                   {status && status !== 'idle' && <span className={`node-status-dot s-${status}`} title={status} />}
                   <span className="node-actions">
@@ -569,6 +693,7 @@ export function Sidebar({
           <code>add_node</code> <code>connect_nodes</code> <code>run</code>.
         </p>
       </div>
+      <CustomNodeCreator open={showCustomCreator} onClose={()=> setShowCustomCreator(false)} onChanged={()=> setCustomNodes(listCustomNodes())} />
     </aside>
   );
 }
