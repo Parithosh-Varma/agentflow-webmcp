@@ -1,5 +1,5 @@
 /* onboarding.css — uses project tokens with fallbacks */
-.onboarding-root { position: fixed; inset: 0; z-index: 400; pointer-events: none; }
+.onboarding-root { position: fixed; inset: 0; z-index: var(--z-tooltip); pointer-events: none; }
 .onboarding-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); pointer-events: auto; }
 .onboarding-highlight {
   position: fixed;
@@ -19,7 +19,7 @@
   min-width: 300px;
   max-width: 360px;
   pointer-events: auto;
-  z-index: 401;
+  z-index: calc(var(--z-tooltip) + 1);
   border: 1px solid var(--border, #e8e0d8);
 }
 .onboarding-card-kicker { font-family: var(--font-mono, monospace); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint, #7a7368); margin-bottom: 6px; }
@@ -44,7 +44,7 @@
   padding: 10px 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.16);
   max-width: 280px;
-  z-index: 401;
+  z-index: calc(var(--z-tooltip) + 1);
   pointer-events: auto;
 }
 .onboarding-tooltip-title { font-weight: 600; font-size: 12px; margin-bottom: 4px; color: var(--ink, #1a1a1a); }

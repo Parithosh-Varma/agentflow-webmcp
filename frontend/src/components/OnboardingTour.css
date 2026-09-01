@@ -4,7 +4,7 @@
 .tour-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 390;
+  z-index: var(--z-tooltip);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,7 +22,7 @@
 /* Highlighted element — ring-2 ring-primary while dimming non-active */
 .tour-highlight {
   position: relative !important;
-  z-index: 391 !important;
+  z-index: calc(var(--z-tooltip) + 1) !important;
   outline: 2px solid var(--amber) !important;
   outline-offset: 2px !important;
   border-radius: 8px !important;
@@ -41,7 +41,7 @@
 /* Tooltip card */
 .tour-card {
   position: relative;
-  z-index: 392;
+  z-index: calc(var(--z-tooltip) + 2);
   width: 100%;
   max-width: 560px;
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
@@ -69,7 +69,7 @@
 
 .tour-card-kicker {
   font-family: var(--font-mono);
-  font-size: 7px;
+  font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--amber);

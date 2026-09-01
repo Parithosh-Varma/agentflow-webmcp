@@ -18,7 +18,7 @@
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 0.01%, var(--panel) 100%);
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: var(--z-canvas);
 }
 
 .sb-title-row {
@@ -30,7 +30,7 @@
 
 .sb-count {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--faint);
   background: var(--bg);
   border: 1px solid var(--border-faint);
@@ -259,7 +259,7 @@
 .sb-cat-caret.open { transform: rotate(90deg); }
 .sb-cat-title {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -284,7 +284,7 @@
 .sidebar .node-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 7px;
+  gap: 8px;
 }
 
 .sidebar .node-btn {
@@ -402,7 +402,7 @@
 .sidebar .node-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
   max-height: 220px;
   overflow-y: auto;
   padding-right: 2px;
@@ -426,12 +426,16 @@
 .sidebar .node-item:hover {
   background: var(--bg-raised);
   border-color: var(--border-soft);
-  transform: translateX(1px);
 }
 .sidebar .node-item-active {
   border-color: rgba(232,163,61,0.45) !important;
   background: rgba(232,163,61,0.08) !important;
   box-shadow: 0 0 0 1px rgba(232,163,61,0.08) inset;
+}
+.sidebar .node-item:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+  border-color: var(--amber);
 }
 .sidebar .node-item-label {
   flex: 1;
@@ -446,7 +450,7 @@
 }
 .sidebar .node-id {
   color: var(--faint);
-  font-size: 9px;
+  font-size: 10px;
   flex-shrink: 0;
 }
 .node-status-dot {
@@ -506,11 +510,14 @@
   opacity: 0.35;
   pointer-events: none;
 }
+@media (hover: none) {
+  .node-item-actions { opacity: 1; }
+}
 
 .sb-canvas-hint {
   margin-top: 8px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.45;
   color: var(--faint);
   text-align: center;
@@ -548,7 +555,7 @@
 }
 .sb-example-btn b {
   display: block;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -607,7 +614,7 @@
   to   { transform: rotate(360deg); }
 }
 .sb-empty-canvas-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);

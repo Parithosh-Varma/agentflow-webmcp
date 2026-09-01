@@ -6,16 +6,17 @@ import {
   GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon,
   FilterIcon, SplitIcon, MergeIcon, LoopIcon, CodeIcon, WebhookIcon,
   AiIcon, ValidatorIcon, LoggerIcon, FileIcon,
-  CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon,
+  PlayIcon, ScheduleIcon,
+  CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon, StarIcon,
 } from './icons';
 import { getSmartPlacement, snapToGrid } from '../utils/grid';
 import type { NodeStatus } from '../engine';
 import './Sidebar.css';
 
 // ——— catalog with categories + descriptions ———
-type Category = 'Connect' | 'Logic' | 'Transform' | 'Output' | 'AI';
+type Category = 'Triggers' | 'Connect' | 'Logic' | 'Transform' | 'Output' | 'AI';
 
-const NODE_CATALOG: Array<{
+export const NODE_CATALOG: Array<{
   type: string;
   nodeType: string;
   label: string;
@@ -24,9 +25,12 @@ const NODE_CATALOG: Array<{
   icon: ReactNode;
   color: string;
 }> = [
+  // Triggers
+  { type: 'manual_trigger', nodeType: 'startNode', label: 'Manual Trigger', category: 'Triggers', desc: 'Click RUN to start',     icon: <PlayIcon size={13} />,     color: '#9ba657' },
+  { type: 'schedule',  nodeType: 'scheduleNode', label: 'Schedule',  category: 'Triggers',   desc: 'Cron / interval tick',  icon: <ScheduleIcon size={13} />, color: '#f59e0b' },
+  { type: 'webhook',   nodeType: 'webhookNode',  label: 'Webhook',   category: 'Triggers',   desc: 'Incoming HTTP trigger',    icon: <WebhookIcon size={13} />,   color: '#f0a07a' },
   // Connect
   { type: 'api_call',  nodeType: 'apiCallNode',  label: 'API Call',  category: 'Connect',   desc: 'Fetch any REST API',      icon: <GlobeIcon size={13} />,     color: '#8f9fdd' },
-  { type: 'webhook',   nodeType: 'webhookNode',  label: 'Webhook',   category: 'Connect',   desc: 'Incoming HTTP trigger',    icon: <WebhookIcon size={13} />,   color: '#f0a07a' },
   { type: 'file',      nodeType: 'fileNode',     label: 'File',      category: 'Connect',   desc: 'Read / write files',      icon: <FileIcon size={13} />,      color: '#93c5fd' },
   // Logic
   { type: 'condition', nodeType: 'conditionNode',label: 'Condition', category: 'Logic',     desc: 'If / else branch',        icon: <BranchIcon size={13} />,    color: '#d98aa6' },
@@ -45,7 +49,7 @@ const NODE_CATALOG: Array<{
   { type: 'logger',    nodeType: 'loggerNode',   label: 'Logger',    category: 'Output',    desc: 'Console telemetry',       icon: <LoggerIcon size={13} />,    color: '#d4a574' },
 ];
 
-const CATEGORIES: Category[] = ['Connect', 'Logic', 'Transform', 'Output', 'AI'];
+const CATEGORIES: Category[] = ['Triggers', 'Connect', 'Logic', 'Transform', 'Output', 'AI'];
 
 interface Props {
   nodes: Node[];
@@ -485,12 +489,8 @@ export function Sidebar({
 
         {nodes.length === 0 ? (
           <div className="sb-empty-canvas">
-            <div
-              aria-hidden="true"
-              className="absolute rounded-full transition-shadow duration-fast group-focus-visible/resize:shadow-focus inset-y-0 left-1/2 w-3 -translate-x-1/2 cursor-col-resize"
-            />
             <p className="sb-empty-canvas-title">No modules yet</p>
-            <p className="hint sb-empty-canvas-hint">Drag a module to canvas, click to add, or ask your <b>browser agent</b> — “Add an API Call to HackerNews and run it”.<br/>Try <b>★ Judge Demo</b> below for a 30s wow flow.</p>
+            <p className="hint sb-empty-canvas-hint">Start a new workflow. Drag a module here or try <b style={{display:'inline-flex',alignItems:'center',gap:4}}><StarIcon size={10} /> Judge Demo</b> for a 30s walkthrough.</p>
           </div>
         ) : (
           <div className="node-list">
@@ -500,7 +500,7 @@ export function Sidebar({
               const isSelected = selectedId === n.id;
               const status = liveStatus?.[n.id] as NodeStatus | undefined;
               const dotColor: Record<string, string> = {
-                start: '#9ba657', api_call: '#8f9fdd', transform: '#e0b45c',
+                start: '#9ba657', manual_trigger: '#9ba657', schedule: '#f59e0b', api_call: '#8f9fdd', transform: '#e0b45c',
                 condition: '#d98aa6', output: '#6cc7ba', delay: '#ab97d4',
                 filter: '#e8a33d', split: '#56cdbd', merge: '#7ec8e3',
                 loop: '#c9a0dc', code: '#a8d8a8', webhook: '#f0a07a',

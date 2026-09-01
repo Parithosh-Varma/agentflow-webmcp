@@ -9,6 +9,7 @@ interface Env {
   AUTH: Fetcher;
   JWT_SECRET: string;
   ENVIRONMENT: string;
+  GOOGLE_CLIENT_ID?: string;
 }
 interface User { id: string; email: string; name: string; created_at: string; }
 interface Workflow { id: string; user_id: string; name: string; description: string; nodes: any[]; edges: any[]; created_at: string; updated_at: string; }
@@ -17,6 +18,7 @@ interface ExecutionLog { id: string; workflow_id: string; user_id: string; input
 // ---- P0: Validation schemas ----
 const registerSchema = z.object({ email: z.string().email().max(255), password: z.string().min(6).max(128), name: z.string().min(1).max(50).optional(), username: z.string().min(1).max(50).optional() });
 const loginSchema = z.object({ email: z.string().email(), password: z.string().min(1) });
+const googleAuthSchema = z.object({ idToken: z.string().min(10).optional(), credential: z.string().min(10).optional(), accessToken: z.string().optional() }).refine(d => !!(d.idToken || d.credential), { message: "idToken or credential required" });
 const workflowSchema = z.object({ name: z.string().min(1).max(100), description: z.string().max(500).optional().default(''), nodes: z.array(z.any()).max(500).optional().default([]), edges: z.array(z.any()).max(1000).optional().default([]) });
 
 // ---- P2: Rate limiting (in-memory, per Worker isolate) ----
@@ -108,7 +110,7 @@ export default {
     };
 
     try {
-      const publicRoutes = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/verify-access', '/api/auth/check-access', '/api/stats', '/api/metrics', '/demo-key.json'];
+      const publicRoutes = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/google', '/api/auth/verify-access', '/api/auth/check-access', '/api/stats', '/api/metrics', '/demo-key.json'];
       const isPublicRoute = publicRoutes.some(route => path.startsWith(route));
 
       let userId: string | null = null;
@@ -164,6 +166,12 @@ export default {
         const parsed = loginSchema.safeParse(body);
         if (!parsed.success) { const issues=(parsed.error as any).issues || (parsed.error as any).errors || []; return logDone(new Response(JSON.stringify({ error: issues.map((e:any)=>e.message).join(', ') || (parsed.error as any).message }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } })); }
         return logDone(await handleLogin(request, env, headers, parsed.data));
+      }
+      if (path === '/api/auth/google' && request.method === 'POST') {
+        const body = await request.json().catch(()=> ({} as any));
+        const parsed = googleAuthSchema.safeParse(body);
+        if (!parsed.success) { const issues=(parsed.error as any).issues || (parsed.error as any).errors || []; return logDone(new Response(JSON.stringify({ error: issues.map((e:any)=>e.message).join(', ') || (parsed.error as any).message }), { status: 400, headers: { ...headers, 'Content-Type':'application/json' } })); }
+        return logDone(await handleGoogleAuth(request, env, headers, parsed.data));
       }
       if (path === '/api/auth/me' && request.method === 'GET') {
         return logDone(await handleMe(userId!, env, headers));
@@ -345,6 +353,68 @@ async function handleLogin(request: Request, env: Env, headers: Record<string, s
   }
   const token = await createToken(user.id, env.JWT_SECRET);
   return new Response(JSON.stringify({ user, token }), { headers: { ...headers, 'Content-Type': 'application/json' } });
+}
+async function handleGoogleAuth(request: Request, env: Env, headers: Record<string, string>, data: any): Promise<Response> {
+  const rawToken = data.idToken || data.credential || data.accessToken;
+  if (!rawToken) return new Response(JSON.stringify({ error: 'Missing Google credential' }), { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } });
+
+  // Verify ID token with Google tokeninfo endpoint
+  let payload: any;
+  try {
+    const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(rawToken)}`, { signal: AbortSignal.timeout(5000) });
+    if (!verifyRes.ok) {
+      const errText = await verifyRes.text();
+      return new Response(JSON.stringify({ error: `Google token verification failed: ${errText.slice(0,200)}` }), { status: 401, headers: { ...headers, 'Content-Type': 'application/json' } });
+    }
+    payload = await verifyRes.json() as any;
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: `Google verification error: ${e?.message || String(e)}` }), { status: 401, headers: { ...headers, 'Content-Type': 'application/json' } });
+  }
+
+  const email = String(payload.email || '').toLowerCase().trim();
+  const sub = String(payload.sub || '');
+  const name = String(payload.name || payload.given_name || email.split('@')[0] || 'Google User');
+  const emailVerified = payload.email_verified === 'true' || payload.email_verified === true;
+
+  if (!email || !sub) return new Response(JSON.stringify({ error: 'Invalid Google token payload' }), { status: 401, headers: { ...headers, 'Content-Type': 'application/json' } });
+  if (!emailVerified) return new Response(JSON.stringify({ error: 'Google email not verified' }), { status: 401, headers: { ...headers, 'Content-Type': 'application/json' } });
+
+  // Optional audience check
+  if (env.GOOGLE_CLIENT_ID) {
+    const aud = String(payload.aud || '');
+    if (aud !== env.GOOGLE_CLIENT_ID) {
+      // Allow comma-separated list
+      const allowed = env.GOOGLE_CLIENT_ID.split(',').map(s=>s.trim()).filter(Boolean);
+      if (!allowed.includes(aud)) {
+        return new Response(JSON.stringify({ error: 'Google token audience mismatch' }), { status: 401, headers: { ...headers, 'Content-Type': 'application/json' } });
+      }
+    }
+  }
+
+  // Find or create user
+  let user = await env.DB.prepare('SELECT id, email, name FROM users WHERE email = ?').bind(email).first<User>();
+  if (user) {
+    // Existing user — issue token (link Google if not already)
+    const token = await createToken(user.id, env.JWT_SECRET);
+    return new Response(JSON.stringify({ user, token }), { headers: { ...headers, 'Content-Type': 'application/json' } });
+  }
+
+  // Create new Google user
+  const id = crypto.randomUUID();
+  const placeholderHash = `google:${sub}`;
+  try {
+    await env.DB.prepare('INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)').bind(id, email, name, placeholderHash).run();
+  } catch (e: any) {
+    // Race — try fetch again
+    const retry = await env.DB.prepare('SELECT id, email, name FROM users WHERE email = ?').bind(email).first<User>();
+    if (retry) {
+      const token = await createToken(retry.id, env.JWT_SECRET);
+      return new Response(JSON.stringify({ user: retry, token }), { headers: { ...headers, 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ error: 'Failed to create Google user' }), { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } });
+  }
+  const token = await createToken(id, env.JWT_SECRET);
+  return new Response(JSON.stringify({ user: { id, email, name }, token }), { headers: { ...headers, 'Content-Type': 'application/json' } });
 }
 async function handleMe(userId: string, env: Env, headers: Record<string, string>): Promise<Response> {
   const user = await env.DB.prepare('SELECT id, email, name FROM users WHERE id = ?').bind(userId).first<User>();

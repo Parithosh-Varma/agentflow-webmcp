@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { CloseIcon, EmptyIcon } from '../components/icons';
+import { GoogleAuthButton } from '../components/GoogleAuthButton';
 import logo from '../assets/logo.png';
 import './AuthPage.css';
 
 export function AuthPage() {
-  const { user, login, register, logout } = useAuth();
+  const { user, login, register, googleLogin, logout } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -14,6 +16,7 @@ export function AuthPage() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +141,7 @@ export function AuthPage() {
                 Create Account
               </button>
             </div>
-            <Link to="/tool" className="auth-card-close" aria-label="Back to canvas">×</Link>
+            <Link to="/tool" className="auth-card-close" aria-label="Back to canvas"><CloseIcon size={14} /></Link>
           </div>
 
           <div className="auth-card-intro">
@@ -147,7 +150,7 @@ export function AuthPage() {
           </div>
 
           <div className="auth-feature-callout">
-            <span className="auth-feature-icon">◎</span>
+            <span className="auth-feature-icon"><EmptyIcon size={14} /></span>
             <div>
               <b>Save your workflow in the database</b>
               <span>Sign in to persist workflows & templates — access from any device. Skip to try without saving.</span>
@@ -155,6 +158,32 @@ export function AuthPage() {
           </div>
 
           {error && <div className="auth-error" role="alert">{error}</div>}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+            <GoogleAuthButton
+              text={mode === 'login' ? 'signin_with' : 'signup_with'}
+              label={mode === 'login' ? 'Sign in with Google' : 'Sign up with Google'}
+              disabled={googleLoading || loading}
+              onSuccess={async (cred) => {
+                setError('');
+                setGoogleLoading(true);
+                try {
+                  await googleLogin(cred);
+                  navigate('/tool');
+                } catch (err: any) {
+                  setError(err?.message || 'Google sign-in failed');
+                } finally {
+                  setGoogleLoading(false);
+                }
+              }}
+              onError={(msg) => setError(msg)}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--faint)' }}>
+              <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              or with email
+              <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit} className="auth-form">
             {mode === 'register' && (

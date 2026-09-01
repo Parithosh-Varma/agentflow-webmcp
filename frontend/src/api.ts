@@ -59,6 +59,15 @@ export async function login(email: string, password: string): Promise<{ user: Us
   return data;
 }
 
+export async function googleLogin(idToken: string): Promise<{ user: User; token: string }> {
+  const data = await request('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ idToken }),
+  });
+  setToken(data.token);
+  return data;
+}
+
 export function logout() {
   clearToken();
 }

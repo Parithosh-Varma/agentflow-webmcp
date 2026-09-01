@@ -8,7 +8,7 @@ import {
   type ExecResult,
 } from '../engine';
 import { NODE_DISPLAY_NAMES } from './nodes';
-import { CheckIcon, CrossIcon } from './icons';
+import { CheckIcon, CrossIcon, WarningIcon } from './icons';
 
 function useJsonEditor(initial: string) {
   const [value, setValue] = useState(initial);
@@ -56,6 +56,19 @@ function formatOutput(data: any): string {
   } catch {
     return String(data);
   }
+}
+
+function triggerDownload(data: any, filename: string) {
+  const payload = data?.data ?? data?.body ?? data;
+  const content = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+  const blob = new Blob([content], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename.endsWith('.json') ? filename : `${filename}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
 function getNodeLabel(nodes: Node[], nodeId: string): string {
@@ -182,6 +195,17 @@ export function ExecutionPanel({
     return null;
   }, [executionResult, nodes]);
 
+  const [outputFilter, setOutputFilter] = useState('');
+  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(null);
+
+  // auto-select final output when result changes, reset filter
+  useMemo(() => {
+    if (finalOutputNode) setSelectedOutputId(finalOutputNode.nodeId);
+    else if (nodeResults.length) setSelectedOutputId(nodeResults.filter(r => !r.isStart)[0]?.nodeId ?? null);
+    setOutputFilter('');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [executionResult?.executedAt]);
+
   return (
     <div className="run-console">
       <div className="exec-stats">
@@ -244,44 +268,88 @@ export function ExecutionPanel({
                 <span className="exec-final-kicker">Final output</span>
                 <span className="exec-final-node">{finalOutputNode.label}</span>
               </div>
-              <pre className="exec-final-data">{formatOutput(finalOutputNode.output)}</pre>
-              <button className="btn-ghost btn-small exec-copy-btn" onClick={() => navigator.clipboard.writeText(formatOutput(finalOutputNode.output))}>
-                Copy JSON
-              </button>
+              <pre className="exec-final-data">{formatOutput(finalOutputNode.output?.delivered === 'download_ready' || finalOutputNode.output?.delivered === 'write_ready' ? finalOutputNode.output.data : finalOutputNode.output)}</pre>
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <button className="btn-ghost btn-small exec-copy-btn" onClick={() => navigator.clipboard.writeText(formatOutput(finalOutputNode.output?.data ?? finalOutputNode.output))}>
+                  Copy JSON
+                </button>
+                {(finalOutputNode.output?.delivered === 'download_ready' || finalOutputNode.output?.delivered === 'write_ready') && (
+                  <button className="btn-ghost btn-small" onClick={() => triggerDownload(finalOutputNode.output, finalOutputNode.output.filename || finalOutputNode.output.path || 'flow-output.json')}>
+                    Download
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
-          <details className="exec-node-details">
-            <summary>All node outputs ({nodeResults.filter(r => !r.isStart && r.hasOutput).length})</summary>
-            <div className="exec-node-list">
-              {nodeResults
-                .filter(r => !r.isStart)
-                .map((r) => (
-                  <div key={r.nodeId} className={`exec-node-row status-${r.status}`}>
-                    <div className="exec-node-info">
-                      <span className={`exec-node-status-dot status-${r.status}`} title={r.status} />
-                      <span className="exec-node-name">{r.label}</span>
-                    </div>
-                    <div className="exec-node-output">
-                      {r.hasOutput ? (
-                        <>
-                          <pre>{formatOutput(r.output)}</pre>
-                          <button className="btn-ghost btn-small" onClick={() => navigator.clipboard.writeText(formatOutput(r.output))}>
-                            Copy
-                          </button>
-                        </>
-                      ) : (
-                        <span className="exec-no-output">— no output —</span>
-                      )}
-                    </div>
+          {(() => {
+            const filtered = nodeResults.filter(r => !r.isStart).filter(r => {
+              if (!outputFilter.trim()) return true;
+              const q = outputFilter.toLowerCase();
+              return r.label.toLowerCase().includes(q) || r.nodeId.toLowerCase().includes(q) || String(r.status).toLowerCase().includes(q);
+            });
+            const selected = filtered.find(r => r.nodeId === selectedOutputId) ?? filtered[0] ?? null;
+            return (
+              <div className="exec-output-nav-wrap">
+                <div className="exec-output-nav-header">
+                  <input
+                    className="exec-output-filter"
+                    placeholder="Filter nodes…"
+                    value={outputFilter}
+                    onChange={e => setOutputFilter(e.target.value)}
+                    aria-label="Filter node outputs"
+                  />
+                  <span className="exec-output-count">{filtered.length} of {nodeResults.filter(r=>!r.isStart).length}</span>
+                </div>
+                <div className="exec-output-nav">
+                  <div className="exec-output-nav-list" role="tablist" aria-label="Node outputs">
+                    {filtered.length === 0 ? (
+                      <div className="exec-output-empty">No matches for “{outputFilter}”</div>
+                    ) : filtered.map(r => (
+                      <button
+                        key={r.nodeId}
+                        role="tab"
+                        aria-selected={selected?.nodeId === r.nodeId}
+                        className={`exec-output-nav-item ${selected?.nodeId === r.nodeId ? 'active' : ''} status-${r.status}`}
+                        onClick={() => setSelectedOutputId(r.nodeId)}
+                        title={`${r.label} — ${r.status}`}
+                      >
+                        <span className={`exec-node-status-dot status-${r.status}`} />
+                        <span className="exec-output-nav-label">{r.label}</span>
+                        <span className="exec-output-nav-status">{r.status}</span>
+                      </button>
+                    ))}
                   </div>
-                ))}
-            </div>
-          </details>
+                  <div className="exec-output-detail">
+                    {!selected ? (
+                      <div className="exec-output-empty">Select a node to view output</div>
+                    ) : selected.hasOutput ? (
+                      <>
+                        <div className="exec-output-detail-head">
+                          <span className={`exec-node-status-dot status-${selected.status}`} />
+                          <span className="exec-output-detail-title">{selected.label}</span>
+                          <span className="exec-output-detail-status">{selected.status}</span>
+                          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                            <button className="btn-ghost btn-small" onClick={() => navigator.clipboard.writeText(formatOutput(selected.output?.data ?? selected.output))}>Copy</button>
+                            {(selected.output?.delivered === 'download_ready' || selected.output?.delivered === 'write_ready') && (
+                              <button className="btn-ghost btn-small" onClick={() => triggerDownload(selected.output, selected.output.filename || selected.output.path || 'flow-output.json')}>Download</button>
+                            )}
+                          </div>
+                        </div>
+                        <pre className="exec-output-detail-pre">{formatOutput(selected.output?.delivered === 'download_ready' || selected.output?.delivered === 'write_ready' ? selected.output.data : selected.output)}</pre>
+                      </>
+                    ) : (
+                      <span className="exec-no-output">— no output —</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {executionResult.success === false && executionResult.outputs?.error && (
             <div className="exec-error">
-              <span className="exec-error-icon">⚠</span>
+              <span className="exec-error-icon"><WarningIcon size={12} /></span>
               <pre>{executionResult.outputs.error}</pre>
             </div>
           )}

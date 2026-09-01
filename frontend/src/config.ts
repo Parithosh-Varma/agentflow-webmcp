@@ -6,3 +6,6 @@ export const AUTH_URL =
 export const TOOL_URL =
   (import.meta as any).env?.VITE_TOOL_URL?.replace(/\/$/, '') ||
   'https://agentflow-hackathon.pages.dev'
+
+export const GOOGLE_CLIENT_ID =
+  (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || ''

@@ -1,0 +1,60 @@
+.custom-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 10, 8, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: var(--z-popover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.custom-modal {
+  background: var(--panel, #1a1816);
+  border: 1px solid var(--border, #2a2520);
+  border-radius: 16px;
+  width: min(640px, 96vw);
+  max-height: 88vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.custom-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border, #2a2520);
+}
+.custom-modal-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 0;
+}
+.custom-list {
+  padding: 12px 16px 16px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.custom-card {
+  border: 1px solid var(--border, #2a2520);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg, #0f0e0c);
+}
+.custom-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.custom-form {
+  padding: 12px 16px 16px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
