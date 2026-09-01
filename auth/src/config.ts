@@ -1,5 +1,5 @@
 // Separate Cloudflare Pages URLs — tool lives on agentflow-hackathon, auth lives on agentflow-auth.
-// Overridable via Vite env: VITE_TOOL_URL / VITE_AUTH_URL / VITE_GOOGLE_CLIENT_ID
+// Overridable via Vite env: VITE_TOOL_URL / VITE_AUTH_URL
 export const TOOL_URL =
   (import.meta as any).env?.VITE_TOOL_URL?.replace(/\/$/, '') ||
   'https://agentflow-hackathon.pages.dev'

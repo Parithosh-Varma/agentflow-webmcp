@@ -158,8 +158,15 @@ async function runOutput(data: any, cfg: any): Promise<any> {
   }
 
   if (kind === 'download') {
-    // no auto-download: return data for manual Copy/Download in output panel
-    return { delivered: 'download_ready', data, filename: `${cfg?.filename || 'flow-output'}.json`, note: 'ready for manual download' };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${cfg?.filename || 'flow-output'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return { delivered: 'download', filename: a.download };
   }
 
   if (kind === 'webhook') {
@@ -178,51 +185,11 @@ async function runOutput(data: any, cfg: any): Promise<any> {
 }
 
 async function runFilter(data: any, cfg: any): Promise<any> {
-  const raw = cfg?.expression;
-  if (!raw || !String(raw).trim()) throw new Error('filter requires an expression');
-  const expr = String(raw).trim();
-  const isFunc = expr.includes('=>') || expr.trim().startsWith('function');
-  let fn: (d: any) => Promise<boolean>;
-  try {
-    if (isFunc) {
-      fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr})(data));`) as any;
-    } else {
-      fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr}));`) as any;
-    }
-  } catch (e: any) {
-    throw new Error(`filter expression syntax error: ${e.message}`);
-  }
-  if (Array.isArray(data)) {
-    const results = await Promise.all(data.map((item: any) => fn(item).catch(() => false)));
-    const filtered = data.filter((_: any, i: number) => results[i]);
-    return filtered;
-  }
-  if (data && typeof data === 'object') {
-    const arrayKeys = Object.keys(data).filter((k) => Array.isArray((data as any)[k]));
-    if (arrayKeys.length === 1) {
-      const key = arrayKeys[0];
-      const inner: any[] = (data as any)[key];
-      if (inner.length > 0) {
-        let wrapperPass = false;
-        try { wrapperPass = await fn(data); } catch { wrapperPass = false; }
-        if (!wrapperPass) {
-          try {
-            const innerResults = await Promise.all(inner.map((item: any) => fn(item).catch(() => false)));
-            if (innerResults.some(Boolean)) {
-              const filteredInner = inner.filter((_: any, i: number) => innerResults[i]);
-              return { ...data, [key]: filteredInner, filtered: filteredInner, count: filteredInner.length, total: inner.length, passed: filteredInner.length > 0 };
-            }
-          } catch {}
-        }
-      }
-    }
-  }
-  let pass = false;
-  try { pass = await fn(data); } catch (e: any) { throw new Error(`filter predicate error: ${e.message}`); }
-  if (pass) return data;
-  const empty: any = [];
-  try { Object.defineProperties(empty, { passed: { value: false, enumerable: true }, original: { value: data, enumerable: true }, count: { value: 0, enumerable: true }, total: { value: 1, enumerable: true } }); } catch {}
-  return empty;
+  const expr = cfg?.expression;
+  if (!expr) throw new Error('filter requires an expression');
+  const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr})(data));`);
+  const pass = await fn(data);
+  return { passed: pass, data };
 }
 
 function runSplit(data: any, cfg: any): any {
@@ -293,18 +260,8 @@ async function runAi(data: any, cfg: any): Promise<any> {
   const model = cfg?.model || 'gpt-3.5-turbo';
   const apiKey = cfg?.apiKey;
   if (!apiKey) {
-    // Deterministic fallback: pick top HN hit instead of echoing raw JSON
-    const hits: any[] = Array.isArray((data as any)?.hits) ? (data as any).hits : Array.isArray(data) ? data : [];
-    const top = hits[0];
-    if (top?.title) {
-      const pts = top.points ?? top.score ?? '';
-      const author = top.author ? ` by ${top.author}` : '';
-      const summary = `Top HN: "${top.title}"${author}${pts ? ` (${pts} points)` : ''}${top.url ? ` — ${top.url}` : ''}`;
-      return { model, prompt, response: summary, top, note: 'Simulated — no API key, derived from hits[0]' };
-    }
-    // generic fallback keeps data preview but structured
-    const preview = Array.isArray(data) ? `${data.length} items` : typeof data === 'object' ? `${Object.keys(data||{}).length} keys` : String(data).slice(0,180);
-    return { model, prompt, response: `Summary (${preview}): ${JSON.stringify(data).slice(0, 280)}`, note: 'No API key — simulated' };
+    // Fallback: just echo the prompt with data context
+    return { model, prompt, response: `[AI] Prompt: ${prompt} | Data: ${JSON.stringify(data).slice(0, 200)}`, note: 'No API key — simulated' };
   }
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -351,9 +308,17 @@ async function runFile(data: any, cfg: any): Promise<any> {
   const path = cfg?.path || 'output.json';
 
   if (operation === 'write') {
-    // no auto-download: return for manual download
+    // In-browser: trigger download
     const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-    return { operation: 'write', path, bytes: content.length, data: content, delivered: 'write_ready', note: 'ready for manual download' };
+    const blob = new Blob([content], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = path;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return { operation: 'write', path, bytes: content.length };
   }
 
   // read: return the data as-is (can't read local files in browser)
@@ -772,9 +737,7 @@ export async function executeWorkflow(
         case 'condition': {
           const passed = await evalCondition(data, node.config);
           lastCondition = passed;
-          // Preserve input data so downstream Split/Logger still receive the AI/API payload
-          const base = data && typeof data === 'object' && !Array.isArray(data) ? { ...data } : { value: data };
-          result = { ...base, passed, checked: node.label, _input: data };
+          result = { passed, checked: node.label };
           break;
         }
         case 'delay':

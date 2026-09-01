@@ -8,9 +8,19 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: clamp(14px, 0.9vw + 0.5rem, 16px);
+  -webkit-text-size-adjust: 100%;
+  scrollbar-gutter: stable;
+}
 html, body, #root {
   height: 100%;
   width: 100%;
+  min-width: 320px;
+  overflow-x: hidden;
+}
+@supports (height: 100dvh) {
+  html, body, #root { height: 100dvh; }
 }
 
 body {
@@ -39,6 +49,12 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-soft); }
+
+/* Fluid media */
+img, video, canvas, svg { max-width: 100%; height: auto; }
+
+/* Safe-area helpers */
+:root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {

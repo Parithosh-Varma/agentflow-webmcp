@@ -6,21 +6,18 @@ import {
   PlayIcon, GlobeIcon, TransformIcon, BranchIcon, SendIcon, ClockIcon,
   FilterIcon, SplitIcon, MergeIcon, LoopIcon, CodeIcon, WebhookIcon,
   AiIcon, ValidatorIcon, LoggerIcon, FileIcon,
+  CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon,
   ScheduleIcon, GraphQLIcon, SetIcon, SwitchIcon, AggregateIcon, SortIcon, LimitIcon, ItemListsIcon, FunctionIcon, NoOpIcon, WebhookResponseIcon, HtmlIcon, DateTimeIcon,
   SlackIcon, DiscordIcon, GithubIcon, GmailIcon, GoogleSheetsIcon, NotionIcon, AirtableIcon, PostgresIcon, MySQLIcon, MongoDBIcon, RedisIcon, StripeIcon, ShopifyIcon, AwsS3Icon, OpenAIIcon,
-  CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon, StarIcon,
 } from './icons';
 import { getSmartPlacement, snapToGrid } from '../utils/grid';
 import type { NodeStatus } from '../engine';
 import './Sidebar.css';
-import { listCustomNodes, type CustomNodeDef } from '../customNodes';
-import { CustomNodeCreator } from './CustomNodeCreator';
-import './CustomNodeCreator.css';
 
 // ——— catalog with categories + descriptions ———
-type Category = 'Trigger' | 'Connect' | 'Logic' | 'Transform' | 'Output' | 'AI' | 'Custom';
+type Category = 'Trigger' | 'Connect' | 'Logic' | 'Transform' | 'Output' | 'AI';
 
-export const NODE_CATALOG: Array<{
+const NODE_CATALOG: Array<{
   type: string;
   nodeType: string;
   label: string;
@@ -82,7 +79,7 @@ export const NODE_CATALOG: Array<{
   { type: 'webhook_response', nodeType: 'webhookResponseNode', label: 'Webhook Response', category: 'Output', desc: 'Respond to webhook', icon: <WebhookResponseIcon size={13} />, color: '#f0a07a' },
 ];
 
-const CATEGORIES: Category[] = ['Trigger', 'Connect', 'Logic', 'Transform', 'Output', 'AI', 'Custom'];
+const CATEGORIES: Category[] = ['Trigger', 'Connect', 'Logic', 'Transform', 'Output', 'AI'];
 
 interface Props {
   nodes: Node[];
@@ -206,70 +203,6 @@ export function Sidebar({
   const [activeCat, setActiveCat] = useState<Category | 'All'>('All');
   const [collapsed, setCollapsed] = useState<Set<Category>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
-  const [showCustomCreator, setShowCustomCreator] = useState(false);
-  const [customNodes, setCustomNodes] = useState<CustomNodeDef[]>(() => {
-    try { return listCustomNodes(); } catch { return []; }
-  });
-  useEffect(() => {
-    const refresh = () => { try { setCustomNodes(listCustomNodes()); } catch {} };
-    window.addEventListener('custom-nodes-updated', refresh as any);
-    const onStorage = (e: StorageEvent) => { if (e.key === 'agentflow_custom_nodes_v1') refresh(); };
-    window.addEventListener('storage', onStorage);
-    return () => {
-      window.removeEventListener('custom-nodes-updated', refresh as any);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, []);
-
-  const iconForCustom = (name: string, _col: string) => {
-    const props = { size: 13 } as any;
-    const map: Record<string, ReactNode> = {
-      CodeIcon: <CodeIcon {...props} />,
-      GlobeIcon: <GlobeIcon {...props} />,
-      TransformIcon: <TransformIcon {...props} />,
-      BranchIcon: <BranchIcon {...props} />,
-      SendIcon: <SendIcon {...props} />,
-      ClockIcon: <ClockIcon {...props} />,
-      FilterIcon: <FilterIcon {...props} />,
-      SplitIcon: <SplitIcon {...props} />,
-      MergeIcon: <MergeIcon {...props} />,
-      LoopIcon: <LoopIcon {...props} />,
-      WebhookIcon: <WebhookIcon {...props} />,
-      AiIcon: <AiIcon {...props} />,
-      ValidatorIcon: <ValidatorIcon {...props} />,
-      LoggerIcon: <LoggerIcon {...props} />,
-      FileIcon: <FileIcon {...props} />,
-      ScheduleIcon: <ScheduleIcon {...props} />,
-      GraphQLIcon: <GraphQLIcon {...props} />,
-      SetIcon: <SetIcon {...props} />,
-      SwitchIcon: <SwitchIcon {...props} />,
-      AggregateIcon: <AggregateIcon {...props} />,
-      SortIcon: <SortIcon {...props} />,
-      LimitIcon: <LimitIcon {...props} />,
-      ItemListsIcon: <ItemListsIcon {...props} />,
-      FunctionIcon: <FunctionIcon {...props} />,
-      NoOpIcon: <NoOpIcon {...props} />,
-      WebhookResponseIcon: <WebhookResponseIcon {...props} />,
-      HtmlIcon: <HtmlIcon {...props} />,
-      DateTimeIcon: <DateTimeIcon {...props} />,
-      SlackIcon: <SlackIcon {...props} />,
-      DiscordIcon: <DiscordIcon {...props} />,
-      GithubIcon: <GithubIcon {...props} />,
-      GmailIcon: <GmailIcon {...props} />,
-      GoogleSheetsIcon: <GoogleSheetsIcon {...props} />,
-      NotionIcon: <NotionIcon {...props} />,
-      AirtableIcon: <AirtableIcon {...props} />,
-      PostgresIcon: <PostgresIcon {...props} />,
-      MySQLIcon: <MySQLIcon {...props} />,
-      MongoDBIcon: <MongoDBIcon {...props} />,
-      RedisIcon: <RedisIcon {...props} />,
-      StripeIcon: <StripeIcon {...props} />,
-      ShopifyIcon: <ShopifyIcon {...props} />,
-      AwsS3Icon: <AwsS3Icon {...props} />,
-      OpenAIIcon: <OpenAIIcon {...props} />,
-    };
-    return map[name] || <CodeIcon {...props} />;
-  };
 
   // "/" to focus search
   useEffect(() => {
@@ -283,18 +216,7 @@ export function Sidebar({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const allCatalog = useMemo(() => {
-    const customs = customNodes.map(c => ({
-      type: c.type,
-      nodeType: 'customNode' as const,
-      label: c.displayName,
-      category: 'Custom' as Category,
-      desc: c.description || 'Custom node',
-      icon: iconForCustom(c.icon, c.color),
-      color: c.color,
-    }));
-    return [...NODE_CATALOG, ...customs];
-  }, [customNodes]);
+  const allCatalog = useMemo(() => NODE_CATALOG, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -468,7 +390,6 @@ export function Sidebar({
         <div className="sb-title-row">
           <h2 className="sidebar-section-title" style={{ margin: 0 }}>Modules</h2>
           <span className="sb-count">{filtered.length} / {allCatalog.length}</span>
-          <button className="btn-ghost btn-small" onClick={()=> setShowCustomCreator(true)} title="Create your own node" style={{marginLeft:'auto', fontSize:11, padding:'4px 8px', border:'1px solid var(--border)', borderRadius:8}}>+ Custom Node</button>
         </div>
 
         <div className="kumo-search-outer">
@@ -603,8 +524,12 @@ export function Sidebar({
 
         {nodes.length === 0 ? (
           <div className="sb-empty-canvas">
+            <div
+              aria-hidden="true"
+              className="absolute rounded-full transition-shadow duration-fast group-focus-visible/resize:shadow-focus inset-y-0 left-1/2 w-3 -translate-x-1/2 cursor-col-resize"
+            />
             <p className="sb-empty-canvas-title">No modules yet</p>
-            <p className="hint sb-empty-canvas-hint">Start a new workflow. Drag a module here or try <b style={{display:'inline-flex',alignItems:'center',gap:4}}><StarIcon size={10} /> Judge Demo</b> for a 30s walkthrough.</p>
+            <p className="hint sb-empty-canvas-hint">Drag a module to canvas, click to add, or ask your <b>browser agent</b> — “Add an API Call to HackerNews and run it”.<br/>Try <b>★ Judge Demo</b> below for a 30s wow flow.</p>
           </div>
         ) : (
           <div className="node-list">
@@ -614,15 +539,14 @@ export function Sidebar({
               const isSelected = selectedId === n.id;
               const status = liveStatus?.[n.id] as NodeStatus | undefined;
               const dotColor: Record<string, string> = {
-                start: '#9ba657', manual_trigger: '#9ba657', schedule: '#f59e0b', api_call: '#8f9fdd', transform: '#e0b45c',
+                start: '#9ba657', api_call: '#8f9fdd', transform: '#e0b45c',
                 condition: '#d98aa6', output: '#6cc7ba', delay: '#ab97d4',
                 filter: '#e8a33d', split: '#56cdbd', merge: '#7ec8e3',
                 loop: '#c9a0dc', code: '#a8d8a8', webhook: '#f0a07a',
                 ai: '#ff6b9d', validator: '#7dd3fc', logger: '#d4a574',
                 file: '#93c5fd',
               };
-              const customDefForDot = t.startsWith('custom_') ? customNodes.find(c=>c.type===t) : null;
-              const dotBg = customDefForDot ? customDefForDot.color : (dotColor[t] || '#8f867a');
+              const dotBg = dotColor[t] || '#8f867a';
               return (
                 <div
                   key={n.id}
@@ -685,7 +609,6 @@ export function Sidebar({
           <code>add_node</code> <code>connect_nodes</code> <code>run</code>.
         </p>
       </div>
-      <CustomNodeCreator open={showCustomCreator} onClose={()=> setShowCustomCreator(false)} onChanged={()=> setCustomNodes(listCustomNodes())} />
     </aside>
   );
 }

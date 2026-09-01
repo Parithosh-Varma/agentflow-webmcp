@@ -1,12 +1,13 @@
 import type { Node, Edge } from '@xyflow/react';
 
-export const GRID_X = 280;
-export const GRID_Y = 90;
+export const GRID_X = 300;
+export const GRID_Y = 96;
 export const X0 = 80;
 export const Y0 = 80;
-export const NODE_W = 200;
+export const NODE_W = 176;
 export const NODE_H = 64;
-export const MIN_GAP_Y = NODE_H + 22; // 86px
+export const MIN_GAP_Y = NODE_H + 28; // 92px
+export const MIN_GAP_X = 24; // minimum gap between node cards horizontally
 
 // ── Grid helpers ──────────────────────────────────────────────
 

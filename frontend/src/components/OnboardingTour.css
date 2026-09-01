@@ -4,7 +4,7 @@
 .tour-backdrop {
   position: fixed;
   inset: 0;
-  z-index: var(--z-tooltip);
+  z-index: 390;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,7 +22,7 @@
 /* Highlighted element — ring-2 ring-primary while dimming non-active */
 .tour-highlight {
   position: relative !important;
-  z-index: calc(var(--z-tooltip) + 1) !important;
+  z-index: 391 !important;
   outline: 2px solid var(--amber) !important;
   outline-offset: 2px !important;
   border-radius: 8px !important;
@@ -41,7 +41,7 @@
 /* Tooltip card */
 .tour-card {
   position: relative;
-  z-index: calc(var(--z-tooltip) + 2);
+  z-index: 392;
   width: 100%;
   max-width: 560px;
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
@@ -66,10 +66,21 @@
   .tour-card.tour-right,
   .tour-card.tour-left { margin-left: 0; }
 }
+@media (max-width: 640px) {
+  .tour-backdrop { padding: 12px; align-items: flex-end; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .tour-card { padding: 18px 16px 14px; border-radius: 16px; max-width: calc(100vw - 24px); }
+  .tour-card-title { font-size: 14px; }
+  .tour-card-desc { font-size: 11px; }
+  .tour-actions { flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 360px) {
+  .tour-card { padding: 16px 12px 12px; }
+  .tour-btn-primary, .tour-btn-secondary { padding: 7px 12px; font-size: 9px; }
+}
 
 .tour-card-kicker {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--amber);

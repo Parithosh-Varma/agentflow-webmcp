@@ -57,7 +57,7 @@ export const WorkflowVersionsPanel: React.FC = () => {
         <div key={v.id} className="version-item">
           <span>{v.created_at}</span>
           <button
-            onClick={() => window.alert(`Version ${v.id.substring(0, 8)}...`)
+            onClick={() => window.alert(`Version ${v.id.substring(0, 8)}...`)}
             style={{ marginLeft: '10px', cursor: 'pointer' }}
           >
             Restore

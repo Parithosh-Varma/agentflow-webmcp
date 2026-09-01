@@ -7,10 +7,9 @@ interface Props {
   onChange: (nodeId: string, config: any) => void;
   onDelete: (nodeId: string) => void;
   onClose: () => void;
-  anchorStyle?: React.CSSProperties;
 }
 
-export function NodePopover({ node, onChange, onDelete, onClose, anchorStyle }: Props) {
+export function NodePopover({ node, onChange, onDelete, onClose }: Props) {
   const [draft, setDraft] = useState<any>({});
 
   useEffect(() => {
@@ -24,7 +23,7 @@ export function NodePopover({ node, onChange, onDelete, onClose, anchorStyle }: 
   const set = (k: string, v: any) => setDraft((d: any) => ({ ...d, [k]: v }));
 
   return (
-    <div className="node-popover" style={anchorStyle} onClick={(e) => e.stopPropagation()}>
+    <div className="node-popover" onClick={(e) => e.stopPropagation()}>
       <div className="popover-header">
         <span className="popover-title">{label}</span>
         <button className="popover-close" onClick={onClose}><CloseIcon size={14} /></button>
@@ -637,73 +636,6 @@ export function NodePopover({ node, onChange, onDelete, onClose, anchorStyle }: 
           </>
         )}
 
-        {['email'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>To</span><input className="cfg-input" placeholder="ops@example.com" value={draft.to || draft.email || ''} onChange={e=> set('to', e.target.value)} /></label>
-            <label className="cfg-row"><span>Subject</span><input className="cfg-input" placeholder="Hello from AgentFlow" value={draft.subject || ''} onChange={e=> set('subject', e.target.value)} /></label>
-            <label className="cfg-row"><span>Body / Template</span><textarea className="cfg-input cfg-area" rows={3} placeholder="Hello {{ $json.name }}" value={draft.body || draft.message || ''} onChange={e=> set('body', e.target.value)} /></label>
-            <label className="cfg-row"><span>Webhook URL (optional)</span><input className="cfg-input" placeholder="https://..." value={draft.url || draft.webhookUrl || ''} onChange={e=> set('url', e.target.value)} /></label>
-            <p className="hint" style={{fontSize:11}}>Simulated unless URL provided.</p>
-          </>
-        )}
-        {['database'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>Query / SQL</span><textarea className="cfg-input cfg-area" rows={3} placeholder="SELECT * FROM users WHERE id = {{ $json.id }}" value={draft.query || draft.sql || ''} onChange={e=> set('query', e.target.value)} /></label>
-            <label className="cfg-row"><span>URL (optional)</span><input className="cfg-input" placeholder="postgres:// or https://..." value={draft.url || ''} onChange={e=> set('url', e.target.value)} /></label>
-          </>
-        )}
-        {['cache'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>Operation</span><select className="cfg-input" value={draft.operation || draft.op || 'get'} onChange={e=> set('operation', e.target.value)}><option value="get">get</option><option value="set">set</option></select></label>
-            <label className="cfg-row"><span>Key</span><input className="cfg-input" placeholder="mykey" value={draft.key || ''} onChange={e=> set('key', e.target.value)} /></label>
-          </>
-        )}
-        {['math'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>Expression (data) =&gt; number</span><textarea className="cfg-input cfg-area" rows={3} placeholder="data.value * 2 + 3" value={draft.expression || draft.formula || ''} onChange={e=> set('expression', e.target.value)} /></label>
-            <p className="hint" style={{fontSize:11}}>Sample: <code>data.value * 2</code></p>
-          </>
-        )}
-        {['text'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>Template</span><textarea className="cfg-input cfg-area" rows={3} placeholder="Hello {{ $json.name }} — {{ data }}" value={draft.template || draft.text || draft.value || ''} onChange={e=> set('template', e.target.value)} /></label>
-            <p className="hint" style={{fontSize:11}}>Use {"{{ $json.field }}"} or {"{{ data }}"}.</p>
-          </>
-        )}
-        {['date'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>Operation</span><select className="cfg-input" value={draft.operation || 'now'} onChange={e=> set('operation', e.target.value)}><option value="now">now</option><option value="format">format</option><option value="add">add</option></select></label>
-            {(draft.operation === 'format' || draft.operation === 'add') && <label className="cfg-row"><span>Date / Value</span><input className="cfg-input" placeholder="2024-01-01" value={draft.date || draft.value || ''} onChange={e=> set('date', e.target.value)} /></label>}
-            {draft.operation === 'format' && <label className="cfg-row"><span>Format</span><select className="cfg-input" value={draft.format || 'iso'} onChange={e=> set('format', e.target.value)}><option value="iso">iso</option><option value="locale">locale</option></select></label>}
-            {draft.operation === 'add' && <><label className="cfg-row"><span>Amount</span><input className="cfg-input" type="number" value={draft.amount ?? 1} onChange={e=> set('amount', Number(e.target.value))} /></label><label className="cfg-row"><span>Unit</span><select className="cfg-input" value={draft.unit || 'days'} onChange={e=> set('unit', e.target.value)}><option value="ms">ms</option><option value="days">days</option><option value="hours">hours</option></select></label></>}
-          </>
-        )}
-        {['json'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>Operation</span><select className="cfg-input" value={draft.operation || 'parse'} onChange={e=> set('operation', e.target.value)}><option value="parse">parse</option><option value="stringify">stringify</option><option value="pick">pick keys</option></select></label>
-            {draft.operation === 'pick' && <label className="cfg-row"><span>Keys (comma)</span><input className="cfg-input" placeholder="name, value" value={draft.keys || ''} onChange={e=> set('keys', e.target.value)} /></label>}
-          </>
-        )}
-        {['csv'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>CSV (paste)</span><textarea className="cfg-input cfg-area" rows={3} placeholder="a,b
-1,2
-3,4" value={draft.csv || ''} onChange={e=> set('csv', e.target.value)} /></label>
-            <label className="cfg-row"><span>Delimiter</span><input className="cfg-input" placeholder="," value={draft.delimiter || ','} onChange={e=> set('delimiter', e.target.value)} /></label>
-          </>
-        )}
-        {['hash'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>Algorithm</span><select className="cfg-input" value={draft.algorithm || draft.type || 'uuid'} onChange={e=> set('algorithm', e.target.value)}><option value="uuid">uuid</option><option value="hash">hash</option></select></label>
-            <label className="cfg-row"><span>Input (optional)</span><input className="cfg-input" placeholder="hello" value={draft.input || ''} onChange={e=> set('input', e.target.value)} /></label>
-          </>
-        )}
-        {['image_gen'].includes(nodeType) && (
-          <>
-            <label className="cfg-row"><span>Prompt</span><textarea className="cfg-input cfg-area" rows={3} placeholder="a cat in space" value={draft.prompt || draft.text || ''} onChange={e=> set('prompt', e.target.value)} /></label>
-            <label className="cfg-row"><span>API URL (optional)</span><input className="cfg-input" placeholder="https://..." value={draft.url || ''} onChange={e=> set('url', e.target.value)} /></label>
-          </>
-        )}
         {nodeType.startsWith('custom_') && (() => {
           let def: any = null;
           try {
@@ -791,58 +723,6 @@ export function NodePopover({ node, onChange, onDelete, onClose, anchorStyle }: 
           </p>
         )}
 
-        {/* P2.2 live preview */}
-        {['math','text','date','json','csv','hash','email','database','cache','image_gen','transform','condition','code','ai'].includes(nodeType) && (
-          <div style={{ marginTop: 8, padding: 8, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--faint)', marginBottom: 4 }}>Live preview (sample data: {"{"}value:10, a:5, b:3{"}"})</div>
-            <pre style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 90, overflow: 'auto' }}>
-{(() => {
-  try {
-    const sample = { value: 10, a: 5, b: 3, name: "Ada" };
-    if (nodeType === 'math') {
-      const expr = draft.expression || draft.formula || 'data.value*2';
-      // eslint-disable-next-line no-new-func
-      const fn = new Function('data', 'return ('+expr+')');
-      return JSON.stringify({ input: sample, expression: expr, result: fn(sample) }, null, 2);
-    }
-    if (nodeType === 'text') {
-      const tmpl = draft.template || draft.text || draft.value || 'Hello {{ $json.name }}';
-      const out = String(tmpl).replace(/\{\{\s*\$json\.?([\w.]*)\s*\}\}/g, (_, p) => p ? String((sample as any)[p] ?? '') : JSON.stringify(sample)).replace(/\{\{\s*data\s*\}\}/g, JSON.stringify(sample));
-      return JSON.stringify({ template: tmpl, rendered: out }, null, 2);
-    }
-    if (nodeType === 'json') {
-      const op = draft.operation || 'parse';
-      if (op === 'pick') {
-        const keys = String(draft.keys||'').split(',').map((s:string)=>s.trim()).filter(Boolean);
-        const out:any={}; keys.forEach(k=> out[k]=(sample as any)[k]);
-        return JSON.stringify({ op, keys, output: out }, null, 2);
-      }
-      return JSON.stringify({ op, sample }, null, 2);
-    }
-    if (nodeType === 'csv') {
-      const csv = draft.csv || 'a,b\n1,2';
-      const d = draft.delimiter || ',';
-      const lines = csv.trim().split('\n'); const headers=lines[0].split(d); return JSON.stringify({ headers, rows: lines.length-1, preview: csv.slice(0,120) }, null, 2);
-    }
-    if (nodeType === 'hash') {
-      const algo = draft.algorithm || 'uuid';
-      return JSON.stringify({ algo, input: draft.input || 'hello', preview: algo==='uuid' ? 'hash_'+Math.random().toString(36).slice(2,8) : 'hash:'+String(draft.input||'').length }, null, 2);
-    }
-    if (nodeType === 'date') {
-      const op = draft.operation || 'now';
-      return JSON.stringify({ operation: op, now: new Date().toISOString().slice(0,19), sample }, null, 2);
-    }
-    if (nodeType === 'condition') {
-      const expr = draft.expression || 'data.value > 5';
-      const fn = new Function('data','return Boolean('+expr+')');
-      return JSON.stringify({ expression: expr, sample, result: fn(sample) }, null, 2);
-    }
-    return JSON.stringify({ type: nodeType, config: draft }, null, 2).slice(0, 800);
-  } catch(e:any){ return 'preview error: '+String(e.message).slice(0,200); }
-})()}
-            </pre>
-          </div>
-        )}
         <div className="cfg-actions">
           <button className="btn-run btn-small" onClick={() => onChange(node.id, draft)}>
             APPLY

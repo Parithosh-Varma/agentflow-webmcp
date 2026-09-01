@@ -5,7 +5,7 @@
   background: transparent;
   border-bottom: none;
   position: relative;
-  z-index: var(--z-edge);
+  z-index: 5;
   padding: 0;
 }
 
@@ -27,7 +27,7 @@
 
 .challenge-hero-kicker {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--amber);
@@ -86,7 +86,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-canvas);
+  z-index: 2;
 }
 .challenge-hero-close:hover { color: var(--ink); border-color: var(--border); background: var(--panel); }
 
@@ -95,7 +95,7 @@
   background: linear-gradient(180deg, var(--panel) 0%, var(--bg-raised) 100%);
   border-bottom: 1px solid var(--border);
   position: relative;
-  z-index: var(--z-edge);
+  z-index: 5;
 }
 .challenge-banner-inner {
   max-width: 100%;
@@ -130,7 +130,7 @@
 
 .challenge-card-kicker {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--amber);
@@ -169,7 +169,7 @@
   bottom: 6px;
   right: 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--ink);
   background: rgba(18,17,16,0.85);
   border: 1px solid var(--border);

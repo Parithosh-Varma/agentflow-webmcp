@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BoltIcon, DiamondIcon, HexagonIcon, CloseIcon } from './icons';
+import { BoltIcon, DiamondIcon, HexagonIcon } from './icons';
 import './WelcomeModal.css';
 
 interface WelcomeModalProps {
@@ -56,7 +56,7 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
   return (
     <div className="ob-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Welcome to AgentFlow">
       <div className="ob-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="ob-close" onClick={onClose} aria-label="Close onboarding"><CloseIcon size={14} /></button>
+        <button className="ob-close" onClick={onClose} aria-label="Close onboarding">×</button>
 
         <div className="ob-icon">{current.icon}</div>
 

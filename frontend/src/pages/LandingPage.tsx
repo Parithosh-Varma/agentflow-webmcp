@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { ChallengeBanner } from '../components/ChallengeBanner';
-import { BoltIcon, GithubIcon, StarIcon, ExternalLinkIcon, EmptyIcon } from '../components/icons';
+import { BoltIcon, GithubIcon } from '../components/icons';
 import './LandingPage.css';
 
 export function LandingPage() {
@@ -28,7 +28,7 @@ export function LandingPage() {
       {/* WebMCP in 10s — Problem → Solution → Human × Agent */}
       <section className="dash-webmcp-hero" aria-label="WebMCP in 10 seconds">
         <div className="dash-webmcp-inner">
-          <div className="dash-webmcp-kicker"><EmptyIcon size={14} /> WebMCP in 10 seconds — the new browser API</div>
+          <div className="dash-webmcp-kicker"><span>◎</span> WebMCP in 10 seconds — the new browser API</div>
           <div className="dash-webmcp-grid">
             <div className="dash-webmcp-card problem">
               <div className="dash-webmcp-card-head"><span className="dash-webmcp-icon dim">✕</span> BEFORE</div>
@@ -46,7 +46,7 @@ export function LandingPage() {
             </div>
             <div className="dash-webmcp-arrow" aria-hidden>→</div>
             <div className="dash-webmcp-card result">
-              <div className="dash-webmcp-card-head"><span className="dash-webmcp-icon cyan"><EmptyIcon size={12} /></span> RESULT</div>
+              <div className="dash-webmcp-card-head"><span className="dash-webmcp-icon cyan">◎</span> RESULT</div>
               <h3>Human × Agent — same canvas</h3>
               <p>You drag. Agent calls <code>add_node</code>. Both see LEDs <span className="led-demo running" /> → <span className="led-demo done" /> + ToolLog live.</p>
               <code className="dash-webmcp-code">YOU vs AGENT — real collaboration</code>
@@ -78,12 +78,12 @@ export function LandingPage() {
             <div className="dash-webmcp-side">
               <div className="dash-webmcp-side-title">Try the 30s wow</div>
               <ol className="dash-webmcp-side-steps">
-                <li><b>1.</b> Open <b>/tool</b> → click <b style={{display:'inline-flex',alignItems:'center',gap:4}}><StarIcon size={10} /> Judge Demo</b></li>
+                <li><b>1.</b> Open <b>/tool</b> → click <b>★ Judge Demo</b></li>
                 <li><b>2.</b> Press <b>RUN</b> — real HN API → AI → branch → download + log</li>
                 <li><b>3.</b> Ask Chrome agent: “clone the AI node and rerun”</li>
               </ol>
               <button className="btn-run" style={{ width: '100%', marginTop: 8, justifyContent: 'center', display: 'flex' }} onClick={() => navigate('/tool?workflow=judge-demo')}>
-                <StarIcon size={10} /> Open Judge Demo directly →
+                ★ Open Judge Demo directly →
               </button>
               <div className="dash-webmcp-side-note" style={{ marginTop: 8 }}>Chrome: <code>chrome://flags/#enable-webmcp-testing → Enabled</code> · also ChatGPT in-app browser · <Link to="/tool?workflow=judge-demo" style={{ color: 'var(--amber)' }}>/tool?workflow=judge-demo</Link></div>
             </div>
@@ -94,7 +94,7 @@ export function LandingPage() {
       <ChallengeBanner variant="banner" />
       <div className="dash-challenge-caption">
         <span>Featured hackathon challenge — AgentFlow × WebMCP. Image above links to full challenge.</span>
-        <a href="https://d112y698adiu2z.cloudfront.net/photos/production/challenge_photos/005/137/486/datas/full_width.png" target="_blank" rel="noreferrer"><ExternalLinkIcon size={16} /> View challenge</a>
+        <a href="https://d112y698adiu2z.cloudfront.net/photos/production/challenge_photos/005/137/486/datas/full_width.png" target="_blank" rel="noreferrer">View challenge ↗</a>
       </div>
 
       <main className="dash-main">
@@ -109,7 +109,7 @@ export function LandingPage() {
 
           <div className="dash-hero-actions">
             <button className="btn-run dash-cta-primary" onClick={() => navigate('/tool')}>
-              Open tool → Try Judge Demo <StarIcon size={10} />
+              Open tool → Try Judge Demo ★
             </button>
             <button className="btn-ghost dash-cta-skip" onClick={() => navigate('/auth')}>
               Sign in to save
@@ -120,7 +120,7 @@ export function LandingPage() {
 
         <section className="dash-features">
           <div className="dash-feature-card highlight">
-            <div className="dash-feature-icon"><EmptyIcon size={14} /></div>
+            <div className="dash-feature-icon">◎</div>
             <h3>Save to database — sign in required</h3>
             <p>If you <b>sign in</b>, your workflows are saved in the database and persist across devices. <b>Skip</b> to try anonymously — you can always sign in later from the tool.</p>
             <span className="dash-feature-badge">Database • Sync</span>
@@ -161,7 +161,7 @@ export function LandingPage() {
         <div className="dash-footer-links">
           <Link to="/auth">Sign in</Link>
           <Link to="/tool">Open tool</Link>
-          <a href="https://developer.chrome.com/docs/ai/webmcp" target="_blank" rel="noreferrer"><ExternalLinkIcon size={16} /> WebMCP</a>
+          <a href="https://developer.chrome.com/docs/ai/webmcp" target="_blank" rel="noreferrer">WebMCP ↗</a>
         </div>
       </footer>
     </div>

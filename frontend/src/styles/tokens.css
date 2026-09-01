@@ -20,7 +20,7 @@
   /* Ink — reading hierarchy */
   --color-ink:        #f2ede6;
   --color-ink-muted:  #b8b0a3;
-  --color-ink-faint:  #8a8278;
+  --color-ink-faint:  #7a7368;
 
   /* Human (amber) — warm, authoring, intent */
   --color-human:        #e8a33d;
@@ -38,7 +38,6 @@
   --color-fault:        #e53e3e;
   --color-fault-soft:   rgba(229, 62, 62, 0.10);
   --color-fault-glow:   rgba(229, 62, 62, 0.30);
-  --color-fault-dim:    #c53030;
 
   /* Grid — canvas */
   --grid-line:      #262119;
@@ -61,7 +60,6 @@
   --border:       var(--color-line);
   --border-soft:  var(--color-line-soft);
   --border-faint: var(--color-line);
-  --line:         var(--border);
 
   /* Text */
   --ink:          var(--color-ink);
@@ -148,16 +146,13 @@
       Z-INDEX — explicit layers
       ────────────────────────────────────────────── */
   --z-canvas:      1;
-  --z-edge:        5;
   --z-node:        10;
+  --z-edge:        5;
   --z-handle:      15;
-  --z-collab-bar:  30;
-  --z-header:      50;
   --z-popover:     100;
-  --z-replay:      180;
-  --z-drawer:      380;
   --z-modal:       200;
   --z-toast:       300;
+  --z-collab-bar:  50;  /* signature element */
   --z-tooltip:     400;
 }
 
@@ -175,7 +170,7 @@
 
   --color-ink:        #1a160f;
   --color-ink-muted:  #6b6259;
-  --color-ink-faint:  #857c72;
+  --color-ink-faint:  #9a938a;
 
   --color-human-soft:   rgba(232, 163, 61, 0.14);
   --color-human-glow:   rgba(232, 163, 61, 0.22);
@@ -186,8 +181,8 @@
   --color-fault-soft:   rgba(229, 62, 62, 0.08);
   --color-fault-glow:   rgba(229, 62, 62, 0.20);
 
-  --grid-line:      rgba(38,33,25,0.08);
-  --grid-line-bold: rgba(38,33,25,0.14);
+  --grid-line:      rgba(38,33,25,0.06);
+  --grid-line-bold: rgba(38,33,25,0.10);
 }
 
 /* Auto light if user prefers and no explicit data-theme */
@@ -200,8 +195,8 @@
     --color-line-soft:  #ede8e0;
     --color-ink:        #1a160f;
     --color-ink-muted:  #6b6259;
-    --color-ink-faint:  #857c72;
-    --grid-line:      rgba(38,33,25,0.08);
-    --grid-line-bold: rgba(38,33,25,0.14);
+    --color-ink-faint:  #9a938a;
+    --grid-line:      rgba(38,33,25,0.06);
+    --grid-line-bold: rgba(38,33,25,0.10);
   }
 }

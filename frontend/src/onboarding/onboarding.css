@@ -1,5 +1,5 @@
 /* onboarding.css — uses project tokens with fallbacks */
-.onboarding-root { position: fixed; inset: 0; z-index: var(--z-tooltip); pointer-events: none; }
+.onboarding-root { position: fixed; inset: 0; z-index: 400; pointer-events: none; }
 .onboarding-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); pointer-events: auto; }
 .onboarding-highlight {
   position: fixed;
@@ -16,11 +16,21 @@
   padding: var(--space-3, 16px);
   box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.16));
   color: var(--color-text, var(--ink, #1a1a1a));
-  min-width: 300px;
-  max-width: 360px;
+  min-width: min(300px, calc(100vw - 24px));
+  max-width: min(360px, calc(100vw - 24px));
+  width: calc(100vw - 24px);
   pointer-events: auto;
-  z-index: calc(var(--z-tooltip) + 1);
+  z-index: 401;
   border: 1px solid var(--border, #e8e0d8);
+}
+@media (max-width: 480px) {
+  .onboarding-card { padding: 14px 12px; border-radius: 12px; }
+  .onboarding-card-title { font-size: 13px; }
+  .onboarding-card-body { font-size: 11px; }
+  .onboarding-card-actions { flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 360px) {
+  .onboarding-highlight { border-width: 1.5px; }
 }
 .onboarding-card-kicker { font-family: var(--font-mono, monospace); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint, #7a7368); margin-bottom: 6px; }
 .onboarding-card-title { font-family: var(--font-display, sans-serif); font-size: 14px; font-weight: 600; margin: 0 0 6px; color: var(--ink, #1a1a1a); }
@@ -44,7 +54,7 @@
   padding: 10px 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.16);
   max-width: 280px;
-  z-index: calc(var(--z-tooltip) + 1);
+  z-index: 401;
   pointer-events: auto;
 }
 .onboarding-tooltip-title { font-weight: 600; font-size: 12px; margin-bottom: 4px; color: var(--ink, #1a1a1a); }

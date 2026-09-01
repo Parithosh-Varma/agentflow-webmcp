@@ -1112,7 +1112,6 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       list.push(def);
       localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
       try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
-      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch(`${API_BASE}/api/custom-nodes`, {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=> fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{})); } catch{}
       const result={success:true, node:def, message:`Created custom node ${t}`};
       ctx.addToolLog('create_custom_node', {type:t}, result);
       return JSON.stringify(result);
@@ -1125,22 +1124,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     execute: async () => {
       let list:any[]=[];
       try { const raw=localStorage.getItem('agentflow_custom_nodes_v1'); if(raw) list=JSON.parse(raw); } catch{}
-      // also merge backend nodes (for agent-created via backend API)
-      try {
-        const headers: Record<string,string> = {};
-        try { const tok = localStorage.getItem('agentflow_token'); if (tok) headers['Authorization'] = `Bearer ${tok}`; } catch {}
-        let res: Response | null = null;
-        try { res = await fetch(`${API_BASE}/api/custom-nodes`, { headers }); } catch {}
-        if (!res || !res.ok) {
-          try { res = await fetch('/api/custom-nodes', { headers }); } catch {}
-        }
-        if (res && res.ok) {
-          const data = await res.json();
-          const backendNodes = data.nodes || [];
-          const seen = new Set(list.map((n:any)=>n.type));
-          for (const b of backendNodes) if (!seen.has(b.type)) list.push(b);
-        }
-      } catch {}
+      // backend sync disabled to avoid 401 console spam — localStorage is source of truth for custom nodes
       const result={success:true, nodes:list, count:list.length};
       ctx.addToolLog('list_custom_nodes', {}, {count:list.length});
       return JSON.stringify(result);
@@ -1159,7 +1143,6 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       const removed=list.splice(idx,1)[0];
       localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
       try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
-      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch(`${API_BASE}/api/custom-nodes`, {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=> fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{})); } catch{}
       const result={success:true, deleted:removed.type};
       ctx.addToolLog('delete_custom_node', {type:t}, result);
       return JSON.stringify(result);
@@ -1189,7 +1172,6 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       def.updatedAt=new Date().toISOString();
       localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
       try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
-      try { const headers: Record<string,string> = { 'Content-Type': 'application/json' }; try { const tok = localStorage.getItem('agentflow_token'); if (tok) (headers as any)['Authorization'] = `Bearer ${tok}`; } catch{}; fetch(`${API_BASE}/api/custom-nodes`, {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=> fetch('/api/custom-nodes', {method:'POST', headers, body: JSON.stringify({nodes:list})}).catch(()=>{})); } catch{}
       const result={success:true, node:def};
       ctx.addToolLog('update_custom_node', {type:t}, result);
       return JSON.stringify(result);

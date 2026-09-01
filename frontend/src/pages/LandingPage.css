@@ -18,7 +18,7 @@
   background: var(--panel);
   position: sticky;
   top: 0;
-  z-index: var(--z-node);
+  z-index: 10;
 }
 
 .dash-brand {
@@ -37,7 +37,7 @@
 }
 .dash-tag {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--faint);
@@ -96,7 +96,7 @@
   align-items: center;
   gap: 7px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--amber);
@@ -141,7 +141,7 @@
 .dash-webmcp-card.problem { opacity: 0.92; }
 .dash-webmcp-card-head {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--faint);
@@ -209,7 +209,7 @@
   align-self: flex-start;
   margin-top: 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--amber);
@@ -254,7 +254,7 @@
 }
 .gif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); display: inline-block; }
 .gif-title { margin-left: 8px; font-family: var(--font-mono); font-size: 10px; color: var(--dim); }
-.gif-live { margin-left: auto; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--green); }
+.gif-live { margin-left: auto; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em; color: var(--green); }
 .dash-webmcp-gif-body {
   padding: 12px 14px 10px;
   display: flex;
@@ -279,7 +279,7 @@
   font-size: 10px;
 }
 .gif-actor {
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   padding: 2px 6px;
@@ -334,7 +334,7 @@
 }
 .dash-webmcp-side-title {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--amber);
@@ -394,7 +394,7 @@
 
 .dash-hero-kicker {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--amber);
@@ -461,11 +461,31 @@
   margin-top: 24px;
 }
 
+@media (max-width: 1024px) {
+  .dash-hero-title { font-size: clamp(26px, 4vw, 36px); }
+  .dash-webmcp-inner, .dash-main { padding-left: 16px; padding-right: 16px; }
+}
 @media (max-width: 720px) {
   .dash-features { grid-template-columns: 1fr; }
   .dash-hero-title { font-size: 28px; }
-  .dash-header { padding: 0 12px; }
+  .dash-header { padding: 0 12px; height: auto; min-height: 52px; flex-wrap: wrap; gap: 8px; }
   .dash-tag { display: none; }
+  .dash-header-actions { gap: 6px; flex-wrap: wrap; }
+  .dash-hero { padding: 24px 0 18px; }
+  .dash-hero-sub { font-size: 13px; padding: 0 8px; }
+}
+@media (max-width: 480px) {
+  .dash-hero-title { font-size: 22px; line-height: 1.1; }
+  .dash-hero-sub { font-size: 12px; }
+  .dash-webmcp-hero { padding: 16px 12px 14px; }
+  .dash-main { padding: 0 12px 20px; }
+  .dash-features { gap: 10px; }
+  .dash-footer { padding: 12px; font-size: 9px; }
+  .dash-github-btn span { display: none; }
+}
+@media (max-width: 360px) {
+  .dash-hero-actions { flex-direction: column; align-items: stretch; }
+  .dash-cta-primary, .dash-cta-skip { width: 100%; justify-content: center; }
 }
 
 .dash-feature-card {
@@ -525,7 +545,7 @@
   display: inline-block;
   margin-top: 10px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 7px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--amber);
@@ -545,7 +565,7 @@
 
 .dash-how h2 {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--faint);
@@ -558,6 +578,7 @@
   gap: 12px;
 }
 @media (max-width: 720px) { .dash-steps { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .dash-steps { grid-template-columns: 1fr; } }
 
 .dash-step {
   display: flex;
