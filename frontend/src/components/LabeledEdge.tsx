@@ -15,18 +15,26 @@ export function LabeledEdge({
   markerEnd,
   label,
 }: EdgeProps) {
+  // Guard: port geometry may be unmounted/NaN on first frame — fallback to prevent d="M NaN NaN"
+  const sx = Number.isFinite(sourceX) ? sourceX : 0;
+  const sy = Number.isFinite(sourceY) ? sourceY : 0;
+  const tx = Number.isFinite(targetX) ? targetX : sx + 80;
+  const ty = Number.isFinite(targetY) ? targetY : sy;
   const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX,
-    sourceY,
+    sourceX: sx,
+    sourceY: sy,
     sourcePosition,
-    targetX,
-    targetY,
+    targetX: tx,
+    targetY: ty,
     targetPosition,
   });
 
+  // Fallback path if bezier failed (empty or NaN)
+  const safePath = edgePath && !edgePath.includes('NaN') && edgePath.length > 4 ? edgePath : `M ${sx} ${sy} C ${sx + 50} ${sy}, ${tx - 50} ${ty}, ${tx} ${ty}`;
+
   return (
     <>
-      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
+      <BaseEdge id={id} path={safePath} style={{ stroke: '#6366f1', strokeWidth: 2, ...style }} markerEnd={markerEnd} />
       {label ? (
         <EdgeLabelRenderer>
           <div

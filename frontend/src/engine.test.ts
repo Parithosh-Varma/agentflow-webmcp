@@ -14,18 +14,17 @@ describe('engine: built-in nodes', () => {
     expect(res.outputs['n1']).toEqual({ a: 1, b: 2 });
   });
 
-  it('should handle custom node via code', async () => {
-    const nodes = [{ id: 'n1', type: 'custom_upper', label: 'upper', config: { prefix: 'Hi ' } }];
-    const code = `return { out: (config.prefix||'') + String(data.text).toUpperCase() }`;
-    const res = await executeWorkflow(nodes as any, [], { input: { text: 'hello' }, customCode: code });
+  it('should handle code node via config', async () => {
+    const nodes = [{ id: 'n1', type: 'code', label: 'upper', config: { code: `return { out: String(data.text).toUpperCase() }` } }];
+    const res = await executeWorkflow(nodes as any, [], { input: { text: 'hello' } });
     expect(res.success).toBe(true);
-    expect(res.outputs['n1'].out).toBe('Hi HELLO');
+    expect(res.outputs['n1'].out).toBe('HELLO');
   });
 
-  it('should block dangerous patterns', async () => {
-    const nodes = [{ id: 'n1', type: 'custom_bad', label: 'bad', config: {} }];
-    const code = `while(true){}`;
-    const res = await executeWorkflow(nodes as any, [], { input: {}, customCode: code });
+  it('should fault on invalid code', async () => {
+    const nodes = [{ id: 'n1', type: 'code', label: 'bad', config: { code: `throw new Error('boom')` } }];
+    const res = await executeWorkflow(nodes as any, [], { input: {} });
     expect(res.success).toBe(false);
+    expect(res.status['n1']).toBe('fault');
   });
 });

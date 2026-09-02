@@ -13,14 +13,14 @@
   --color-ground-raised: #141210;
   --color-ground-high:   #1c1916;
 
-  /* Line — structure, not decoration */
-  --color-line:       #2a2622;
-  --color-line-soft:  #36312c;
+  /* Line — structure, not decoration — brightened for form clarity (neutral-700) */
+  --color-line:       #3f3f46;
+  --color-line-soft:  #52525b;
 
-  /* Ink — reading hierarchy */
-  --color-ink:        #f2ede6;
-  --color-ink-muted:  #b8b0a3;
-  --color-ink-faint:  #7a7368;
+  /* Ink — reading hierarchy — WCAG 4.5:1 on #0d0c0b */
+  --color-ink:        #f4f4f5;
+  --color-ink-muted:  #d4d4d8;
+  --color-ink-faint:  #a1a1aa;
 
   /* Human (amber) — warm, authoring, intent */
   --color-human:        #e8a33d;

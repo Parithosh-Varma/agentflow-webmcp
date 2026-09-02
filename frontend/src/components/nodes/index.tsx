@@ -183,6 +183,7 @@ function Module(props: NodeProps) {
         type="target"
         position={Position.Left}
         className="pin"
+        isConnectable={true}
         style={{ background: 'var(--line)' }}
       />
       <span className="module-chip">{meta.icon}</span>
@@ -195,6 +196,7 @@ function Module(props: NodeProps) {
         type="source"
         position={Position.Right}
         className="pin"
+        isConnectable={true}
         style={{ background: 'var(--line)' }}
       />
     </div>

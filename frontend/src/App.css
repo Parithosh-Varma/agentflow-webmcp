@@ -239,18 +239,18 @@
   box-shadow: 0 0 10px var(--fault-glow);
 }
 
-/* Counts */
+/* Counts — boosted for WCAG 4.5:1 on --bg */
 .rail-counts {
   font-family: var(--font-mono);
   font-size: 9px;
-  color: var(--faint);
+  color: var(--ink-muted);
   letter-spacing: 0.08em;
   white-space: nowrap;
   flex-shrink: 0;
 }
 .rail-counts b {
-  color: var(--ink-muted);
-  font-weight: 500;
+  color: var(--ink);
+  font-weight: 600;
 }
 
 /* Rail controls */
@@ -500,7 +500,7 @@
   outline: none;
   transition: border-color var(--duration-fast) var(--ease-quick);
 }
-.sidebar-input::placeholder { color: var(--faint); }
+.sidebar-input::placeholder { color: #9ca3af; opacity: 1; }
 .sidebar-input:focus { border-color: var(--amber); }
 
 /* Search wrap */
@@ -646,7 +646,7 @@
   font-style: normal;
   font-size: 10px;
   line-height: 1.2;
-  color: var(--faint);
+  color: var(--ink-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1097,14 +1097,66 @@
 }
 .canvas-demo.playing { opacity: 1; pointer-events: auto; }
 
-/* React Flow overrides */
+/* React Flow overrides — SVG edge layer must stay visible above grid, below nodes
+   Fix: edges rigidly locked to handles at 60fps — no interpolated lag (bug: transition on d/transform) */
 .react-flow__node {
-  transition: transform 820ms var(--ease-standard);
+  /* No transform interpolation during drag — keeps node locked to pointer at 60fps.
+     FitView/demo still animates via JS (fitView duration), not CSS. */
+  transition: border-color 180ms var(--ease-quick), box-shadow 180ms var(--ease-quick), filter 180ms var(--ease-quick) !important;
+  will-change: transform;
 }
-.react-flow__edge-path {
-  transition: d 820ms var(--ease-standard);
+.react-flow__node.dragging,
+.react-flow__node.draggable-dragging {
+  transition: none !important;
 }
-.react-flow__edge-path { stroke-width: 1.5; }
+.react-flow__edges,
+svg.react-flow__edges,
+svg.edge-layer {
+  position: absolute !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 1;
+}
+.react-flow__edge-path,
+path.react-flow__edge-path,
+path.connection-line,
+path.edge-line {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  stroke: #d97706 !important; /* Gold/Amber theme match - overrides transparent/matching bg */
+  stroke-width: 2.5px !important;
+  stroke-opacity: 1 !important;
+  fill: none !important;
+  /* Fix: Disable transitions on SVG paths — prevents stutter/delay when handle coords update every frame */
+  transition: none !important;
+  animation: none !important;
+}
+.react-flow__connectionline,
+.react-flow__connection-path {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  stroke: #e8a33d !important;
+  stroke-width: 2.5px !important;
+  stroke-opacity: 1 !important;
+  pointer-events: none;
+  transition: none !important;
+}
+/* Canvas transform sync — ensure viewport + SVG layer composite in same frame (1:1 mapping, no recalc) */
+.react-flow__viewport {
+  will-change: transform;
+}
+.react-flow__edges,
+.react-flow__edgelabel-renderer {
+  will-change: transform;
+  transform: translateZ(0);
+}
 .react-flow__selection {
   background: var(--amber-soft) !important;
   border: 1px solid var(--amber) !important;
@@ -1379,21 +1431,30 @@
   filter: grayscale(30%);
 }
 
-/* Handles — smaller, offset to avoid card overlap */
+/* Handles — smaller, offset to avoid card overlap; ensure port interactivity */
 .react-flow__handle.pin {
-  width: 7px;
-  height: 7px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
   border: 1.5px solid var(--border);
   background: var(--panel);
   box-shadow: 0 0 0 2px var(--bg);
-  z-index: 2;
+  z-index: 10;
+  pointer-events: auto;
+  cursor: crosshair;
 }
 .react-flow__handle.pin:hover {
   background: var(--amber);
   border-color: var(--amber);
-  box-shadow: 0 0 0 2px var(--amber-soft);
+  box-shadow: 0 0 0 3px var(--amber-soft);
 }
+.react-flow__handle.pin:active {
+  background: var(--cyan);
+  border-color: var(--cyan);
+}
+/* Keep connection line above nodes but below popover card — already set above, keep fallback */
+.react-flow__edges { z-index: 1 !important; }
+.react-flow__connectionline { z-index: 5 !important; }
 .react-flow__handle.pin[data-handlepos="left"] { left: -4px !important; }
 .react-flow__handle.pin[data-handlepos="right"] { right: -4px !important; }
 .react-flow__node { padding: 2px; }
@@ -1622,7 +1683,7 @@
   transition: border-color var(--duration-fast) var(--ease-quick);
   line-height: 1.5;
 }
-.exec-input::placeholder { color: var(--faint); }
+.exec-input::placeholder { color: #9ca3af; opacity: 1; }
 .exec-input:focus { border-color: var(--amber); }
 
 .exec-actions { display: flex; gap: 6px; }
@@ -1893,7 +1954,7 @@
   font-size: 7px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--ink-muted);
 }
 
 .cfg-input {
@@ -1908,7 +1969,7 @@
   outline: none;
   transition: border-color var(--duration-fast) var(--ease-quick);
 }
-.cfg-input::placeholder { color: var(--faint); }
+.cfg-input::placeholder { color: #9ca3af; opacity: 1; }
 .cfg-input:focus { border-color: var(--amber); }
 textarea.cfg-input, .cfg-area { resize: vertical; line-height: 1.5; }
 
@@ -1976,7 +2037,8 @@ select.cfg-input option { background: var(--panel); color: var(--ink); }
 }
 
 /* ================================================================
-   Node Popover
+   Node Popover — anchored above selected node (bug fix)
+   + Expandable side drawer (feature: rich config)
    ================================================================ */
 .node-popover {
   position: fixed;
@@ -1987,13 +2049,70 @@ select.cfg-input option { background: var(--panel); color: var(--ink); }
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  box-shadow: none;
   z-index: var(--z-popover);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  pointer-events: auto;
+}
+.node-popover--anchored {
+  right: auto;
+  box-shadow: none;
+  pointer-events: auto;
+}
+/* Backdrop wrappers must not steal canvas pointer events — only card is interactive */
+.main:has(.node-popover),
+.main:has(.node-drawer) {
+  /* keep canvas interactive; modal card alone handles clicks */
+}
+.node-popover-wrapper,
+.node-drawer-wrapper {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-popover);
+}
+.node-popover-wrapper .node-popover,
+.node-drawer-wrapper .node-drawer {
+  pointer-events: auto;
 }
 .right-closed .node-popover { right: 16px; }
+.right-closed .node-popover--anchored { right: auto; }
+
+/* Side drawer — full-height, resizable, for Advanced/Output */
+.node-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100dvh;
+  height: 100vh;
+  width: 420px;
+  max-width: min(92vw, 640px);
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  box-shadow: none;
+  z-index: var(--z-popover);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: drawer-in 220ms var(--ease-standard);
+  pointer-events: auto;
+}
+@keyframes drawer-in { from { transform: translateX(12px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.node-drawer.resizing { transition: none !important; }
+.drawer-resizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  border-left: 1px solid transparent;
+  z-index: 2;
+}
+.drawer-resizer:hover { background: var(--amber-soft); border-left-color: var(--amber); }
 
 .popover-header {
   display: flex;
@@ -2002,7 +2121,9 @@ select.cfg-input option { background: var(--panel); color: var(--ink); }
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-raised);
+  gap: 8px;
 }
+.popover-title-wrap { display: flex; flex-direction: column; min-width: 0; }
 .popover-title {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -2010,6 +2131,78 @@ select.cfg-input option { background: var(--panel); color: var(--ink); }
   color: var(--ink);
   letter-spacing: 0.06em;
 }
+.popover-subtitle {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--faint);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.popover-header-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.drawer-expand-btn { white-space: nowrap; }
+.drawer-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+.drawer-tab {
+  flex: 1;
+  padding: 9px 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  margin-bottom: -1px;
+}
+.drawer-tab:hover { color: var(--ink); background: var(--bg); }
+.drawer-tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--amber);
+  background: var(--amber-soft);
+  font-weight: 600;
+  outline: 1px solid var(--amber);
+  outline-offset: -1px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+/* Rich controls */
+.cfg-toggle-row { flex-direction: row !important; align-items: center; justify-content: space-between; gap: 12px; }
+.toggle {
+  width: 36px; height: 20px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg); position: relative; cursor: pointer; flex-shrink: 0; transition: all var(--duration-fast);
+}
+.toggle--on { background: var(--amber-soft); border-color: var(--amber); }
+.toggle-thumb { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--faint); transition: all var(--duration-fast); }
+.toggle--on .toggle-thumb { transform: translateX(16px); background: var(--amber); box-shadow: 0 0 6px var(--amber-glow); }
+
+.multi-select { display: flex; flex-direction: column; gap: 6px; }
+.multi-select-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--amber-soft); border: 1px solid var(--amber); border-radius: 999px; color: var(--amber); font-family: var(--font-mono); font-size: 10px; }
+.chip button { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 12px; line-height: 1; }
+.multi-select-input-wrap { position: relative; }
+.multi-select-dropdown { position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; z-index: 5; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+.multi-select-dropdown button { width: 100%; text-align: left; padding: 7px 10px; border: none; background: transparent; color: var(--ink); font-family: var(--font-mono); font-size: 11px; cursor: pointer; }
+.multi-select-dropdown button:hover { background: var(--bg-raised); color: var(--amber); }
+
+.kv-table { display: flex; flex-direction: column; gap: 6px; }
+.kv-row { display: grid; grid-template-columns: 1fr 1fr 22px; gap: 6px; align-items: center; }
+.kv-remove { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--border-soft); background: var(--bg-raised); color: var(--faint); cursor: pointer; }
+.kv-remove:hover { border-color: var(--fault); color: var(--fault); background: var(--red-soft); }
+.kv-add { align-self: flex-start; }
+
+.code-editor-wrap { display: flex; flex-direction: column; gap: 6px; }
+.code-editor { font-family: var(--font-mono) !important; font-size: 11px !important; min-height: 140px; tab-size: 2; }
+.code-editor-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
 .popover-close {
   width: 20px; height: 20px;
   border: none; border-radius: var(--radius-sm);

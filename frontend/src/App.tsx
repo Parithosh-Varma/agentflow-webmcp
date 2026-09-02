@@ -219,7 +219,7 @@ function CanvasDemo({ onStartFlow, isPlaying }: CanvasDemoProps) {
           label: e.label || '',
           type: 'labeled',
           animated: false,
-          style: { stroke: '#3a342c', strokeWidth: 1.6 },
+          style: { stroke: '#6366f1', strokeWidth: 2 },
         }));
         setDemoNodes(nodesToShow);
         setDemoEdges(edgesToShow);
@@ -445,7 +445,7 @@ function CanvasPage() {
       if (!params.source || !params.target) return;
       setNodes((nds: Node[]) => localWireAdjust(nds, [...edgesRef.current, params as any], params.source!, params.target!));
       setEdges((eds: any[]) =>
-        addEdge({ ...params, type: 'labeled', animated: false, style: { stroke: '#3a342c' } }, eds)
+        addEdge({ ...params, type: 'labeled', animated: false, style: { stroke: '#6366f1', strokeWidth: 2 } }, eds)
       );
       setTimeout(() => {
         const tgt = nodesRef.current.find((n) => n.id === params.target);
@@ -454,6 +454,14 @@ function CanvasPage() {
     },
     [setNodes, setEdges, fitAllNodes]
   );
+
+  // Ensure port dragging renders bezier preview under zoom/pan via React Flow's project()
+  const onConnectStart = useCallback((_e: any, _params: any) => {
+    void _e; void _params;
+  }, []);
+  const onConnectEnd = useCallback((_e: any) => {
+    void _e;
+  }, []);
 
   const onNodeDragStop = useCallback(
     (_: any, node: Node) => {
@@ -982,10 +990,14 @@ function CanvasPage() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onConnectStart={onConnectStart}
+            onConnectEnd={onConnectEnd}
             onNodeDragStop={onNodeDragStop}
             selectionOnDrag
             panOnDrag={[1, 2]}
             selectionMode={SelectionMode.Partial}
+            connectionLineType={0 as any}
+            connectionLineStyle={{ stroke: '#e8a33d', strokeWidth: 2 }}
             onSelectionChange={onSelectionChange}
             onNodeClick={(_, node) => {
               if (isPlaying && replayData) {
@@ -1000,7 +1012,7 @@ function CanvasPage() {
             }}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            defaultEdgeOptions={{ type: 'labeled', style: { stroke: '#3a342c', strokeWidth: 1.6 } }}
+            defaultEdgeOptions={{ type: 'labeled', style: { stroke: '#6366f1', strokeWidth: 2 } }}
             style={{ background: 'var(--bg)', width: '100%', height: '100%' }}
             proOptions={{ hideAttribution: false }}
           >
@@ -1117,83 +1129,4 @@ export default function App() {
   );
 }
 
-// Analytics Dashboard
-const AnalyticsDashboard = () => {
-  const { user } = useAuth();
-  const [metrics, setMetrics] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        const token = localStorage.getItem('agentflow_access_token');
-        if (!token) return;
-        const res = await fetch('https://agentflow.parithosh.workers.dev/api/stats', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setMetrics([
-            { name: 'Workflows', value: data.workflows || 0 },
-            { name: 'Executions', value: data.executions || 0 },
-            { name: 'Success Rate', value: (data.successRate || 0) + '%' },
-            { name: 'Unique Users', value: data.uniqueWorkflowUsers || 0 },
-          ]);
-        }
-      } catch (e) {}
-      setLoading(false);
-    };
-    fetchMetrics();
-  }, [user]);
-
-  if (loading) return null;
-  return (
-    <div style={{ padding: '1rem', background: 'var(--panel)', borderRadius: 8, margin: '1rem 0' }}>
-      <h4>Analytics</h4>
-      {metrics.map((m, i) => (
-        <div key={i} style={{ marginBottom: '0.5rem' }}>
-          <span>{m.name}: </span>
-          <span>{m.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// Version History Panel
-const VersionHistoryPanel = () => {
-  const { id: workflowId } = useParams();
-  const [versions, setVersions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!workflowId) return;
-    const fetchVersions = async () => {
-      try {
-        const token = localStorage.getItem('agentflow_access_token');
-        if (!token) return;
-        const res = await fetch(`https://agentflow.parithosh.workers.dev/api/workflows/${workflowId}/versions`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (res.ok) setVersions(data.versions || []);
-      } catch (e) {}
-      setLoading(false);
-    };
-    fetchVersions();
-  }, [workflowId]);
-
-  if (loading) return <span>Loading versions...</span>;
-  return (
-    <div style={{ padding: '1rem', background: 'var(--panel)', borderRadius: 8, margin: '1rem 0' }}>
-      <h4>Version History ({versions.length})</h4>
-      {versions.map((v: any, i) => (
-        <div key={i} style={{ marginBottom: '0.5rem', fontSize: 12 }}>
-          <span>{v.created_at?.split(' ')[0] || 'unknown'}</span>
-          <button style={{ marginLeft: '0.5rem', cursor: 'pointer' }}>Restore</button>
-        </div>
-      ))}
-      {versions.length === 0 && <p>No versions yet.</p>}
-    </div>
-  );
-};
