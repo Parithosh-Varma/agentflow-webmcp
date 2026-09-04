@@ -20,6 +20,7 @@
     href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
     rel="stylesheet"
   />
+  <link rel="stylesheet" href="/anim.css" />
   <style>
     :root {
       --bg: #121110;
@@ -360,22 +361,22 @@
   <header class="hero" id="top">
     <div class="wrap hero-grid">
       <div>
-        <span class="eyebrow">WEBMCP WORKFLOW INSTRUMENT</span>
-        <h1>One canvas.<br /><span class="you">You</span> wire it.<br /><span class="agent">Your agent</span> drives it.</h1>
-        <p class="lede">
+        <span class="eyebrow" data-anim="fade-up">WEBMCP WORKFLOW INSTRUMENT</span>
+        <h1 data-anim="fade-up" data-delay="90">One canvas.<br /><span class="you">You</span> wire it.<br /><span class="agent">Your agent</span> drives it.</h1>
+        <p class="lede" data-anim="fade-up" data-delay="180">
           AgentFlow is a visual builder for automation where <strong>humans and agents
           operate the same machine</strong>. Drag modules onto the canvas and route wires by hand —
           or tell your agent what you need and watch it call real browser-native tools to do it.
           Either way, you see every signal travel.
         </p>
-        <div class="hero-ctas">
+        <div class="hero-ctas" data-anim="fade-up" data-delay="270">
           <a class="btn btn-amber" href="https://agentflow-hackathon.pages.dev">Go to the tool →</a>
           <a class="btn btn-ghost" href="https://github.com/Parithosh-Varma/agentflow-webmcp">read the source</a>
         </div>
         <div style="margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--dim);">No signup — <strong style="color:var(--ink);">runs in your browser, autosaves locally</strong>.</div>
       </div>
 
-      <figure class="schematic" aria-label="Animated diagram of a workflow with signals traveling between modules">
+      <figure class="schematic" data-anim="fade-in" data-delay="200" aria-label="Animated diagram of a workflow with signals traveling between modules">
         <svg viewBox="0 0 420 300" role="img">
           <!-- wires -->
           <path class="wire" d="M118 70 H182" />
@@ -451,7 +452,7 @@
   </section>
 
   <!-- ================= OPERATORS ================= -->
-  <section id="operators">
+  <section id="operators" data-anim="fade-up">
     <div class="wrap">
       <div class="sec-head">
         <span class="sec-kicker">TWO OPERATORS, ONE MACHINE</span>
@@ -480,7 +481,7 @@
   </section>
 
   <!-- ================= TOOLS ================= -->
-        <section id="tools">
+        <section id="tools" data-anim="fade-up">
     <div class="wrap">
       <div class="sec-head">
         <span class="sec-kicker">WHAT THE AGENT CAN TOUCH</span>
@@ -500,7 +501,7 @@
   </section>
 
   <!-- ================= HOW ================= -->
-  <section id="how">
+  <section id="how" data-anim="fade-up">
     <div class="wrap">
       <div class="sec-head">
         <span class="sec-kicker">HOW A RUN GOES</span>
@@ -524,7 +525,7 @@
   </section>
 
   <!-- ================= FINAL CTA ================= -->
-  <section class="final">
+  <section class="final" data-anim="fade-up">
     <div class="wrap">
       <span class="eyebrow" style="justify-content:center; display:flex;">NO SIGNUP · RUNS IN YOUR BROWSER</span>
       <h2>The canvas is live. Bring your agent.</h2>
@@ -549,5 +550,6 @@
     </div>
   </footer>
 
+  <script src="/anim.js" defer></script>
 </body>
 </html>

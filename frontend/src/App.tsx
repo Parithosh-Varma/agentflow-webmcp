@@ -27,6 +27,7 @@ import { localWireAdjust, snapAndPushOnDrop, snapToGrid, getSmartPlacement } fro
 const HelpDrawer = lazy(() => import('./components/HelpDrawer').then((m) => ({ default: m.HelpDrawer })));
 import { AgentToast } from './components/AgentToast';
 import { GithubIcon, PanelLeftOpenIcon } from './components/icons';
+import { Animate } from './anim/Animate';
 
 import { useOnboarding } from './onboarding/useOnboarding';
 const TourOverlay = lazy(() => import('./onboarding/TourOverlay').then((m) => ({ default: m.TourOverlay })));
@@ -1027,6 +1028,7 @@ function CanvasPage() {
                 {showDemo && <CanvasDemo onStartFlow={startDemo} isPlaying={demoPlaying} />}
                 {showEmpty && (
                   <div className="canvas-empty" aria-live="polite">
+                    <Animate variant="scale-in">
                     <div className="canvas-empty-card canvas-empty-card--minimal">
                       <div className="canvas-empty-icon">◎</div>
                       <div className="canvas-empty-title">No modules yet</div>
@@ -1035,6 +1037,7 @@ function CanvasPage() {
                         ★ Judge Demo
                       </button>
                     </div>
+                    </Animate>
                   </div>
                 )}
               </>

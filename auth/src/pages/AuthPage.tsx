@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../api';
 import { TOOL_URL, buildToolCallbackUrl } from '../config';
 import logo from '../assets/logo.png';
+import { Animate } from '../anim/Animate';
 import './AuthPage.css';
 
 // Auth is a SEPARATE Cloudflare Pages (agentflow-auth.pages.dev).
@@ -141,6 +142,7 @@ export function AuthPage() {
           </div>
         </div>
 
+        <Animate variant="scale-in">
         <div className="auth-card">
           <div className="auth-card-top">
             <div className="auth-card-tabs" role="tablist">
@@ -255,6 +257,7 @@ export function AuthPage() {
             Deploy: <code>npx wrangler pages deploy dist --project-name=agentflow-auth</code>
           </div>
         </div>
+        </Animate>
       </div>
     </div>
   );
