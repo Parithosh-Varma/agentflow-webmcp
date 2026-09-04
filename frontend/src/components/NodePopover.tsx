@@ -778,7 +778,7 @@ export function NodePopover({ node, onChange, onDelete, onClose }: Props) {
           {!expanded && (
             <button
               type="button"
-              className="btn-ghost btn-small"
+              className="btn-ghost btn-small cfg-expand"
               style={{ marginLeft: 'auto' }}
               onClick={() => {
                 setExpanded(true);

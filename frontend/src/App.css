@@ -2023,6 +2023,7 @@ select.cfg-input option { background: var(--panel); color: var(--ink); }
 
 .cfg-actions { display: flex; gap: 6px; margin-top: var(--space-3); flex-wrap: wrap; }
 .cfg-actions .btn-run, .cfg-actions .btn-ghost { flex: 0 0 auto; white-space: nowrap; }
+.cfg-actions .cfg-expand { flex: 1 1 100%; margin-left: 0; }
 
 /* ================================================================
    Telemetry Log
