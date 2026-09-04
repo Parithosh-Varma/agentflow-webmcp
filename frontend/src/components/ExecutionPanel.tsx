@@ -8,6 +8,7 @@ import {
   type ExecResult,
 } from '../engine';
 import { NODE_DISPLAY_NAMES } from './nodes';
+import { JsonView } from './JsonView';
 import { CheckIcon, CrossIcon } from './icons';
 
 function useJsonEditor(initial: string) {
@@ -241,7 +242,7 @@ export function ExecutionPanel({
                 <span className="exec-final-kicker">Final output</span>
                 <span className="exec-final-node">{finalOutputNode.label}</span>
               </div>
-              <pre className="exec-final-data">{formatOutput(finalOutputNode.output)}</pre>
+              <div className="exec-final-data"><JsonView data={finalOutputNode.output} /></div>
               <button className="btn-ghost btn-small exec-copy-btn" onClick={() => navigator.clipboard.writeText(formatOutput(finalOutputNode.output))}>
                 Copy JSON
               </button>
@@ -269,7 +270,7 @@ export function ExecutionPanel({
                     <div className="exec-node-output">
                       {r.hasOutput ? (
                         <>
-                          <pre>{formatOutput(r.output)}</pre>
+                          <div className="exec-node-json"><JsonView data={r.output} /></div>
                           <button className="btn-ghost btn-small" onClick={() => navigator.clipboard.writeText(formatOutput(r.output))}>
                             Copy
                           </button>

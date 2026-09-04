@@ -1863,6 +1863,53 @@ path.edge-line {
 }
 .exec-copy-btn { margin-left: auto; }
 
+/* Neat JSON tree for run outputs */
+.jv-tree {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+.jv-row { display: flex; align-items: baseline; gap: 0; min-width: 0; }
+.jv-children { margin-left: 14px; padding-left: 8px; border-left: 1px solid var(--border-faint); }
+.jv-key { color: var(--ink); font-weight: 600; }
+.jv-colon { color: var(--faint); }
+.jv-string { color: #4d7c4d; }
+.jv-number { color: var(--amber); }
+.jv-bool { color: #2a9d8f; }
+.jv-null, .jv-meta { color: var(--faint); }
+.jv-text { color: var(--ink); }
+.jv-bracket { color: var(--faint); }
+.jv-toggle {
+  background: none;
+  border: none;
+  padding: 0 4px 0 0;
+  color: var(--faint);
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1;
+}
+.jv-toggle:hover { color: var(--amber); }
+.jv-preview {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--faint);
+  cursor: pointer;
+}
+.jv-preview:hover { color: var(--amber); }
+.exec-node-json {
+  margin: 0;
+  padding: var(--space-2);
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  max-height: 220px;
+  overflow: auto;
+}
+
 /* All node outputs — collapsible */
 .exec-node-details {
   border: 1px solid var(--border);
