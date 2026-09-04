@@ -630,13 +630,50 @@
 }
 .sb-footer b { color: var(--ink-2); font-weight: 600; }
 
-/* Sticky RUN — always visible while the sidebar scrolls */
+/* Sticky RUN — always visible while the sidebar scrolls (sits above sidefoot) */
 .sb-run {
   position: sticky;
-  bottom: 0;
+  bottom: 44px;
   z-index: 2;
   background: var(--panel);
   border-top: 1px solid var(--border-faint);
+}
+
+/* Bottom toggle bar — Claude-style collapse control */
+.sb-sidefoot {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 6px 12px;
+  background: var(--panel);
+  border-top: 1px solid var(--border-faint);
+}
+.sb-sidefoot-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+  text-transform: uppercase;
+}
+.sb-sidefoot-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+}
+.sb-sidefoot-toggle:hover {
+  color: var(--ink);
+  border-color: var(--border);
+  background: var(--bg-high);
 }
 
 /* Scrollbar for sidebar */

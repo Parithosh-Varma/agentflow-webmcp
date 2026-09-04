@@ -91,6 +91,30 @@
   background: var(--bg-high);
 }
 
+/* Floating reopen — Claude-style panel button, top-left of canvas when closed */
+.sidebar-float-open {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--faint);
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  transition: all var(--duration-fast) var(--ease-quick);
+}
+.sidebar-float-open:hover {
+  color: var(--ink);
+  border-color: var(--amber);
+}
+
 /* Wordmark */
 .wordmark {
   display: flex;
@@ -2587,15 +2611,12 @@ img, svg { max-width: 100%; }
 /* ── Large desktop / ultrawide (≥1536) ── */
 @media (min-width: 1536px) {
   .rail { padding: 0 28px; height: 56px; }
-  .sidebar-wrap--open { width: clamp(300px, 20vw, 380px) !important; }
+  .sidebar-wrap--open { width: clamp(300px, 20vw, 420px) !important; }
   .canvas-empty-card { max-width: 560px; padding: 36px 32px; }
   .module { min-width: 192px; padding: 12px 16px; }
 }
 
-/* ── Desktop (1280-1535) ── */
-@media (max-width: 1280px) {
-  .sidebar-wrap--open { width: 268px !important; }
-}
+/* ── Desktop (≤1280) — JS width (default 340, drag 240–560) governs; flex prevents overflow ── */
 
 /* ── Laptop (1025-1280) ── */
 @media (max-width: 1180px) {
@@ -2615,12 +2636,10 @@ img, svg { max-width: 100%; }
 
 /* ── Small laptop / landscape tablet (961-1024) ── */
 @media (max-width: 1024px) {
-  .sidebar-wrap--open { width: 250px !important; }
   .rail-github-btn span { display: none; }
   .rail-github-btn { padding: 0 10px; }
   .webmcp-pill { max-width: 130px; font-size: 8px; }
   .node-popover { width: 260px; right: 14px; }
-  .react-flow__minimap { width: 110px !important; height: 78px !important; }
 }
 
 /* ── Tablet portrait (721-960) ── */
@@ -2665,7 +2684,6 @@ img, svg { max-width: 100%; }
   .canvas-empty-card--minimal { max-width: calc(100vw - 24px); padding: 18px 14px; }
   .module { min-width: 148px; padding: 8px 10px; }
   .module-label { font-size: 10px; }
-  .react-flow__minimap { display: none !important; }
   .replay-bar { padding: 10px 12px; }
   .replay-bar__controls { gap: 8px; }
   .replay-inspector { left: 10px; right: 10px; width: auto; top: auto; bottom: 10px; max-height: 48dvh; }

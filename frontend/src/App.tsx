@@ -26,7 +26,7 @@ import type { NodeStatus } from './engine';
 import { localWireAdjust, snapAndPushOnDrop, snapToGrid, getSmartPlacement } from './utils/grid';
 const HelpDrawer = lazy(() => import('./components/HelpDrawer').then((m) => ({ default: m.HelpDrawer })));
 import { AgentToast } from './components/AgentToast';
-import { GithubIcon } from './components/icons';
+import { GithubIcon, PanelLeftOpenIcon } from './components/icons';
 
 import { useOnboarding } from './onboarding/useOnboarding';
 const TourOverlay = lazy(() => import('./onboarding/TourOverlay').then((m) => ({ default: m.TourOverlay })));
@@ -323,14 +323,14 @@ function CanvasPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    try { const v = Number(localStorage.getItem('agentflow_sidebar_width_v1')); return v >= 220 && v <= 520 ? v : 276; } catch { return 276; }
+    try { const v = Number(localStorage.getItem('agentflow_sidebar_width_v2')); return v >= 240 && v <= 560 ? v : 340; } catch { return 340; }
   });
   const [isResizing, setIsResizing] = useState(false);
   const sidebarWidthRef = useRef(sidebarWidth);
   sidebarWidthRef.current = sidebarWidth;
-  const SIDEBAR_MIN = 220;
-  const SIDEBAR_MAX = 520;
-  const SIDEBAR_DEFAULT = 276;
+  const SIDEBAR_MIN = 240;
+  const SIDEBAR_MAX = 560;
+  const SIDEBAR_DEFAULT = 340;
   const [snapEnabled, setSnapEnabled] = useState(false);
   const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
   const [currentWorkflowName, setCurrentWorkflowName] = useState('Untitled');
@@ -834,13 +834,6 @@ function CanvasPage() {
     <div className="app">
       <header className="rail">
         <div className="rail-left">
-          <button
-            className="sidebar-toggle"
-            onClick={() => setSidebarOpen((v) => !v)}
-            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-          >
-            {sidebarOpen ? '◀' : '▶'}
-          </button>
           <div className="wordmark">
             <img src={logo} alt="AgentFlow" className="wordmark-logo" />
             <h1>AGENTFLOW</h1>
@@ -937,6 +930,7 @@ function CanvasPage() {
             setIsExecuting={setIsExecuting}
             setLiveStatus={setLiveStatus}
             toolLogs={toolLogs}
+            onCollapse={() => setSidebarOpen(false)}
           >
             {user && (
               <WorkflowManager
@@ -960,7 +954,7 @@ function CanvasPage() {
             aria-orientation="vertical"
             aria-label="Resize sidebar — drag to resize, double-click to reset"
             title="Drag to resize • Double-click to reset"
-            onDoubleClick={() => { setSidebarWidth(SIDEBAR_DEFAULT); try { localStorage.setItem('agentflow_sidebar_width_v1', String(SIDEBAR_DEFAULT)); } catch {} }}
+            onDoubleClick={() => { setSidebarWidth(SIDEBAR_DEFAULT); try { localStorage.setItem('agentflow_sidebar_width_v2', String(SIDEBAR_DEFAULT)); } catch {} }}
             onMouseDown={(e) => {
               e.preventDefault();
               setIsResizing(true);
@@ -974,7 +968,7 @@ function CanvasPage() {
               };
               const onUp = () => {
                 setIsResizing(false);
-                try { localStorage.setItem('agentflow_sidebar_width_v1', String(latest)); } catch {}
+                try { localStorage.setItem('agentflow_sidebar_width_v2', String(latest)); } catch {}
                 window.removeEventListener('mousemove', onMove);
                 window.removeEventListener('mouseup', onUp);
                 document.body.style.cursor = '';
@@ -1000,7 +994,7 @@ function CanvasPage() {
               };
               const onUp = () => {
                 setIsResizing(false);
-                try { localStorage.setItem('agentflow_sidebar_width_v1', String(latest)); } catch {}
+                try { localStorage.setItem('agentflow_sidebar_width_v2', String(latest)); } catch {}
                 window.removeEventListener('touchmove', onMove as any);
                 window.removeEventListener('touchend', onUp);
               };
@@ -1014,6 +1008,16 @@ function CanvasPage() {
         )}
 
         <div className="canvas-area" data-tour="canvas" data-onboarding="canvas-root" onDragOver={onDragOver} onDrop={onDrop} style={{ position: 'relative' }}>
+          {!sidebarOpen && (
+            <button
+              className="sidebar-float-open"
+              onClick={() => setSidebarOpen(true)}
+              title="Show sidebar"
+              aria-label="Show sidebar"
+            >
+              <PanelLeftOpenIcon size={15} />
+            </button>
+          )}
           {(() => {
             const nonStartCount = nodes.filter((n) => n.id !== 'start').length;
             const showDemo = !demoPlayed && nonStartCount === 0 && !demoPlaying;

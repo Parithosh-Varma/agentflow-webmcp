@@ -232,6 +232,26 @@ export function ChevronDownIcon({ size = 12, className }: IconProps) {
   );
 }
 
+export function PanelLeftCloseIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9.5 4v16" />
+      <path d="M14 9l-2.5 3L14 15" />
+    </svg>
+  );
+}
+
+export function PanelLeftOpenIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9.5 4v16" />
+      <path d="M13 9l2.5 3L13 15" />
+    </svg>
+  );
+}
+
 export function CheckIcon({ size = 12, className }: IconProps) {
   return (
     <svg {...base(size)} className={className}>

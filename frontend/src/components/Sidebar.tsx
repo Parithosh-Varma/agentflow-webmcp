@@ -7,6 +7,7 @@ import {
   FilterIcon, SplitIcon, MergeIcon, LoopIcon, CodeIcon, WebhookIcon,
   AiIcon, ValidatorIcon, LoggerIcon, FileIcon,
   CloseIcon, ChevronRightIcon, FocusIcon, CopyIcon,
+  PanelLeftCloseIcon,
   ScheduleIcon, GraphQLIcon, SetIcon, SwitchIcon, AggregateIcon, SortIcon, LimitIcon, ItemListsIcon, FunctionIcon, NoOpIcon, WebhookResponseIcon, HtmlIcon, DateTimeIcon,
   SlackIcon, DiscordIcon, GithubIcon, GmailIcon, GoogleSheetsIcon, NotionIcon, AirtableIcon, PostgresIcon, MySQLIcon, MongoDBIcon, RedisIcon, StripeIcon, ShopifyIcon, AwsS3Icon, OpenAIIcon,
 } from './icons';
@@ -101,6 +102,7 @@ interface Props {
   setIsExecuting: (v: boolean) => void;
   setLiveStatus: (updater: (prev: Record<string, NodeStatus>) => Record<string, NodeStatus>) => void;
   toolLogs: Array<{ tool: string; input: any; result: any; time: string; actor: 'agent' | 'you' }>;
+  onCollapse: () => void;
 }
 
 function buildExampleFlow(): { nodes: Node[]; edges: any[] } {
@@ -205,7 +207,8 @@ export function buildJudgeDemoFlow(): { nodes: Node[]; edges: any[] } {
 export function Sidebar({
   nodes, setNodes, setEdges, edges, selectedId, setSelectedId,
   liveStatus, addToolLog, clearRunState, reactFlowRef, children,
-  executionResult, isExecuting, setExecutionResult, setIsExecuting, setLiveStatus, toolLogs
+  executionResult, isExecuting, setExecutionResult, setIsExecuting, setLiveStatus, toolLogs,
+  onCollapse
 }: Props) {
   const [label, setLabel] = useState('');
   const [search, setSearch] = useState('');
@@ -213,9 +216,14 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState<Set<Category>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // "/" to focus search
+  // "/" or Ctrl/Cmd+K to focus search
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
       if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
         e.preventDefault();
         searchRef.current?.focus();
@@ -644,6 +652,18 @@ export function Sidebar({
           <code>true</code>/<code>false</code>. Agent tools:{' '}
           <code>add_node</code> <code>connect_nodes</code> <code>run</code>.
         </p>
+      </div>
+
+      <div className="sb-sidefoot">
+        <span className="sb-sidefoot-label">AgentFlow</span>
+        <button
+          className="sb-sidefoot-toggle"
+          onClick={onCollapse}
+          title="Hide sidebar"
+          aria-label="Hide sidebar"
+        >
+          <PanelLeftCloseIcon size={15} />
+        </button>
       </div>
     </aside>
   );
