@@ -120,10 +120,11 @@ const WEBMCP_TOOLS_27: Array<{ name: string; desc: string; group: 'core' | 'adva
 const WEBMCP_TOOLS_19 = WEBMCP_TOOLS_27; void WEBMCP_TOOLS_27; void WEBMCP_TOOLS_19; // kept for docs, formerly shown in right drawer
 
 const CANVAS_TOUR_STEPS = [
-  { id: 'canvas-intro', target: 'canvas-root', title: 'Your canvas', body: 'Drag nodes here to build a flow.' },
-  { id: 'canvas-add-node', target: 'add-node-button', title: 'Add a node', body: 'Click here, or drag from the sidebar.' },
-  { id: 'canvas-connect', target: 'canvas-root', title: 'Connect nodes', body: 'Drag from one node’s edge to another to link them.' },
-  { id: 'canvas-run', target: 'run-button', title: 'Run it', body: 'Press RUN to execute the workflow.' },
+  { id: 'canvas-intro', target: 'canvas-root', title: 'Your canvas', body: 'Drag modules here to build a flow — or hit ★ Judge Demo in the sidebar for a 30-second wow flow.' },
+  { id: 'canvas-add-node', target: 'add-node-button', title: 'Add a module', body: 'Click a module (or drag it) to place it at a smart position. Press / to search.' },
+  { id: 'canvas-connect', target: 'canvas-root', title: 'Wire it up', body: 'Drag from one node’s pin to another. Label condition wires true / false to branch.' },
+  { id: 'canvas-run', target: 'run-button', title: 'Press RUN', body: 'Results land right here in the run console — Final output plus every node’s output.' },
+  { id: 'canvas-agent', target: 'canvas-root', title: 'Or ask your agent', body: '“Add an API Call to HackerNews and run it.” Same canvas, same tools — watch the cyan signals march.' },
 ];
 
 // ================================================================
@@ -623,13 +624,13 @@ function CanvasPage() {
 
 
 
-  // New onboarding — data-onboarding TourOverlay (replaces WelcomeModal/OnboardingTour)
+  // Onboarding tour — first visit with an empty canvas only. Returning users
+  // with work on canvas, and anyone who dismissed it, are never interrupted.
   useEffect(() => {
-    if (!onboarding.isDismissed('canvas-tour')) {
-      const t = setTimeout(() => setShowTour(true), 700);
-      return () => clearTimeout(t);
-    }
-  }, []); // eslint-disable-line
+    if (onboarding.isDismissed('canvas-tour') || nodes.length > 0) return;
+    const t = setTimeout(() => setShowTour(true), 1500);
+    return () => clearTimeout(t);
+  }, [nodes.length]); // eslint-disable-line
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1088,16 +1089,6 @@ function CanvasPage() {
       <Suspense fallback={null}>
         <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} onReplay={resetOnboarding} />
       </Suspense>
-      {!helpOpen && !showTour && (
-        <button
-          data-onboarding="help-tour-trigger"
-          onClick={() => setShowTour(true)}
-          title="Take a tour"
-          className="tour-trigger-btn"
-        >
-          Take a tour
-        </button>
-      )}
       <AgentToast suppress={suppressAgentToast} delayMs={2500} autoHideMs={14000} />
     </div>
   );
