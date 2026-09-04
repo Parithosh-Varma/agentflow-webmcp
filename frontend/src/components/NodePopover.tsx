@@ -774,7 +774,7 @@ export function NodePopover({ node, onChange, onDelete, onClose }: Props) {
 
         <div className="cfg-actions">
           <button className="btn-run btn-small" onClick={() => onChange(node.id, draft)}>APPLY</button>
-          <button className="btn-ghost btn-danger" onClick={() => onDelete(node.id)} title={`Delete ${label}`}>delete</button>
+          <button className="btn-ghost btn-small btn-danger" onClick={() => onDelete(node.id)} title={`Delete ${label}`}>delete</button>
           {!expanded && (
             <button
               type="button"
