@@ -121,7 +121,7 @@ export function NodePopover({ node, onChange, onDelete, onClose }: Props) {
   const [tab, setTab] = useState<TabId>('basic');
   const [expanded, setExpanded] = useState(false);
   const [drawerWidth, setDrawerWidth] = useState<number>(() => {
-    try { const v = Number(localStorage.getItem('agentflow_drawer_width_v1')); return v >= 340 && v <= 640 ? v : 420; } catch { return 420; }
+    try { const v = Number(localStorage.getItem('agentflow_drawer_width_v1')); return v >= 340 && v <= 800 ? v : 420; } catch { return 420; }
   });
   const [isResizing, setIsResizing] = useState(false);
   const prevNodeIdRef = useRef<string | null>(null);
@@ -242,7 +242,7 @@ export function NodePopover({ node, onChange, onDelete, onClose }: Props) {
             const startW = drawerWidth;
             let latest = startW;
             const onMove = (ev: MouseEvent) => {
-              const next = Math.min(640, Math.max(340, startW + (startX - ev.clientX)));
+              const next = Math.min(800, Math.max(340, startW + (startX - ev.clientX)));
               latest = next;
               setDrawerWidth(next);
             };

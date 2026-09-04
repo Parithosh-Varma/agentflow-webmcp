@@ -2126,7 +2126,7 @@ select.cfg-input option { background: var(--panel); color: var(--ink); }
   height: 100vh;
   height: 100dvh;
   width: 420px;
-  max-width: min(92vw, 640px);
+  max-width: min(92vw, 800px);
   background: var(--panel);
   border-left: 1px solid var(--border);
   box-shadow: none;
