@@ -33,14 +33,6 @@ import { useOnboarding } from './onboarding/useOnboarding';
 const TourOverlay = lazy(() => import('./onboarding/TourOverlay').then((m) => ({ default: m.TourOverlay })));
 import { v4 as uuidv4 } from 'uuid';
 import { NODE_DISPLAY_NAMES, getInstanceCount } from './components/nodes';
-import {
-  ReplayBar,
-  ReplayOverlay,
-  ReplayInspector,
-  useReplayController,
-  buildReplayData,
-} from './components/ExecutionReplay';
-
 // Local judge-demo builder — duplicated from Sidebar.tsx to avoid circular import
 function buildJudgeDemoFlow(): { nodes: Node[]; edges: any[] } {
   const typeMap: Record<string, string> = {
@@ -352,23 +344,6 @@ function CanvasPage() {
   const sessionId = getSessionId();
   const cacheKey = getCacheKey(sessionId);
 
-  // Replay state
-  const [replayData, setReplayData] = useState<any>(null);
-  const [showReplay, setShowReplay] = useState(false);
-  const {
-    isPlaying,
-    currentTime,
-    speed,
-    play,
-    pause,
-    stop,
-    step,
-    scrub,
-    inspectedNode,
-    inspectNode,
-    closeInspector,
-  } = useReplayController(replayData);
-
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
   const edgesRef = useRef(edges);
@@ -647,20 +622,6 @@ function CanvasPage() {
       : 'idle';
 
 
-
-  // Build replay data when execution completes
-  useEffect(() => {
-    if ((runState === 'complete' || runState === 'fault') && executionResult) {
-      const data = buildReplayData(executionResult, nodes, executionResult.order || []);
-      if (data) {
-        setReplayData(data);
-        setShowReplay(true);
-      }
-    } else if (runState === 'idle') {
-      setReplayData(null);
-      setShowReplay(false);
-    }
-  }, [runState, executionResult, nodes]);
 
   // New onboarding — data-onboarding TourOverlay (replaces WelcomeModal/OnboardingTour)
   useEffect(() => {
@@ -1061,18 +1022,10 @@ function CanvasPage() {
             onSelectionChange={onSelectionChange}
             onNodeClick={(_, node) => {
               if (isDraggingNode) return;
-              if (isPlaying && replayData) {
-                const evt = replayData.events
-                  .filter((e: any) => e.nodeId === node.id && e.timestamp <= currentTime)
-                  .pop() ?? replayData.events.find((e: any) => e.nodeId === node.id) ?? null;
-                inspectNode(node.id, evt);
-              } else {
-                setSelectedId(node.id);
-              }
+              setSelectedId(node.id);
             }}
             onPaneClick={() => {
               setSelectedId(null);
-              closeInspector();
             }}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -1113,19 +1066,6 @@ function CanvasPage() {
             </div>
           )}
 
-          {/* Replay Overlay - animated data packets */}
-          {replayData && isPlaying && (
-            <ReplayOverlay
-              replayData={replayData}
-              nodes={decoratedNodes}
-              edges={decoratedEdges}
-              currentTime={currentTime}
-              isPlaying={isPlaying}
-              speed={speed}
-              onNodeInspect={inspectNode}
-              reactFlowInstance={reactFlowRef.current}
-            />
-          )}
         </div>
 
         {selectedId && (
@@ -1159,31 +1099,6 @@ function CanvasPage() {
         </button>
       )}
       <AgentToast suppress={suppressAgentToast} delayMs={2500} autoHideMs={14000} />
-
-      {/* Replay Bar */}
-      {showReplay && (
-        <ReplayBar
-          replayData={replayData}
-          onClose={() => setShowReplay(false)}
-          onReplay={play}
-          onPause={pause}
-          onStop={stop}
-          onStep={step}
-          onScrub={scrub}
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          speed={speed}
-        />
-      )}
-
-      {/* Replay Node Inspector */}
-      {inspectedNode && (
-        <ReplayInspector
-          node={nodes.find(n => n.id === inspectedNode.nodeId) || null}
-          event={inspectedNode.event}
-          onClose={closeInspector}
-        />
-      )}
     </div>
   );
 }
