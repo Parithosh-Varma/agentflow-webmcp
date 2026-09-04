@@ -66,12 +66,12 @@ async function runWithIsolatedVM(code, data, config, timeoutMs = 2000) {
   const jail = context.global;
   // Provide limited globals
   await jail.set('global', jail.derefInto());
-  // Helper to copy data/config as JSON (structured clone)
-  const dataJson = JSON.stringify(data);
-  const configJson = JSON.stringify(config);
+  // Helper to copy data/config as JSON (structured clone) – embed directly to avoid injection
+  const dataLiteral = JSON.stringify(data);
+  const configLiteral = JSON.stringify(config);
   const codeToRun = `
-    const data = JSON.parse('${dataJson.replace(/'/g, "\\'")}');
-    const config = JSON.parse('${configJson.replace(/'/g, "\\'")}');
+    const data = ${dataLiteral};
+    const config = ${configLiteral};
     (async () => { "use strict"; ${code} })()
   `;
   const script = await isolate.compileScript(codeToRun);

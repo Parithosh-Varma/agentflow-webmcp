@@ -1,0 +1,58 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=1200"/>
+<title>AF — OG 1200x628</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121110;--panel:#1e1b18;--line:#3a342e;--ink:#ede8dc;--dim:#8a806f;--amber:#e8a33d;--cyan:#56cdbd;--display:'Chakra Petch',sans-serif;--body:'Archivo',sans-serif;--mono:'IBM Plex Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}html,body{width:1200px;height:628px;background:var(--bg);color:var(--ink);overflow:hidden}
+.wrap{width:1200px;height:628px;display:grid;grid-template-columns:1.05fr .95fr;position:relative}
+.wrap::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(to right,#211c16 0 1px,transparent 1px 26px),repeating-linear-gradient(to bottom,#211c16 0 1px,transparent 1px 26px);opacity:.28;pointer-events:none}
+.left{position:relative;z-index:1;padding:42px 44px;display:flex;flex-direction:column;justify-content:space-between}
+.brand{font-family:var(--display);font-weight:700;letter-spacing:.12em;font-size:12px;display:flex;align-items:center;gap:8px}
+.brand i{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+.badge{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--dim);border:1px solid var(--line);padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.03)}
+h1{font-family:var(--display);font-weight:700;font-size:54px;line-height:.95;letter-spacing:-.02em;margin-top:14px}
+h1 .you{color:var(--amber)} h1 .agent{color:var(--cyan)}
+.sub{color:var(--dim);font-size:15px;line-height:1.5;max-width:460px;margin-top:12px}
+.sub strong{color:var(--ink)}
+.cta{margin-top:18px;display:flex;gap:12px;align-items:center}
+.cta a{background:var(--amber);color:#201a10;font-family:var(--display);font-weight:700;padding:12px 20px;border-radius:7px;text-decoration:none;font-size:14px;letter-spacing:.04em}
+.cta span{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.right{position:relative;z-index:1;background:var(--panel);border-left:1px solid var(--line);padding:28px 24px;display:flex;flex-direction:column;justify-content:center}
+.schematic svg{width:100%;height:auto;display:block}
+.wire{stroke:#3a342e;stroke-width:1.8;fill:none} .sig{stroke-dasharray:6 8;animation:march 1s linear infinite} .sig-a{stroke:var(--amber)} .sig-b{stroke:var(--cyan)}
+@keyframes march{to{stroke-dashoffset:-14}}
+.foot{position:absolute;bottom:0;left:0;right:0;z-index:1;display:flex;justify-content:space-between;padding:12px 44px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--dim);border-top:1px solid #2e2923;background:rgba(18,17,16,.9)}
+</style></head><body>
+<div class="wrap">
+  <div class="left">
+    <div style="display:flex;justify-content:space-between;align-items:center"><span class="brand"><i></i> AGENTFLOW</span><span class="badge">WEBMCP · 19 TOOLS</span></div>
+    <div>
+      <h1>One canvas.<br><span class="you">You</span> wire it.<br><span class="agent">Your agent</span> drives it.</h1>
+      <p class="sub">Drag 15 modules, wire pins, press <strong>RUN</strong> — or prompt your agent <strong>add_node → connect_nodes → execute_workflow</strong>.</p>
+      <div class="cta"><a href="https://agentflow-hackathon.pages.dev">Go to the tool →</a><span>No signup · in your browser</span></div>
+    </div>
+    <div style="height:8px"></div>
+  </div>
+  <div class="right">
+    <svg viewBox="0 0 400 240" role="img">
+      <path class="wire" d="M100 50 H180"/><path class="wire sig sig-a" d="M100 50 H180"/>
+      <path class="wire" d="M260 50 H320 V120 H220"/><path class="wire sig sig-b" d="M260 50 H320 V120 H220"/>
+      <path class="wire" d="M100 190 H180"/><path class="wire sig sig-b" d="M100 190 H180"/>
+      <path class="wire" d="M260 190 H320 V120 H220"/>
+      <g><rect x="20" y="28" width="80" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="32" y="44" font-family="IBM Plex Mono" font-size="7.5" fill="#8a806f">API CALL</text><text x="32" y="60" font-family="IBM Plex Mono" font-size="10" fill="#ede8dc">fetch</text></g>
+      <g><rect x="180" y="28" width="80" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="190" y="44" font-family="IBM Plex Mono" font-size="7.5" fill="#8a806f">TRANSFORM</text><text x="190" y="60" font-family="IBM Plex Mono" font-size="10" fill="#ede8dc">reshape</text></g>
+      <g><rect x="180" y="98" width="80" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="192" y="114" font-family="IBM Plex Mono" font-size="7.5" fill="#8a806f">OUTPUT</text><text x="192" y="130" font-family="IBM Plex Mono" font-size="10" fill="#ede8dc">webhook</text></g>
+      <g><rect x="20" y="168" width="80" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="32" y="184" font-family="IBM Plex Mono" font-size="7.5" fill="#8a806f">DELAY</text><text x="32" y="200" font-family="IBM Plex Mono" font-size="10" fill="#ede8dc">wait 5s</text></g>
+      <g><rect x="180" y="168" width="80" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="190" y="184" font-family="IBM Plex Mono" font-size="7.5" fill="#8a806f">CONDITION</text><text x="190" y="200" font-family="IBM Plex Mono" font-size="10" fill="#ede8dc">if ready</text></g>
+      <text x="20" y="235" font-family="IBM Plex Mono" font-size="7" fill="#56cdbd">AGENT: add_node · connect_nodes · run</text>
+      <text x="260" y="235" font-family="IBM Plex Mono" font-size="7" fill="#e8a33d">YOU: drag · wire · RUN</text>
+    </svg>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <span style="font-family:IBM Plex Mono;font-size:9px;letter-spacing:.12em;color:var(--amber);background:rgba(232,163,61,.08);border:1px solid rgba(232,163,61,.18);padding:4px 8px;border-radius:999px">YOU — amber</span>
+      <span style="font-family:IBM Plex Mono;font-size:9px;letter-spacing:.12em;color:var(--cyan);background:rgba(86,205,189,.08);border:1px solid rgba(86,205,189,.18);padding:4px 8px;border-radius:999px">AGENT — cyan</span>
+    </div>
+  </div>
+  <div class="foot"><span>15 MODULES · 19 WEBMCP TOOLS · DAG EXECUTION</span><span>agentflow-hackathon.pages.dev</span></div>
+</div>
+</body></html>

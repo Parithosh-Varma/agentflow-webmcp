@@ -1,0 +1,77 @@
+{
+  "brand": {
+    "name": "AgentFlow",
+    "tagline": "One canvas. Two operators.",
+    "positioning": "A visual workflow instrument where you and your browser agent build the same machine.",
+    "colors": { "bg": "#121110", "panel": "#1e1b18", "ink": "#ede8dc", "dim": "#8a806f", "amber": "#e8a33d", "cyan": "#56cdbd", "red": "#e05d44" },
+    "fonts": { "display": "Chakra Petch", "body": "Archivo", "mono": "IBM Plex Mono" },
+    "urls": { "app": "https://agentflow-hackathon.pages.dev", "landing": "https://agentflow-landing.pages.dev", "auth": "https://agentflow-auth.pages.dev", "github": "https://github.com/Parithosh-Varma/agentflow-webmcp" }
+  },
+  "headlines": [
+    "One canvas. Two operators.",
+    "You wire it. Your agent drives it.",
+    "Drag. Wire. Let your agent run it.",
+    "The workflow builder your agent can actually use.",
+    "Stop screenshotting. Start declaring tools.",
+    "19 tools. One shared canvas.",
+    "Built for the hand-off moment.",
+    "Where human feel meets agent speed."
+  ],
+  "subheads": [
+    "Drag 15 typed modules, wire pins, press RUN — or tell your browser agent to do it with real WebMCP tools.",
+    "No DOM scraping. No guessing buttons. The page declares tools, the browser mediates.",
+    "Amber is you. Cyan is your agent. Watch signals march across the same wires.",
+    "Runs entirely in your browser. No signup needed — autosaves locally, persists when you sign in.",
+    "From API Call to AI node — build DAGs that both operators understand.",
+    "Human → drag, wire, RUN. Agent → add_node → connect_nodes → execute_workflow."
+  ],
+  "ctas": [
+    "Go to the tool →",
+    "Open the canvas",
+    "Try it live — no signup",
+    "Watch signals march",
+    "Build with your agent"
+  ],
+  "ads": {
+    "google_search": [
+      { "h1": "Visual Workflow Builder", "h2": "Your Agent Can Actually Use", "h3": "WebMCP Native — No DOM Scraping", "desc1": "Drag 15 modules, wire pins, press RUN. Or prompt your agent to call real browser tools.", "desc2": "Free, no signup. Runs in Chrome + ChatGPT browser.", "path1": "canvas", "path2": "webmcp", "url": "agentflow-hackathon.pages.dev" },
+      { "h1": "AgentFlow — WebMCP Instrument", "h2": "One Canvas. Two Operators.", "h3": "Human × Agent Workflow Builder", "desc1": "19 structured tools: add_node, connect_nodes, execute_workflow. Same engine, same wires.", "desc2": "Open source — MIT. Built for the WebMCP Hackathon.", "path1": "workflow", "path2": "builder" },
+      { "h1": "Stop Screenshotting Buttons", "h2": "Start Declaring Tools", "h3": "WebMCP Visual Builder", "desc1": "Your agent sees the canvas through tools, not pixels. Amber=you, cyan=agent.", "desc2": "Try live: agentflow-hackathon.pages.dev — autosaves locally.", "path1": "webmcp", "path2": "demo" }
+    ],
+    "social": {
+      "linkedin": "One canvas. Two operators.\n\nI built AgentFlow — a visual workflow instrument where you AND your browser agent build the same machine.\n\nYou drag, wire, press RUN (amber). Your agent calls add_node → connect_nodes → execute_workflow (cyan) and you watch signals march across the same wires.\n\nNo DOM scraping. The page declares 19 WebMCP tools, the browser mediates.\n\n→ Try live (no signup): https://agentflow-hackathon.pages.dev\n→ Landing: https://agentflow-landing.pages.dev\n\nBuilt for the WebMCP Hackathon. MIT open source.\n\n#WebMCP #AI #WorkflowAutomation #BuildInPublic",
+      "x_thread": [
+        "One canvas. Two operators. 🎛️\n\nI built AgentFlow — a workflow builder where you and your browser agent operate the SAME machine.",
+        "You: drag modules, wire pins, press RUN → amber signals\nAgent: add_node → connect_nodes → execute_workflow → cyan signals\nSame wires. Same engine. No screenshots.",
+        "19 WebMCP tools declared by the page, mediated by the browser. Chrome (chrome://flags → WebMCP) + ChatGPT in-app browser.\n\nNo DOM scraping. No guessing buttons.",
+        "15 typed modules: API Call, Transform, Condition, AI, Delay… Grid-snapped, DAG-executed in topological order.\n\nRuns in your browser. Autosaves locally. No signup.",
+        "Try it live → https://agentflow-hackathon.pages.dev\nLanding → https://agentflow-landing.pages.dev\nSource → github.com/Parithosh-Varma/agentflow-webmcp\n\nMIT. Built for the WebMCP Hackathon."
+      ],
+      "producthunt": {
+        "tagline": "One canvas. Two operators. — The workflow builder your agent can actually use.",
+        "description": "AgentFlow is a visual workflow instrument where you and your browser agent build the same machine. Drag 15 modules, wire them, press RUN — or tell your agent 'Add an API Call and run it' and watch amber (you) → cyan (agent) signals march across the same wires. 19 WebMCP tools, no DOM scraping, runs in your browser.",
+        "first_comment": "Hey hunters! 👋 I built AgentFlow for the WebMCP Hackathon.\n\nProblem: Visual builders treat agents as second-class — agents must screenshot and guess buttons.\nSolution: AgentFlow declares 19 structured WebMCP tools. Any WebMCP agent can add_node, connect_nodes, execute_workflow — same engine you use.\n\nTry it with zero signup: https://agentflow-hackathon.pages.dev\nEnable WebMCP in Chrome: chrome://flags → WebMCP → Enabled\n\nAsk your agent: 'Add a GitHub API Call, connect it to Start, and run'\nWould love your feedback!"
+      }
+    },
+    "email": {
+      "subject_lines": [
+        "Your agent can finally use your workflow builder",
+        "One canvas. Two operators. AgentFlow is live.",
+        "Stop screenshotting — start declaring tools"
+      ],
+      "preheader": "Drag, wire, RUN — or tell your agent to do it. Same canvas, same wires.",
+      "body_html_hint": "Use ADS/creatives/email.html as template — 600px, dark instrument theme, amber CTA."
+    }
+  },
+  "video_script": {
+    "duration": "30s",
+    "beats": [
+      { "t": "0-3s", "visual": "Black → amber LED pulsing. Text: 'One canvas.'", "vo": "One canvas." },
+      { "t": "3-7s", "visual": "Human dragging modules on grid, wiring Start → API → Transform", "vo": "You wire it — drag, connect, feel the flow take shape." },
+      { "t": "7-12s", "visual": "Agent ToolLog: add_node, connect_nodes appearing, cyan signals", "vo": "Your agent drives it — same canvas, same tools, no guessing." },
+      { "t": "12-18s", "visual": "Amber then cyan signals marching across wires, LEDs lighting", "vo": "Amber is you. Cyan is your agent. Watch every signal march." },
+      { "t": "18-24s", "visual": "RUN pressed, DAG executes topologically, outputs appear", "vo": "Fifteen modules. Nineteen tools. One shared engine." },
+      { "t": "24-30s", "visual": "Logo + 'Go to the tool →' CTA on dark panel", "vo": "AgentFlow. Open the instrument — agentflow-hackathon.pages.dev" }
+    ]
+  }
+}

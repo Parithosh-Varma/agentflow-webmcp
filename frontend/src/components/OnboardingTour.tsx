@@ -8,6 +8,13 @@ export interface TourStep {
   position: 'left' | 'right' | 'center';
 }
 
+/**
+ * @deprecated Legacy spotlight tour — superseded by TourOverlay
+ * (src/onboarding/TourOverlay.tsx, key `onboarding_dismissed_canvas-tour`).
+ * Kept for reference; do NOT mount alongside TourOverlay (competing
+ * backdrops, highlight rings, and Esc/arrow handlers would stack).
+ */
+
 const TOUR_STEPS: TourStep[] = [
   {
     target: 'sidebar',

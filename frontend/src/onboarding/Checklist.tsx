@@ -5,6 +5,8 @@ export type ChecklistItem = { id: string; label: string; done: boolean; onClick?
 
 export function Checklist({ items, title = 'Get started' }: { items: ChecklistItem[]; title?: string }) {
   const [open, setOpen] = useState(true);
+  // Empty list renders a confusing "0/0" shell — render nothing instead.
+  if (items.length === 0) return null;
   const done = items.filter((i) => i.done).length;
   return (
     <div className="onboarding-checklist">

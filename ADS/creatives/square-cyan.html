@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=1080"/>
+<title>AF — Square Cyan</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Archivo:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--cyan:#56cdbd;--amber:#e8a33d;--bg:#0e1412;--ink:#ede8dc;--dim:#8a806f;--display:'Chakra Petch',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Archivo',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}html,body{width:1080px;height:1080px;background:var(--cyan);color:#0e1412;overflow:hidden}
+.wrap{width:1080px;height:1080px;padding:48px 52px;display:flex;flex-direction:column;justify-content:space-between}
+.top{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:#2a4a45;display:flex;justify-content:space-between}
+.badge{background:#0e1412;color:var(--cyan);padding:6px 12px;border-radius:999px}
+h1{font-family:var(--display);font-weight:700;font-size:82px;line-height:.92;letter-spacing:-.02em;margin-top:16px}
+h1 span{background:#0e1412;color:var(--cyan);padding:0 10px;border-radius:8px}
+.sub{font-size:21px;line-height:1.5;max-width:620px;color:#2a4a45;margin-top:16px}
+.sub strong{color:#0e1412}
+.code{background:#0e1412;color:var(--ink);border-radius:14px;padding:20px 22px;margin-top:26px;font-family:var(--mono);font-size:14px;line-height:1.6}
+.code b{color:var(--cyan)} .code i{color:var(--amber);font-style:normal} .code s{color:var(--dim);text-decoration:none}
+.cta{display:flex;gap:12px;align-items:center;margin-top:22px}
+.cta a{background:#0e1412;color:var(--cyan);font-family:var(--display);font-weight:700;padding:16px 26px;border-radius:8px;text-decoration:none}
+.cta span{font-family:var(--mono);font-size:12px;color:#2a4a45}
+.foot{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:#2a4a45}
+</style></head><body>
+<div class="wrap">
+  <div>
+    <div class="top"><span>AGENTFLOW — 19 WEBMCP TOOLS</span><span class="badge">FOR AGENT DEVS</span></div>
+    <h1>The workflow<br>builder your<br><span>agent can use.</span></h1>
+    <p class="sub"><strong>19 structured tools</strong> — add_node, connect_nodes, execute_workflow — declared by the page, mediated by the browser. No DOM scraping.</p>
+    <div class="code">
+      <div><s>// your agent says:</s></div>
+      <div><b>“Add a GitHub API Call, connect it to Start, and run.”</b></div>
+      <div style="margin-top:8px"><i>→</i> <b>add_node</b>({type: "api_call"}) &nbsp; <i>→</i> <b>connect_nodes</b>() &nbsp; <i>→</i> <b>execute_workflow</b>()</div>
+      <div style="color:var(--dim);margin-top:8px">amber = you &nbsp;·&nbsp; cyan = agent &nbsp;·&nbsp; same wires, same engine</div>
+    </div>
+  </div>
+  <div>
+    <div class="cta"><a href="https://agentflow-hackathon.pages.dev">Go to the tool →</a><span>Try live — no signup</span></div>
+    <div class="foot" style="margin-top:14px"><span>CHROME + CHATGPT IN-APP · WebMCP</span><span>agentflow-hackathon.pages.dev</span></div>
+  </div>
+</div>
+</body></html>

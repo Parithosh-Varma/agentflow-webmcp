@@ -74,6 +74,7 @@
   justify-content: center;
 }
 .help-close:hover { color: var(--ink); border-color: var(--border); }
+.help-close:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
 .help-body {
   flex: 1;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import * as api from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +30,7 @@ export function WorkflowManager({
   const [tmplName, setTmplName] = useState('');
   const [tmplDesc, setTmplDesc] = useState('');
   const [loading, setLoading] = useState(false);
+  const savingRef = useRef(false);
 
   const loadWorkflows = useCallback(async () => {
     if (!user) return;
@@ -53,7 +54,8 @@ export function WorkflowManager({
   }, [loadWorkflows, loadTemplates]);
 
   const handleSave = async () => {
-    if (!saveName.trim()) return;
+    if (!saveName.trim() || loading || savingRef.current) return;
+    savingRef.current = true;
     setLoading(true);
     try {
       if (currentWorkflowId) {
@@ -69,11 +71,14 @@ export function WorkflowManager({
       loadWorkflows();
     } catch (err: any) {
       addToolLog('save_workflow', { name: saveName }, { error: err?.message }, 'you');
+    } finally {
+      savingRef.current = false;
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleLoad = async (wf: api.Workflow) => {
+    if (loading) return;
     setNodes(() => wf.nodes as Node[]);
     setEdges(() => wf.edges.map((e: any) => ({ ...e, animated: false, style: { stroke: '#3a342c', strokeWidth: 1.6 } })) as Edge[]);
     setCurrentWorkflowId(wf.id);
@@ -84,16 +89,20 @@ export function WorkflowManager({
   const handleDelete = async (id: string) => {
     try {
       await api.deleteWorkflow(id);
+      addToolLog('delete_workflow', { id }, { success: true }, 'you');
       if (currentWorkflowId === id) {
         setCurrentWorkflowId(null);
         setCurrentWorkflowName('Untitled');
       }
       loadWorkflows();
-    } catch { /* silent */ }
+    } catch (err: any) {
+      addToolLog('delete_workflow', { id }, { error: err?.message }, 'you');
+    }
   };
 
   const handleSaveTemplate = async () => {
-    if (!tmplName.trim()) return;
+    if (!tmplName.trim() || loading || savingRef.current) return;
+    savingRef.current = true;
     setLoading(true);
     try {
       await api.createTemplate(tmplName.trim(), tmplDesc.trim(), nodes as any, edges as any);
@@ -104,8 +113,10 @@ export function WorkflowManager({
       loadTemplates();
     } catch (err: any) {
       addToolLog('create_template', { name: tmplName }, { error: err?.message }, 'you');
+    } finally {
+      savingRef.current = false;
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (!user) return null;

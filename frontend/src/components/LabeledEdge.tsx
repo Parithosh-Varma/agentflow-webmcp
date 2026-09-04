@@ -44,7 +44,10 @@ export function LabeledEdge({
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             }}
           >
-            {String(label).length > 22 ? `${String(label).slice(0, 22)}…` : String(label)}
+            {(() => {
+              const l = String(label).toLowerCase();
+              return l.length > 22 ? `${l.slice(0, 22)}…` : l;
+            })()}
           </div>
         </EdgeLabelRenderer>
       ) : null}

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { CloseIcon, ExternalLinkIcon } from './icons';
 import './HelpDrawer.css';
 
@@ -8,6 +9,27 @@ interface Props {
 }
 
 export function HelpDrawer({ open, onClose, onReplay }: Props) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<Element | null>(null);
+
+  // Focus the close button on open, close on Esc (matches the documented
+  // "Esc closes drawer" shortcut), and return focus to the trigger on close.
+  useEffect(() => {
+    if (!open) return;
+    returnFocusRef.current = document.activeElement;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
+      if (e.key === '?' ) { e.stopPropagation(); e.preventDefault(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      // Return focus after close animation frame
+      setTimeout(() => { (returnFocusRef.current as HTMLElement | null)?.focus?.(); }, 0);
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
@@ -19,7 +41,7 @@ export function HelpDrawer({ open, onClose, onReplay }: Props) {
             <div className="help-kicker">Guide</div>
             <h2 className="help-title">How to use AgentFlow</h2>
           </div>
-          <button className="help-close" onClick={onClose} aria-label="Close help"><CloseIcon size={14} /></button>
+          <button ref={closeRef} className="help-close" onClick={onClose} aria-label="Close help"><CloseIcon size={14} /></button>
         </div>
 
         <div className="help-body">

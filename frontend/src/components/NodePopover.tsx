@@ -124,11 +124,33 @@ export function NodePopover({ node, onChange, onDelete, onClose }: Props) {
     try { const v = Number(localStorage.getItem('agentflow_drawer_width_v1')); return v >= 340 && v <= 640 ? v : 420; } catch { return 420; }
   });
   const [isResizing, setIsResizing] = useState(false);
+  const prevNodeIdRef = useRef<string | null>(null);
+  const prevConfigRef = useRef<string | null>(null);
 
   useEffect(() => {
-    setDraft({ ...(node?.data?.config || {}) });
-    setTab('basic');
-  }, [node?.id]);
+    if (!node) return;
+    const newConfig = node?.data?.config || {};
+    const newConfigStr = JSON.stringify(newConfig);
+    const prevId = prevNodeIdRef.current;
+    if (node.id !== prevId) {
+      setDraft({ ...newConfig });
+      setTab('basic');
+      prevNodeIdRef.current = node.id;
+      prevConfigRef.current = newConfigStr;
+      return;
+    }
+    if (prevConfigRef.current !== newConfigStr) {
+      setDraft((prevDraft: any) => {
+        const prevDraftStr = JSON.stringify(prevDraft);
+        if (prevDraftStr === prevConfigRef.current) {
+          prevConfigRef.current = newConfigStr;
+          return { ...newConfig };
+        }
+        prevConfigRef.current = newConfigStr;
+        return prevDraft;
+      });
+    }
+  }, [node?.id, JSON.stringify(node?.data?.config)]);
 
   // Keep draft -> advanced helpers in sync
   const kvPairs: Array<{ k: string; v: string }> = useMemo(() => {
@@ -185,13 +207,9 @@ export function NodePopover({ node, onChange, onDelete, onClose }: Props) {
       mo = new MutationObserver(compute);
       mo.observe(viewportEl, { attributes: true, attributeFilter: ['style', 'transform'] });
     }
-    let rafLoop = 0;
-    const loop = () => { compute(); rafLoop = requestAnimationFrame(loop); };
-    rafLoop = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
-      cancelAnimationFrame(rafLoop);
       ro.disconnect();
       window.removeEventListener('resize', compute);
       window.removeEventListener('scroll', compute, true);
@@ -222,13 +240,15 @@ export function NodePopover({ node, onChange, onDelete, onClose }: Props) {
             setIsResizing(true);
             const startX = e.clientX;
             const startW = drawerWidth;
+            let latest = startW;
             const onMove = (ev: MouseEvent) => {
               const next = Math.min(640, Math.max(340, startW + (startX - ev.clientX)));
+              latest = next;
               setDrawerWidth(next);
             };
             const onUp = () => {
               setIsResizing(false);
-              try { localStorage.setItem('agentflow_drawer_width_v1', String(drawerWidth)); } catch {}
+              try { localStorage.setItem('agentflow_drawer_width_v1', String(latest)); } catch {}
               window.removeEventListener('mousemove', onMove);
               window.removeEventListener('mouseup', onUp);
               document.body.style.cursor = '';

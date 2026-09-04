@@ -29,8 +29,11 @@ const app = express();
 
 // ---- Security & Performance Middleware ----
 const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map(s=>s.trim()).filter(Boolean);
+// Fail closed in production: an unset FRONTEND_URL must not become "allow any
+// origin + credentials". Dev keeps the permissive default for localhost work.
+const isProd = process.env.NODE_ENV === 'production';
 app.use(cors({
-  origin: allowedOrigins.length ? allowedOrigins : true,
+  origin: allowedOrigins.length ? allowedOrigins : (isProd ? false : true),
   credentials: true,
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization','X-Access-Token'],
@@ -74,18 +77,26 @@ const templates = new Map();
 const nodeIndex = new Map(); // nodeId -> workflowId
 const edgeIndex = new Map(); // edgeId -> workflowId
 
-// Mutation history for undo/redo (P0)
-const mutationHistory = [];
-const redoStack = [];
+// Mutation history for undo/redo (P0) — scoped per workflow object so one
+// user's undo can never restore another workflow's snapshot.
+const historyByWorkflow = new Map();
 const MAX_HISTORY = 50;
+function histFor(workflow) {
+  let h = historyByWorkflow.get(workflow);
+  if (!h) { h = { undo: [], redo: [] }; historyByWorkflow.set(workflow, h); }
+  return h;
+}
 
 // ---- Caching (P2: hot data) ----
 const cache = new NodeCache({ stdTTL: 30, checkperiod: 60, useClones: false });
 const CACHE_KEYS = {
-  workflowStatus: (id) => `ws:${id}`,
+  workflowStatus: (uid, id) => `ws:${uid}:${id}`,
   availableTools: 'tools:all',
-  executionDetails: (id) => `exec:${id}`,
+  executionDetails: (uid, id) => `exec:${uid}:${id}`,
 };
+// Cache + logs are keyed per user: all anonymous users share workflow id
+// 'default', so a bare id key would leak one user's canvas to another.
+function cacheUid(workflow) { return workflow.userId || workflow.user_id || 'anon'; }
 
 // ---- Background Queue (P2: offload heavy tasks) ----
 const backgroundQueue = [];
@@ -295,16 +306,25 @@ async function saveWorkflowVersion(workflowId, userId, nodes, edges) {
   } catch {}
 }
 async function maybeSaveVersion(wf) { try { if (wf && wf.id) await saveWorkflowVersion(wf.id, wf.userId || wf.user_id || 'dev-anon', wf.nodes, wf.edges); } catch {} }
-function invalidateCache(workflowId) {
-  cache.del(CACHE_KEYS.workflowStatus(workflowId));
-  cache.del(CACHE_KEYS.executionDetails(workflowId));
+function invalidateCache(workflow) {
+  cache.del(CACHE_KEYS.workflowStatus(cacheUid(workflow), workflow.id));
+  cache.del(CACHE_KEYS.executionDetails(cacheUid(workflow), workflow.id));
+}
+function lastExecutionFor(workflow) {
+  const uid = cacheUid(workflow);
+  let found = null;
+  for (const l of executionLogs.values()) {
+    if (l.workflowId === workflow.id && (l.userId || 'anon') === uid) found = l;
+  }
+  return found || cache.get(CACHE_KEYS.executionDetails(uid, workflow.id));
 }
 function pushHistory(label, workflow) {
   try {
+    const h = histFor(workflow);
     const snap = JSON.parse(JSON.stringify({ nodes: workflow.nodes, edges: workflow.edges }));
-    mutationHistory.push({ ...snap, label, at: new Date().toISOString() });
-    if (mutationHistory.length > MAX_HISTORY) mutationHistory.shift();
-    redoStack.length = 0;
+    h.undo.push({ ...snap, label, at: new Date().toISOString() });
+    if (h.undo.length > MAX_HISTORY) h.undo.shift();
+    h.redo.length = 0;
   } catch {}
 }
 
@@ -377,12 +397,20 @@ async function runAi(data, cfg) {
 }
 
 
+// Single waits never stall a run forever — clamped so ms: 1e12 can't hang execution.
+const MAX_WAIT_MS = 60000;
+function clampWaitMs(raw, fallback = 0) {
+  const n = Number(raw ?? fallback);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(0, Math.floor(n)), MAX_WAIT_MS);
+}
+
 // ---- New major n8n nodes (mirrors frontend/src/engine.ts) ----
 async function runSchedule(_data, cfg) {
   const cron = cfg?.cron || cfg?.schedule || '*/5 * * * *';
-  const intervalMs = cfg?.intervalMs ?? cfg?.ms ?? 0;
-  if (intervalMs) await sleep(Number(intervalMs));
-  return { scheduled: true, cron, nextRun: new Date(Date.now() + Number(intervalMs || 60000)).toISOString() };
+  const intervalMs = clampWaitMs(cfg?.intervalMs ?? cfg?.ms ?? 0);
+  if (intervalMs) await sleep(intervalMs);
+  return { scheduled: true, cron, nextRun: new Date(Date.now() + (intervalMs || 60000)).toISOString() };
 }
 async function runGraphQL(_data, cfg) {
   const url = cfg?.url || cfg?.endpoint;
@@ -577,28 +605,44 @@ function topologicalSort(nodes, edges) {
 async function executeWorkflowReal(nodes, edges, input) {
   const t0 = Date.now();
   const statusMap = {}; const outputs = {}; const byId = new Map(nodes.map(n=>[n.id,n]));
-  let lastCondition = null; let hadError = false;
+  const conditionResults = {}; let hadError = false;
   const order = topologicalSort(nodes, edges);
   for (const id of order) {
     const node = byId.get(id); if (!node) continue;
     const incoming = edges.filter(e=>e.target===id);
     let blocked=null;
+    const activeIncoming = [];
     for (const e of incoming) {
+      const lbl = String(e.label||'').trim().toLowerCase();
+      if (lbl==='true' || lbl==='false') {
+        const srcCond = conditionResults[e.source];
+        if (srcCond !== undefined && ((lbl==='true')!==srcCond)) {
+          continue;
+        }
+      }
+      activeIncoming.push(e);
       if (hadError && statusMap[e.source]==='fault') { blocked=`upstream ${e.source} faulted`; break; }
       if (statusMap[e.source]==='skipped') { blocked=`upstream ${e.source} skipped`; break; }
-      const lbl = String(e.label||'').trim().toLowerCase();
-      if ((lbl==='true'||lbl==='false') && lastCondition!==null) { if ((lbl==='true')!==lastCondition) { blocked=`branch ${lastCondition} vs ${lbl}`; break; } }
+    }
+    if (!blocked && activeIncoming.length>0) {
+      const hasDone = activeIncoming.some(e=>statusMap[e.source]==='done');
+      const allSkippedOrFault = activeIncoming.every(e=> statusMap[e.source]==='skipped' || statusMap[e.source]==='fault');
+      if (!hasDone && allSkippedOrFault) {
+        blocked = activeIncoming.length===1 ? `upstream ${activeIncoming[0].source} was skipped/faulted` : `all upstream inputs were skipped/faulted`;
+      }
     }
     if (blocked) { statusMap[id]='skipped'; outputs[id]={skipped:true, reason:blocked}; continue; }
     try {
-      let result; const upstreamData = incoming.length ? outputs[incoming[incoming.length-1].source] : undefined;
-      const data = upstreamData!==undefined ? upstreamData : input||{};
+      let result;
+      const doneSources = activeIncoming.filter(e=>statusMap[e.source]==='done');
+      const upstreamData = doneSources.length ? doneSources.map(e=>outputs[e.source]).filter(v=>v && !(v?.skipped)) : undefined;
+      const data = upstreamData!==undefined ? (Array.isArray(upstreamData) && upstreamData.length===1 ? upstreamData[0] : upstreamData) : input||{};
       switch(node.type) {
         case 'start': result = input||{}; break;
         case 'api_call': result = await runApiCall(node.config, data); break;
         case 'transform': result = await runTransform(data, node.config); break;
-        case 'condition': { const passed=await evalCondition(data, node.config); lastCondition=passed; result={passed, checked:node.label}; break; }
-        case 'delay': await sleep(Number(node.config?.ms ?? node.config?.duration ?? 1000)); result={waitedMs: Number(node.config?.ms ?? 1000)}; break;
+        case 'condition': { const passed=await evalCondition(data, node.config); conditionResults[id]=passed; result={passed, checked:node.label}; break; }
+        case 'delay': { const waitedMs = clampWaitMs(node.config?.ms ?? node.config?.duration ?? 1000, 1000); await sleep(waitedMs); result={waitedMs}; break; }
         case 'output': { result={delivered:'console', data}; console.log('[output]', data); if (node.config?.kind==='webhook' && node.config?.url) enqueueJob('webhook', { url: node.config.url, data }); break; }
         case 'filter': { if(!node.config?.expression) throw new Error('filter requires expression'); const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${node.config.expression})(data));`); const pass=await fn(data); result={passed:pass, data}; break; }
         case 'split': { if(Array.isArray(data)){ const bs=Number(node.config?.batchSize??1); const batches=[]; for(let i=0;i<data.length;i+=bs) batches.push(data.slice(i,i+bs)); result={batches, count:batches.length}; } else if(typeof data==='object'&&data!==null){ const ks=Object.keys(data); result={items:ks.map(k=>({key:k,value:data[k]})), count:ks.length}; } else result={items:[data],count:1}; break; }
@@ -674,7 +718,7 @@ app.post('/api/execute-tool', async (req, res) => {
         pushHistory(`add_node:${type}:${label}`, workflow);
         const node = { id: `node_${uuidv4().slice(0,8)}`, type, label, config: config||{}, position: pos, createdAt: new Date().toISOString() };
         workflow.nodes.push(node); workflow.updatedAt = new Date().toISOString();
-        nodeIndex.set(node.id, workflow.id); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
+        nodeIndex.set(node.id, workflow.id); invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result = { success:true, node, nodeId: node.id, message:`Added ${type} node: ${label}` }; break;
       }
       case 'connect_nodes': {
@@ -688,16 +732,16 @@ app.post('/api/execute-tool', async (req, res) => {
         pushHistory(`connect:${src}->${tgt}`, workflow);
         const edge = { id:`edge_${uuidv4().slice(0,8)}`, source:src, target:tgt, label: parsed.data?.label||'', animated:true };
         workflow.edges.push(edge); workflow.updatedAt=new Date().toISOString();
-        edgeIndex.set(edge.id, workflow.id); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
+        edgeIndex.set(edge.id, workflow.id); invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, edge, edgeId:edge.id, message:`Connected ${src} → ${tgt}`}; break;
       }
       case 'execute_workflow': {
         // P1: clean - only execute needed nodes, P2: cache not used for execution
         const execResult = await executeWorkflowReal(workflow.nodes, workflow.edges, input?.input||{});
         const execId = uuidv4().slice(0,8);
-        executionLogs.set(execId, { id:execId, workflowId:workflow.id, ...execResult });
+        executionLogs.set(execId, { id:execId, userId:cacheUid(workflow), workflowId:workflow.id, ...execResult });
         if (executionLogs.size>100) { const first = executionLogs.keys().next().value; executionLogs.delete(first); }
-        cache.set(CACHE_KEYS.executionDetails(workflow.id), execResult, 60);
+        cache.set(CACHE_KEYS.executionDetails(cacheUid(workflow), workflow.id), execResult, 60);
         result={success: execResult.success, executionId:execId, ...execResult}; break;
       }
       case 'get_available_tools':
@@ -724,16 +768,16 @@ app.post('/api/execute-tool', async (req, res) => {
         if (!node) { result={success:false, error:`Node not found: ${resolvedId}`}; break; }
         pushHistory(`update:${resolvedId}`, workflow);
         node.config={...node.config, ...parsed.data.config}; workflow.updatedAt=new Date().toISOString();
-        invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
+        invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, node, message:`Updated config for ${node.label}`, appliedConfig: node.config}; break;
       }
       case 'get_workflow_status': {
-        const cached = cache.get(CACHE_KEYS.workflowStatus(workflow.id));
+        const cached = cache.get(CACHE_KEYS.workflowStatus(cacheUid(workflow), workflow.id));
         if (cached) { result=cached; break; }
         // P1: clean queries - summary by default, full on ?verbose
         const verbose = input?.verbose===true;
         result={success:true, workflow:{ id:workflow.id, nodeCount:workflow.nodes.length, edgeCount:workflow.edges.length, nodes: verbose ? workflow.nodes : workflow.nodes.map(n=>({id:n.id,type:n.type,label:n.label,position:n.position})), edges: workflow.edges }};
-        cache.set(CACHE_KEYS.workflowStatus(workflow.id), result, 10); break;
+        cache.set(CACHE_KEYS.workflowStatus(cacheUid(workflow), workflow.id), result, 10); break;
       }
       case 'validate_workflow': {
         const errors=[]; const nodeIds=new Set(workflow.nodes.map(n=>n.id));
@@ -784,14 +828,14 @@ app.post('/api/execute-tool', async (req, res) => {
         const node=workflow.nodes.find(n=>n.id===resolved); if(!node) { result={success:false, error:`Node not found: ${resolved}`}; break; }
         pushHistory(`delete:${resolved}`, workflow);
         workflow.nodes=workflow.nodes.filter(n=>n.id!==resolved); workflow.edges=workflow.edges.filter(e=>e.source!==resolved&&e.target!==resolved);
-        nodeIndex.delete(resolved); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
+        nodeIndex.delete(resolved); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, message:`Deleted ${resolved}`, deletedId:resolved, undo:'call undo_last_action'}; break;
       }
       case 'clone_node': {
         const orig=workflow.nodes.find(n=>n.id===input?.nodeId); if(!orig) { result={success:false, error:`Node not found: ${input?.nodeId}`}; break; }
         pushHistory(`clone:${input.nodeId}`, workflow);
         const nid=`node_${uuidv4().slice(0,8)}`; const pos={ x:(orig.position?.x||0)+(input?.offsetX??120), y:(orig.position?.y||0)+(input?.offsetY??0) };
-        const clone={ ...JSON.parse(JSON.stringify(orig)), id:nid, position:pos, label:`${orig.label} (copy)` }; workflow.nodes.push(clone); nodeIndex.set(nid, workflow.id); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
+        const clone={ ...JSON.parse(JSON.stringify(orig)), id:nid, position:pos, label:`${orig.label} (copy)` }; workflow.nodes.push(clone); nodeIndex.set(nid, workflow.id); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, nodeId:nid, message:`Cloned ${input.nodeId} → ${nid}`}; break;
       }
       case 'get_node_connections': {
@@ -809,7 +853,7 @@ app.post('/api/execute-tool', async (req, res) => {
         if(!input?.name) { result={success:false, error:'name required'}; break; }
         const key=`wf_${input.name}`; const data=workflows.get(key); if(!data) { result={success:false, error:`No workflow "${input.name}"`}; break; }
         pushHistory(`load:${input.name}`, workflow);
-        workflow.nodes=JSON.parse(JSON.stringify(data.nodes)); workflow.edges=JSON.parse(JSON.stringify(data.edges)); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
+        workflow.nodes=JSON.parse(JSON.stringify(data.nodes)); workflow.edges=JSON.parse(JSON.stringify(data.edges)); workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, message:`Loaded "${input.name}"`, nodeCount:data.nodes.length}; break;
       }
       case 'run_node': {
@@ -822,12 +866,14 @@ app.post('/api/execute-tool', async (req, res) => {
         if(!input?.nodeId|| input?.x===undefined|| input?.y===undefined) { result={success:false, error:'nodeId,x,y required'}; break; }
         const n=workflow.nodes.find(x=>x.id===input.nodeId); if(!n) { result={success:false, error:`Node not found: ${input.nodeId}`}; break; }
         pushHistory(`move:${input.nodeId}`, workflow);
-        n.position={x:Math.round(input.x), y:Math.round(input.y)}; workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
+        n.position={x:Math.round(input.x), y:Math.round(input.y)}; workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, message:`Moved ${input.nodeId} to (${n.position.x},${n.position.y})`, position:n.position}; break;
       }
       case 'get_workflow_history': {
-        const logs=Array.from(executionLogs.values()).slice(-20).map(l=>({id:l.id, executedAt:l.executedAt, durationMs:l.durationMs, success:l.success, order:l.order}));
-        result={history:logs, totalRuns:executionLogs.size}; break;
+        const uid=cacheUid(workflow);
+        const mine=Array.from(executionLogs.values()).filter(l=>l.workflowId===workflow.id && (l.userId||'anon')===uid);
+        const logs=mine.slice(-20).map(l=>({id:l.id, executedAt:l.executedAt, durationMs:l.durationMs, success:l.success, order:l.order}));
+        result={history:logs, totalRuns:mine.length}; break;
       }
       case 'create_template': {
         if(!input?.name) { result={success:false, error:'name required'}; break; }
@@ -843,7 +889,7 @@ app.post('/api/execute-tool', async (req, res) => {
         if(!input?.json) { result={success:false, error:'json required'}; break; }
         try { const data=JSON.parse(input.json); if(!data.nodes||!data.edges) { result={success:false, error:'Invalid workflow JSON'}; break; } pushHistory(`import:${input.merge?'merge':'replace'}`, workflow);
           if(input.merge){ workflow.nodes.push(...data.nodes); workflow.edges.push(...data.edges); data.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); data.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); } else { workflow.nodes=data.nodes; workflow.edges=data.edges; nodeIndex.clear(); edgeIndex.clear(); data.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); data.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); }
-          workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{}); result={success:true, message:`Imported ${data.nodes.length} nodes, ${data.edges.length} edges`};
+          workflow.updatedAt=new Date().toISOString(); invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{}); result={success:true, message:`Imported ${data.nodes.length} nodes, ${data.edges.length} edges`};
         } catch(e){ result={success:false, error:`Invalid JSON: ${e.message}`}; } break;
       }
       case 'find_nodes': {
@@ -854,14 +900,14 @@ app.post('/api/execute-tool', async (req, res) => {
         result={success:true, count:nodes.length, nodes: nodes.slice(0,limit).map(n=>({id:n.id,label:n.label,type:n.type,position:n.position,hasConfig:!!n.config&&Object.keys(n.config).length>0}))}; break;
       }
       case 'get_execution_details': {
-        const last=Array.from(executionLogs.values()).pop() || cache.get(CACHE_KEYS.executionDetails(workflow.id));
+        const last=lastExecutionFor(workflow);
         if(!last) { result={success:false, error:'No execution yet'}; break; }
         const include = input?.includeOutputs!==false; const trunc = input?.truncateAt ?? 2000;
         const perNode=(last.order||Object.keys(last.outputs||{})).map(id=>({id,label:workflow.nodes.find(n=>n.id===id)?.label||id,type:workflow.nodes.find(n=>n.id===id)?.type||'unknown',status:last.status[id]||'unknown', output: include? (JSON.stringify(last.outputs[id]||'').length>trunc ? { _truncated:true, preview: JSON.stringify(last.outputs[id]).slice(0,trunc)} : last.outputs[id]) : undefined, error:last.outputs[id]?.error}));
         result={success:last.success, executedAt:last.executedAt, durationMs:last.durationMs, order:last.order, total:perNode.length, done:perNode.filter(p=>p.status==='done').length, faulted:perNode.filter(p=>p.status==='fault').length, skipped:perNode.filter(p=>p.status==='skipped').length, perNode}; break;
       }
       case 'get_node_output': {
-        const last=Array.from(executionLogs.values()).pop() || cache.get(CACHE_KEYS.executionDetails(workflow.id));
+        const last=lastExecutionFor(workflow);
         if(!last) { result={success:false, error:'No execution yet'}; break; }
         let rid=input?.nodeId; if(!rid || !last.outputs[rid]) { if(input?.label){ const cands=Object.keys(last.outputs).filter(id=> String(workflow.nodes.find(n=>n.id===id)?.label||'').toLowerCase().includes(String(input.label).toLowerCase())); if(cands.length===1) rid=cands[0]; else if(cands.length>1) { result={success:false, error:`Label matches ${cands.length}`}; break; } } }
         if(!rid || !last.outputs[rid]) { result={success:false, error:`No output for ${rid||input?.label}`}; break; }
@@ -880,13 +926,13 @@ app.post('/api/execute-tool', async (req, res) => {
       case 'undo_last_action': {
         if(mutationHistory.length===0) { result={success:false, error:'Nothing to undo'}; break; }
         const prev=mutationHistory.pop(); redoStack.push({ nodes: JSON.parse(JSON.stringify(workflow.nodes)), edges: JSON.parse(JSON.stringify(workflow.edges)), label:`redo:${prev.label}`, at:new Date().toISOString()});
-        workflow.nodes=prev.nodes; workflow.edges=prev.edges; workflow.updatedAt=new Date().toISOString(); nodeIndex.clear(); edgeIndex.clear(); workflow.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); workflow.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
+        workflow.nodes=prev.nodes; workflow.edges=prev.edges; workflow.updatedAt=new Date().toISOString(); nodeIndex.clear(); edgeIndex.clear(); workflow.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); workflow.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, restoredLabel:prev.label, at:prev.at, nodes:prev.nodes.length, edges:prev.edges.length}; break;
       }
       case 'redo_last_action': {
         if(redoStack.length===0) { result={success:false, error:'Nothing to redo'}; break; }
         const next=redoStack.pop(); mutationHistory.push({ nodes:JSON.parse(JSON.stringify(workflow.nodes)), edges:JSON.parse(JSON.stringify(workflow.edges)), label:`undo:${next.label}`, at:new Date().toISOString()});
-        workflow.nodes=next.nodes; workflow.edges=next.edges; workflow.updatedAt=new Date().toISOString(); nodeIndex.clear(); edgeIndex.clear(); workflow.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); workflow.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); invalidateCache(workflow.id); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
+        workflow.nodes=next.nodes; workflow.edges=next.edges; workflow.updatedAt=new Date().toISOString(); nodeIndex.clear(); edgeIndex.clear(); workflow.nodes.forEach(n=>nodeIndex.set(n.id,workflow.id)); workflow.edges.forEach(e=>edgeIndex.set(e.id,workflow.id)); invalidateCache(workflow); persistWorkflows(); maybeSaveVersion(workflow).catch(()=>{});
         result={success:true, restoredLabel:next.label, nodes:next.nodes.length, edges:next.edges.length}; break;
       }
       case 'get_undo_history': {

@@ -368,6 +368,82 @@ export function ConfigPanel({ node, onChange, onDelete }: Props) {
         </>
       )}
 
+      {nodeType === 'date_time' && (
+        <>
+          <label className="cfg-row">
+            <span>Operation</span>
+            <select
+              className="cfg-input"
+              value={draft.operation || 'now'}
+              onChange={(e) => set('operation', e.target.value)}
+            >
+              <option value="now">now</option>
+              <option value="format">format</option>
+              <option value="add">add</option>
+            </select>
+          </label>
+          {(draft.operation === 'format' || draft.operation === 'add') && (
+            <label className="cfg-row">
+              <span>Date / Value</span>
+              <input
+                className="cfg-input"
+                placeholder="2024-01-01 or timestamp"
+                value={draft.date || draft.value || ''}
+                onChange={(e) => set('date', e.target.value)}
+              />
+            </label>
+          )}
+        </>
+      )}
+
+      {nodeType === 'openai' && (
+        <>
+          <label className="cfg-row">
+            <span>Prompt</span>
+            <textarea
+              className="cfg-input cfg-area"
+              rows={3}
+              placeholder="Summarize the input"
+              value={draft.prompt || draft.message || ''}
+              onChange={(e) => set('prompt', e.target.value)}
+            />
+          </label>
+          <label className="cfg-row">
+            <span>Model</span>
+            <input
+              className="cfg-input"
+              placeholder="gpt-4o-mini"
+              value={draft.model || ''}
+              onChange={(e) => set('model', e.target.value)}
+            />
+          </label>
+        </>
+      )}
+
+      {['slack','discord','github','gmail','google_sheets','notion','airtable','postgres','mysql','mongodb','redis','stripe','shopify','aws_s3'].includes(nodeType) && (
+        <>
+          <label className="cfg-row">
+            <span>URL / Webhook</span>
+            <input
+              className="cfg-input"
+              placeholder="https://hooks.example.com/..."
+              value={draft.url || draft.webhookUrl || draft.endpoint || ''}
+              onChange={(e) => set('url', e.target.value)}
+            />
+          </label>
+          <label className="cfg-row">
+            <span>Method</span>
+            <select
+              className="cfg-input"
+              value={draft.method || 'POST'}
+              onChange={(e) => set('method', e.target.value)}
+            >
+              {['GET','POST','PUT','PATCH','DELETE'].map(m=> <option key={m}>{m}</option>)}
+            </select>
+          </label>
+        </>
+      )}
+
       {nodeType === 'start' && (
         <p className="hint">
           The entry module — nothing to tune. Input JSON from the Run Console flows from here.

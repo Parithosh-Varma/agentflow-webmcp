@@ -1,0 +1,54 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=600"/>
+<title>AF — Email 600</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Archivo:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121110;--panel:#1e1b18;--line:#3a342e;--ink:#ede8dc;--dim:#8a806f;--amber:#e8a33d;--cyan:#56cdbd;--display:'Chakra Petch',sans-serif;--body:'Archivo',sans-serif;--mono:'IBM Plex Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}html,body{width:600px;background:var(--bg);color:var(--ink);font-family:var(--body)}
+.wrap{width:600px;padding:0;background:var(--bg)}
+.header{padding:28px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+.header b{font-family:var(--display);font-weight:700;letter-spacing:.12em;font-size:12px}
+.header span{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.hero{padding:32px 32px 28px}
+.hero h1{font-family:var(--display);font-weight:700;font-size:38px;line-height:1.02}
+.hero h1 .you{color:var(--amber)} .hero h1 .agent{color:var(--cyan)}
+.hero p{color:var(--dim);font-size:15px;line-height:1.6;margin-top:14px;max-width:520px}
+.hero p strong{color:var(--ink)}
+.cta{display:inline-block;margin-top:20px;background:var(--amber);color:#201a10;font-family:var(--display);font-weight:700;padding:14px 24px;border-radius:8px;text-decoration:none;font-size:14px;letter-spacing:.04em}
+.ghost{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:12px}
+.schematic{margin:0 32px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.schematic svg{width:100%;height:auto;display:block}
+.bullets{padding:24px 32px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.bullet{background:var(--panel);border:1px solid #2e2923;border-radius:8px;padding:16px}
+.bullet h3{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);margin-bottom:8px}
+.bullet p{font-size:13px;color:var(--dim);line-height:1.5}
+.bullet p b{color:var(--ink)}
+.footer{padding:24px 32px;border-top:1px solid var(--line);text-align:center}
+.footer p{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.06em}
+.footer a{color:var(--dim)}
+</style></head><body>
+<div class="wrap">
+  <div class="header"><b>AGENTFLOW</b><span>WEBMCP WORKFLOW INSTRUMENT</span></div>
+  <div class="hero">
+    <h1>One canvas.<br><span class="you">You</span> wire it.<br><span class="agent">Your agent</span> drives it.</h1>
+    <p>Drag 15 modules, wire pins, press <strong>RUN</strong> — or tell your browser agent to call <strong>add_node → connect_nodes → execute_workflow</strong> and watch signals march across the same wires.</p>
+    <a class="cta" href="https://agentflow-hackathon.pages.dev">Go to the tool →</a><span class="ghost">No signup — runs in your browser</span>
+  </div>
+  <div class="schematic">
+    <svg viewBox="0 0 520 150" role="img">
+      <path d="M148 40 H210" stroke="#3a342e" stroke-width="1.8" fill="none"/><path d="M148 40 H210" stroke="#e8a33d" stroke-width="1.8" fill="none" stroke-dasharray="6 8"/>
+      <path d="M332 40 H390 V75 H272" stroke="#3a342e" stroke-width="1.8" fill="none"/><path d="M332 40 H390 V75 H272" stroke="#56cdbd" stroke-width="1.8" fill="none" stroke-dasharray="6 8"/>
+      <path d="M148 110 H210" stroke="#56cdbd" stroke-width="1.8" fill="none" stroke-dasharray="6 8"/>
+      <g><rect x="52" y="18" width="96" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="64" y="34" font-family="IBM Plex Mono" font-size="8" fill="#8a806f">API CALL</text><text x="64" y="50" font-family="IBM Plex Mono" font-size="11" fill="#ede8dc">fetch</text></g>
+      <g><rect x="210" y="18" width="122" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="222" y="34" font-family="IBM Plex Mono" font-size="8" fill="#8a806f">TRANSFORM</text><text x="222" y="50" font-family="IBM Plex Mono" font-size="11" fill="#ede8dc">reshape</text></g>
+      <g><rect x="242" y="53" width="96" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="254" y="71" font-family="IBM Plex Mono" font-size="8" fill="#8a806f">OUTPUT</text><text x="254" y="87" font-family="IBM Plex Mono" font-size="11" fill="#ede8dc">webhook</text></g>
+    </svg>
+    <div style="display:flex;justify-content:space-between;margin-top:10px;font-family:IBM Plex Mono;font-size:9px;letter-spacing:.12em"><span style="color:#56cdbd">AGENT: add_node · connect_nodes · run</span><span style="color:#e8a33d">YOU: drag · wire · RUN</span></div>
+  </div>
+  <div class="bullets">
+    <div class="bullet"><h3>YOU — AMBER</h3><p><b>Sketch by feel.</b> 15 typed modules, grid-snapped, DAG-executed.</p></div>
+    <div class="bullet"><h3>AGENT — CYAN</h3><p><b>Drive by tools.</b> 19 WebMCP tools — no DOM scraping.</p></div>
+  </div>
+  <div class="footer"><p>AGENTFLOW — MIT · <a href="https://agentflow-hackathon.pages.dev">agentflow-hackathon.pages.dev</a> · <a href="https://agentflow-landing.pages.dev">landing</a> · <a href="https://github.com/Parithosh-Varma/agentflow-webmcp">source</a></p><p style="margin-top:6px">You’re receiving this because you asked to see what AgentFlow ships. No tracking pixels — just wires.</p></div>
+</div>
+</body></html>

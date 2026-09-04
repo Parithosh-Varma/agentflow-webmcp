@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { BoltIcon, DiamondIcon, HexagonIcon } from './icons';
 import './WelcomeModal.css';
 
+/**
+ * @deprecated Legacy onboarding modal — superseded by TourOverlay
+ * (src/onboarding/TourOverlay.tsx, key `onboarding_dismissed_canvas-tour`).
+ * Kept for reference; do NOT mount alongside TourOverlay (both use z-index
+ * 400 backdrops and Esc handling, so they would stack).
+ */
 interface WelcomeModalProps {
   open: boolean;
   onClose: () => void;

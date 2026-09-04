@@ -27,7 +27,11 @@ export function AuthPage() {
       }
       navigate('/tool');
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong');
+      if (mode === 'login') {
+        setError('Invalid email or password.');
+      } else {
+        setError(err?.message || 'Something went wrong');
+      }
     }
     setLoading(false);
   };

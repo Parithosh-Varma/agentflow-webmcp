@@ -333,13 +333,10 @@ export function ReplayOverlay({
         const targetPos = nodePositions[packet.targetId];
         if (!sourcePos || !targetPos) return null;
 
-        // Adjust for node centers (ReactFlow nodes have handles at edges)
-        const sourceNode = nodes.find(n => n.id === packet.sourceId);
-        const targetNode = nodes.find(n => n.id === packet.targetId);
-        
-        const sx = sourcePos.x + (sourceNode?.width || 180) / 2;
+        // Use node centers directly; avoid double offset drift
+        const sx = sourcePos.x;
         const sy = sourcePos.y;
-        const tx = targetPos.x - (targetNode?.width || 180) / 2;
+        const tx = targetPos.x;
         const ty = targetPos.y;
 
         return (

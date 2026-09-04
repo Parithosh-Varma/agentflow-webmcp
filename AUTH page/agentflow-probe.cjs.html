@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en" class="dark h-full bg-black">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log in to Neon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        neon: {
+                            green: '#00E599',
+                            badgeBg: '#00E599',
+                            darkBg: '#050505',
+                            cardBg: '#0c0c0e',
+                            inputBg: '#0f0f12',
+                            border: '#222226',
+                            inputBorder: '#27272a',
+                            link: '#3b82f6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .input-focus:focus {
+            outline: none;
+            border-color: #00E599;
+            box-shadow: 0 0 0 1px #00E599;
+        }
+
+        /* Subtle smooth transition for interactive elements */
+        button, a, input {
+            transition: all 0.15s ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col lg:flex-row antialiased select-none min-h-screen">
+
+    <!-- Left Side: Hero Graphic & Branding Panel -->
+    <div class="relative w-full lg:w-[38%] xl:w-[35%] min-h-[320px] lg:min-h-screen bg-black overflow-hidden flex flex-col justify-center p-8 sm:p-12 lg:p-16 border-b lg:border-b-0 lg:border-r border-zinc-900/80 shrink-0">
+        
+        <!-- Interactive Halftone Dot Matrix Canvas (Pixel-perfect replica of image) -->
+        <canvas id="halftoneCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+
+        <!-- Brand Content -->
+        <div class="relative z-10 max-w-sm">
+            <!-- Neon Logo Icon -->
+            <div class="w-12 h-12 bg-[#09090b] border border-zinc-800 rounded-lg flex items-center justify-center mb-8 shadow-2xl">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 4H10V8H14V4H20V20H14V16H10V20H4V4Z" fill="#00E599" />
+                    <path d="M10 8V16H14V8H10Z" fill="#000000" />
+                </svg>
+            </div>
+
+            <!-- Hero Headline -->
+            <h1 id="heroHeading" class="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-[1.18]">
+                Build your Postgres<br />backend on Neon.
+            </h1>
+        </div>
+    </div>
+
+    <!-- Right Side: Authentication Panel -->
+    <div class="flex-1 min-h-screen bg-black flex flex-col justify-between p-6 sm:p-10 lg:px-16 lg:py-10 relative">
+        
+        <!-- Top Nav Link -->
+        <div class="w-full">
+            <a href="#" onclick="showToast('Navigating home...'); return false;" class="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors py-1 group">
+                <span class="text-zinc-400 group-hover:-translate-x-0.5 transition-transform">←</span>
+                <span>Home</span>
+            </a>
+        </div>
+
+        <!-- Center Form Block -->
+        <div class="w-full max-w-[380px] mx-auto my-auto py-6">
+            
+            <!-- Header -->
+            <div class="text-center mb-7">
+                <h2 id="formTitle" class="text-2xl font-semibold text-white tracking-tight">
+                    Log in to Neon
+                </h2>
+                <p id="formSubtitle" class="text-xs text-zinc-400 mt-2 font-normal">
+                    Connect to Neon with:
+                </p>
+            </div>
+
+            <!-- SSO Buttons Grid -->
+            <div class="grid grid-cols-2 gap-2.5 mb-6">
+                
+                <!-- Google -->
+                <button type="button" onclick="handleSSO('Google')" class="flex items-center justify-center gap-2 bg-[#0c0c0e] hover:bg-[#151518] border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 py-2.5 px-3 rounded-lg transition-all active:scale-[0.98]">
+                    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>Google</span>
+                </button>
+
+                <!-- GitHub with "Last" Badge -->
+                <button type="button" onclick="handleSSO('GitHub')" class="relative flex items-center justify-center gap-2 bg-[#0c0c0e] hover:bg-[#151518] border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 py-2.5 px-3 rounded-lg transition-all active:scale-[0.98]">
+                    <svg class="w-4 h-4 fill-white shrink-0" viewBox="0 0 24 24">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                    </svg>
+                    <span>GitHub</span>
+                    <!-- Green "Last" pill badge -->
+                    <span class="absolute -top-1.5 -right-1.5 bg-[#00E599] text-black font-semibold text-[9px] px-2 py-0.5 rounded-full leading-none shadow-md">
+                        Last
+                    </span>
+                </button>
+
+                <!-- Microsoft -->
+                <button type="button" onclick="handleSSO('Microsoft')" class="flex items-center justify-center gap-2 bg-[#0c0c0e] hover:bg-[#151518] border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 py-2.5 px-3 rounded-lg transition-all active:scale-[0.98]">
+                    <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 23 23">
+                        <path fill="#f35325" d="M1 1h10v10H1z"/>
+                        <path fill="#81bc06" d="M12 1h10v10H1z"/>
+                        <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                        <path fill="#ffba08" d="M12 12h10v10H1z"/>
+                    </svg>
+                    <span>Microsoft</span>
+                </button>
+
+                <!-- Hasura -->
+                <button type="button" onclick="handleSSO('Hasura')" class="flex items-center justify-center gap-2 bg-[#0c0c0e] hover:bg-[#151518] border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 py-2.5 px-3 rounded-lg transition-all active:scale-[0.98]">
+                    <svg class="w-4 h-4 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.8L19.2 8 12 11.2 4.8 8 12 4.8zM4 9.6l7 3.1v6.5l-7-3.5V9.6zm16 6.1l-7 3.5v-6.5l7-3.1v6.1z"/>
+                    </svg>
+                    <span>Hasura</span>
+                </button>
+            </div>
+
+            <!-- Horizontal Divider -->
+            <div class="relative flex items-center justify-center my-6">
+                <div class="border-t border-zinc-800/90 w-full"></div>
+                <span class="bg-black px-3 text-[11px] text-zinc-500 font-normal absolute">Or continue with</span>
+            </div>
+
+            <!-- Credentials Form -->
+            <form id="loginForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                
+                <!-- Email Field -->
+                <div>
+                    <label for="email" class="block text-xs font-normal text-zinc-300 mb-1.5">Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        required 
+                        placeholder="Enter your email address"
+                        class="w-full bg-[#0d0d10] border border-zinc-800/90 rounded-lg px-3.5 py-2 text-xs text-white placeholder:text-zinc-600 input-focus transition-all"
+                    />
+                </div>
+
+                <!-- Password Field -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="password" class="block text-xs font-normal text-zinc-300">Password</label>
+                        <a href="#" id="forgotPasswordLink" onclick="handleForgotPassword(); return false;" class="text-xs text-blue-500 hover:text-blue-400 transition-colors">Forgot Password?</a>
+                    </div>
+                    <div class="relative">
+                        <input 
+                            type="password" 
+                            id="password" 
+                            required 
+                            placeholder="Enter a unique password"
+                            class="w-full bg-[#0d0d10] border border-zinc-800/90 rounded-lg pl-3.5 pr-9 py-2 text-xs text-white placeholder:text-zinc-600 input-focus transition-all"
+                        />
+                        <!-- Eye toggle button -->
+                        <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 focus:outline-none">
+                            <svg id="eyeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button 
+                    type="submit" 
+                    id="submitBtn"
+                    class="w-full mt-2 bg-[#121215] hover:bg-[#1c1c20] border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white text-xs font-medium py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                >
+                    <span id="submitBtnText">Log in</span>
+                    <svg id="submitSpinner" class="w-3.5 h-3.5 animate-spin hidden text-zinc-400" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </form>
+
+            <!-- Mode Switcher Footer -->
+            <div class="text-center mt-6 text-xs text-zinc-400">
+                <span id="toggleQuestion">New to Neon?</span>
+                <button type="button" id="toggleAction" onclick="toggleAuthMode()" class="text-blue-500 hover:text-blue-400 font-normal ml-1 transition-colors focus:outline-none">
+                    Sign up for an account
+                </button>
+            </div>
+        </div>
+
+        <!-- Empty spacer to balance layout -->
+        <div></div>
+    </div>
+
+    <!-- Notification Toast Popup -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-16 opacity-0 pointer-events-none bg-zinc-900 border border-zinc-800 text-white text-xs px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 transition-all duration-300">
+        <div id="toastDot" class="w-2 h-2 rounded-full bg-[#00E599]"></div>
+        <span id="toastMsg">Action completed</span>
+    </div>
+
+    <script>
+        // --- High Precision Halftone Dot Matrix Canvas ---
+        const canvas = document.getElementById('halftoneCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.offsetWidth;
+            canvas.height = canvas.parentElement.offsetHeight;
+            renderHalftone();
+        }
+
+        function renderHalftone() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const dotSpacing = 11; 
+            const cols = Math.floor(canvas.width / dotSpacing) + 2;
+            const rows = Math.floor(canvas.height / dotSpacing) + 2;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const x = c * dotSpacing;
+                    const y = r * dotSpacing;
+
+                    // Calculate color & opacity distribution to match screenshot texture gradient
+                    // High density dark halftone across left, transitioning to warm gold/amber glow on bottom-right
+                    const normX = x / canvas.width;
+                    const normY = y / canvas.height;
+
+                    // Bottom-right glow center distance
+                    const distGlow = Math.sqrt(Math.pow(normX - 0.95, 2) + Math.pow(normY - 0.95, 2));
+                    
+                    let dotRadius = 1.1;
+                    let color = 'rgba(28, 28, 32, 0.4)';
+
+                    if (distGlow < 0.85) {
+                        const intensity = Math.pow(1 - distGlow / 0.85, 1.8);
+                        
+                        // Mix between Neon emerald green (top/mid) and amber (bottom right)
+                        const isBottomRight = (normX > 0.4 && normY > 0.4);
+
+                        if (isBottomRight) {
+                            const rVal = Math.floor(210 + intensity * 45);
+                            const gVal = Math.floor(130 + intensity * 60);
+                            const bVal = Math.floor(30 + intensity * 20);
+                            const alpha = Math.min(0.85, 0.1 + intensity * 0.75);
+                            color = `rgba(${rVal}, ${gVal}, ${bVal}, ${alpha})`;
+                            dotRadius = 1.1 + intensity * 0.6;
+                        } else {
+                            const alpha = Math.min(0.4, 0.05 + intensity * 0.35);
+                            color = `rgba(0, 229, 153, ${alpha})`;
+                        }
+                    } else {
+                        // Ambient texture pattern
+                        const ambientAlpha = 0.15 + (Math.sin(c * 0.3) * Math.cos(r * 0.3) * 0.05);
+                        color = `rgba(26, 26, 30, ${ambientAlpha})`;
+                    }
+
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- Mode Toggle (Login vs Sign Up) ---
+        let isSignUp = false;
+
+        function toggleAuthMode() {
+            isSignUp = !isSignUp;
+            const formTitle = document.getElementById('formTitle');
+            const formSubtitle = document.getElementById('formSubtitle');
+            const submitBtnText = document.getElementById('submitBtnText');
+            const toggleQuestion = document.getElementById('toggleQuestion');
+            const toggleAction = document.getElementById('toggleAction');
+            const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+
+            if (isSignUp) {
+                formTitle.textContent = 'Create an account';
+                formSubtitle.textContent = 'Connect to Neon with:';
+                submitBtnText.textContent = 'Sign up';
+                toggleQuestion.textContent = 'Already have an account?';
+                toggleAction.textContent = 'Log in to your account';
+                forgotPasswordLink.classList.add('hidden');
+            } else {
+                formTitle.textContent = 'Log in to Neon';
+                formSubtitle.textContent = 'Connect to Neon with:';
+                submitBtnText.textContent = 'Log in';
+                toggleQuestion.textContent = 'New to Neon?';
+                toggleAction.textContent = 'Sign up for an account';
+                forgotPasswordLink.classList.remove('hidden');
+            }
+        }
+
+        // --- Password Visibility Toggle ---
+        let showPassword = false;
+        function togglePasswordVisibility() {
+            const pwdInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eyeIcon');
+            
+            showPassword = !showPassword;
+            pwdInput.type = showPassword ? 'text' : 'password';
+
+            if (showPassword) {
+                eyeIcon.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.025 10.025 0 0113.12 13.12m-2.126-2.126a3 3 0 10-4.243-4.243m-4.242 4.242L3 3l18 18" />
+                `;
+            } else {
+                eyeIcon.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                `;
+            }
+        }
+
+        // --- Event Handlers ---
+        function handleSSO(provider) {
+            showToast(`Redirecting to ${provider}...`);
+        }
+
+        function handleForgotPassword() {
+            const email = document.getElementById('email').value;
+            if (email) {
+                showToast(`Password reset link sent to ${email}`, '#3b82f6');
+            } else {
+                showToast('Please enter your email address first.', '#eab308');
+                document.getElementById('email').focus();
+            }
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            const submitBtnText = document.getElementById('submitBtnText');
+            const submitSpinner = document.getElementById('submitSpinner');
+
+            submitBtn.disabled = true;
+            submitBtnText.textContent = isSignUp ? 'Creating account...' : 'Logging in...';
+            submitSpinner.classList.remove('hidden');
+
+            setTimeout(() => {
+                submitBtn.disabled = false;
+                submitBtnText.textContent = isSignUp ? 'Sign up' : 'Log in';
+                submitSpinner.classList.add('hidden');
+                showToast(isSignUp ? 'Account created successfully!' : 'Log in successful!');
+            }, 1200);
+        }
+
+        let toastTimer;
+        function showToast(message, dotColor = '#00E599') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastDot = document.getElementById('toastDot');
+
+            toastMsg.textContent = message;
+            toastDot.style.backgroundColor = dotColor;
+
+            clearTimeout(toastTimer);
+            toast.classList.remove('translate-y-16', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-16', 'opacity-0');
+            }, 2600);
+        }
+    </script>
+</body>
+</html>

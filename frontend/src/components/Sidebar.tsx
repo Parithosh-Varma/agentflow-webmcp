@@ -10,7 +10,7 @@ import {
   ScheduleIcon, GraphQLIcon, SetIcon, SwitchIcon, AggregateIcon, SortIcon, LimitIcon, ItemListsIcon, FunctionIcon, NoOpIcon, WebhookResponseIcon, HtmlIcon, DateTimeIcon,
   SlackIcon, DiscordIcon, GithubIcon, GmailIcon, GoogleSheetsIcon, NotionIcon, AirtableIcon, PostgresIcon, MySQLIcon, MongoDBIcon, RedisIcon, StripeIcon, ShopifyIcon, AwsS3Icon, OpenAIIcon,
 } from './icons';
-import { getSmartPlacement, snapToGrid } from '../utils/grid';
+import { getSmartPlacement, snapToGrid, findNearestOpenSlot } from '../utils/grid';
 import type { NodeStatus } from '../engine';
 import './Sidebar.css';
 
@@ -329,7 +329,12 @@ export function Sidebar({
   void loadExample; void loadJudgeDemo;
   const clearCanvas = () => {
     const startNode = nodes.find((n) => n.id === 'start');
-    const keep = startNode ? [startNode] : nodes.slice(0, 1);
+    let keep: any[];
+    if (startNode) {
+      keep = [startNode];
+    } else {
+      keep = [{ id: 'start', type: 'startNode', position: { x: 80, y: 200 }, data: { label: 'Start', config: {}, nodeType: 'start' } }];
+    }
     setNodes(keep);
     setEdges([]);
     clearRunState();
@@ -359,14 +364,17 @@ export function Sidebar({
   const duplicateNode = (id: string) => {
     const node = nodes.find((n) => n.id === id);
     if (!node) return;
-    const newId = `node_${uuidv4().slice(0, 8)}`;
+    let newId = `node_${uuidv4().slice(0, 8)}`;
+    while (nodes.some((n) => n.id === newId)) newId = `node_${uuidv4().slice(0, 8)}`;
     const pos = { x: node.position.x + 40, y: node.position.y + 40 };
     const snapped = snapToGrid(pos.x, pos.y);
+    // +40 can snap back onto the source cell — spill to the nearest open slot
+    const open = findNearestOpenSlot({ x: snapped.x, y: snapped.y }, nodes);
     const clone: Node = {
       ...node,
       id: newId,
-      position: { x: snapped.x, y: snapped.y },
-      data: { ...(node.data as any), label: `${String((node.data as any)?.label)} copy` },
+      position: { x: open.x, y: open.y },
+      data: { ...(node.data as any), label: `${String((node.data as any)?.label)} copy`, config: { ...((node.data as any)?.config || {}) } },
     };
     setNodes((nds: Node[]) => [...nds, clone]);
     addToolLog('duplicate_node', { source: id }, { success: true, newId }, 'you');

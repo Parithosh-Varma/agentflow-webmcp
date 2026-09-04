@@ -45,8 +45,56 @@ export function GoogleAuthButton({ onSuccess, onError, text = 'continue_with', l
   const divRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryN, setRetryN] = useState(0);
+  // Callbacks via ref: parent inline closures change every render, and
+  // listing them in effect deps re-initializes GSI in a loop.
+  const cbRef = useRef({ onSuccess, onError });
+  cbRef.current = { onSuccess, onError };
 
-  // If no client id, show disabled fallback button with instructions
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+    let cancelled = false;
+    loadGsiScript()
+      .then(() => {
+        if (cancelled) return;
+        if (!window.google?.accounts?.id) throw new Error('Google GSI not available');
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (resp: any) => {
+            const cred = resp?.credential;
+            if (cred) cbRef.current.onSuccess(cred);
+            else cbRef.current.onError?.('No credential from Google');
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+        setReady(true);
+      })
+      .catch((e: any) => { if (!cancelled) setLoadError(e?.message || String(e)); });
+
+    return () => { cancelled = true; };
+  }, [retryN]);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !ready || !divRef.current || !window.google?.accounts?.id) return;
+    divRef.current.innerHTML = '';
+    try {
+      window.google.accounts.id.renderButton(divRef.current, {
+        theme: 'outline',
+        size: 'large',
+        text,
+        shape: 'rectangular',
+        width: Math.min(360, divRef.current.clientWidth || 320),
+        logo_alignment: 'left',
+      });
+    } catch (e: any) {
+      setLoadError(e?.message || 'Failed to render Google button');
+    }
+  }, [ready, text]);
+
+  // Hooks stay above all returns (GOOGLE_CLIENT_ID is a build-time constant
+  // so the branch never flips, but conditional hooks break lint/future edits).
+  // No client id → disabled fallback with setup guidance (not a dead button).
   if (!GOOGLE_CLIENT_ID) {
     return (
       <button
@@ -77,50 +125,13 @@ export function GoogleAuthButton({ onSuccess, onError, text = 'continue_with', l
     );
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    loadGsiScript()
-      .then(() => {
-        if (cancelled) return;
-        if (!window.google?.accounts?.id) throw new Error('Google GSI not available');
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: (resp: any) => {
-            const cred = resp?.credential;
-            if (cred) onSuccess(cred);
-            else onError?.('No credential from Google');
-          },
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
-        setReady(true);
-      })
-      .catch((e: any) => setLoadError(e?.message || String(e)));
-
-    return () => { cancelled = true; };
-  }, [onSuccess, onError]);
-
-  useEffect(() => {
-    if (!ready || !divRef.current || !window.google?.accounts?.id) return;
-    divRef.current.innerHTML = '';
-    try {
-      window.google.accounts.id.renderButton(divRef.current, {
-        theme: 'outline',
-        size: 'large',
-        text,
-        shape: 'rectangular',
-        width: Math.min(360, divRef.current.clientWidth || 320),
-        logo_alignment: 'left',
-      });
-    } catch (e: any) {
-      setLoadError(e?.message || 'Failed to render Google button');
-    }
-  }, [ready, text]);
-
   if (loadError) {
     return (
       <div style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--red-soft)', border: '1px solid var(--fault)', color: 'var(--fault)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
-        Google Sign-In error: {loadError}
+        <span>Google Sign-In error: {loadError}</span>{' '}
+        <button type="button" onClick={() => { setLoadError(null); setReady(false); setRetryN((n) => n + 1); }} style={{ marginLeft: 8, cursor: 'pointer' }}>
+          Retry
+        </button>
       </div>
     );
   }

@@ -1,0 +1,46 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=300"/>
+<title>AF 300x600</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Archivo:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121110;--panel:#1e1b18;--line:#3a342e;--ink:#ede8dc;--dim:#8a806f;--amber:#e8a33d;--cyan:#56cdbd;--display:'Chakra Petch',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Archivo',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}html,body{width:300px;height:600px;background:var(--bg);color:var(--ink);overflow:hidden}
+.wrap{width:300px;height:600px;padding:20px 18px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid var(--line);position:relative}
+.wrap::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(to right,#211c16 0 1px,transparent 1px 26px),repeating-linear-gradient(to bottom,#211c16 0 1px,transparent 1px 26px);opacity:.18;pointer-events:none}
+.top{position:relative;z-index:1;font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--dim);display:flex;justify-content:space-between}
+.top b{color:var(--ink)}
+h1{position:relative;z-index:1;font-family:var(--display);font-weight:700;font-size:32px;line-height:1;margin-top:14px}
+h1 .a{color:var(--amber)} h1 .c{color:var(--cyan)}
+.sub{position:relative;z-index:1;color:var(--dim);font-size:12px;line-height:1.6;margin-top:10px}
+.card{position:relative;z-index:1;background:var(--panel);border:1px solid #2e2923;border-radius:10px;padding:14px;margin-top:14px}
+.card h3{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--dim);margin-bottom:8px}
+.card p{font-size:12px;line-height:1.5;color:var(--dim)}
+.card p b{color:var(--ink)}
+.steps{position:relative;z-index:1;margin-top:14px;display:grid;gap:10px}
+.step{border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;gap:12px;align-items:center;background:rgba(255,255,255,.02)}
+.num{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:14px;flex-shrink:0}
+.step:nth-child(1) .num{background:rgba(232,163,61,.12);color:var(--amber);border:1px solid rgba(232,163,61,.2)}
+.step:nth-child(2) .num{background:rgba(86,205,189,.12);color:var(--cyan);border:1px solid rgba(86,205,189,.2)}
+.step:nth-child(3) .num{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+.step p{font-size:11px;color:var(--dim)} .step p b{color:var(--ink)} .step code{font-family:var(--mono);font-size:10px;color:var(--cyan)}
+.cta{position:relative;z-index:1;background:var(--amber);color:#201a10;font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.04em;padding:12px 16px;border-radius:8px;text-align:center;text-decoration:none;display:block}
+.foot{position:relative;z-index:1;font-family:var(--mono);font-size:9px;color:var(--dim);text-align:center;letter-spacing:.06em;margin-top:8px}
+</style></head><body>
+<div class="wrap">
+  <div>
+    <div class="top"><span><b>AGENTFLOW</b></span><span>WEBMCP</span></div>
+    <h1>One canvas.<br><span class="a">You</span> wire it.<br><span class="c">Your agent</span> drives it.</h1>
+    <p class="sub">Drag 15 modules, wire pins, press <strong style="color:var(--ink)">RUN</strong> — or tell your agent to do it with tools.</p>
+    <div class="card"><h3>19 WEBMCP TOOLS</h3><p><b>add_node → connect_nodes → execute_workflow</b><br>Declared by the page, mediated by the browser. No DOM scraping.</p></div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><p><b>Sketch it</b><br>Drag modules onto the grid.</p></div>
+      <div class="step"><div class="num">2</div><p><b>Delegate it</b><br><code>add_node · connect_nodes</code></p></div>
+      <div class="step"><div class="num">3</div><p><b>Run it</b><br>Amber → cyan signals march.</p></div>
+    </div>
+  </div>
+  <div>
+    <a class="cta" href="https://agentflow-hackathon.pages.dev">Go to the tool →</a>
+    <div class="foot">agentflow-hackathon.pages.dev · No signup<br>Runs in your browser</div>
+  </div>
+</div>
+</body></html>

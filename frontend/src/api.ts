@@ -14,7 +14,8 @@ function clearToken() {
 
 async function request<T = any>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs = 15000
 ): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -23,10 +24,17 @@ async function request<T = any>(
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err: any) {
+    if (err?.name === 'TimeoutError') throw new Error(`Request timed out: ${path}`);
+    throw err;
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -85,6 +93,7 @@ export async function verifyAccessCode(code: string): Promise<{ success: boolean
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code: code.trim() }),
+    signal: AbortSignal.timeout(15000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.success) throw new Error(data.error || 'Invalid access code');
@@ -99,6 +108,7 @@ export async function checkAccess(): Promise<boolean> {
     const res = await fetch(`${API_BASE}/api/auth/check-access`, {
       method: 'GET',
       headers: { 'X-Access-Token': token },
+      signal: AbortSignal.timeout(10000),
     });
     const data = await res.json().catch(() => ({} as any));
     return Boolean(data.hasAccess);
@@ -165,14 +175,5 @@ export async function createTemplate(name: string, description: string, nodes: a
   return request('/api/templates', {
     method: 'POST',
     body: JSON.stringify({ name, description, nodes, edges }),
-  });
-}
-
-// ---- Execute ----
-
-export async function executeWorkflowAPI(nodes: any[], edges: any[], input?: any): Promise<any> {
-  return request('/api/execute', {
-    method: 'POST',
-    body: JSON.stringify({ nodes, edges, input }),
   });
 }

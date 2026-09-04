@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AgentFlow ADS — Ad Studio</title>
+<meta name="description" content="AgentFlow Ad Studio — preview, copy, and export every ad size on brand."/>
+<link rel="icon" type="image/png" href="./favicon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121110;--panel:#1e1b18;--panel2:#262220;--line:#3a342e;--line2:#2e2923;--ink:#ede8dc;--dim:#8a806f;--muted:#6b6356;--amber:#e8a33d;--cyan:#56cdbd;--red:#e05d44;--green:#5dba6a;--display:'Chakra Petch',sans-serif;--body:'Archivo',sans-serif;--mono:'IBM Plex Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;line-height:1.5}
+a{color:inherit}
+.wrap{max-width:1280px;margin:0 auto;padding:0 24px}
+.rail{position:sticky;top:0;z-index:20;background:rgba(18,17,16,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.rail-inner{height:56px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.wordmark{display:flex;align-items:center;gap:10px;text-decoration:none}
+.wordmark img{width:22px;height:22px}
+.wordmark b{font-family:var(--display);font-weight:700;letter-spacing:.10em;font-size:13px;color:var(--ink)}
+.wordmark i{font-family:var(--mono);font-style:normal;font-size:11px;color:var(--dim);letter-spacing:.08em}
+.rail-nav{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.rail-nav a{font-family:var(--mono);font-size:11px;color:var(--dim);text-decoration:none}
+.rail-nav a:hover{color:var(--ink)}
+.btn{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.06em;padding:9px 16px;border-radius:6px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--amber);transition:filter .15s}
+.btn-amber{background:var(--amber);color:#201a10}
+.btn-amber:hover{filter:brightness(1.08)}
+.btn-ghost{background:transparent;color:var(--dim);border-color:var(--line);font-family:var(--mono);font-weight:400;font-size:12px}
+.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.20em;color:var(--dim);display:flex;align-items:center;gap:8px}
+.eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,52px);line-height:1.05}
+h1 .a{color:var(--amber)} h1 .c{color:var(--cyan)}
+.lede{color:var(--dim);max-width:56ch;margin-top:14px}
+.hero{padding:48px 0 32px;border-bottom:1px solid var(--line2)}
+.hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:32px;align-items:center}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr}}
+.kit{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.kit span{font-family:var(--mono);font-size:10px;letter-spacing:.12em;padding:5px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim);background:var(--panel)}
+.kit span.amber{border-color:#e8a33d44;color:var(--amber);background:rgba(232,163,61,.08)}
+.kit span.cyan{border-color:#56cdbd44;color:var(--cyan);background:rgba(86,205,189,.08)}
+.section{padding:36px 0;border-bottom:1px solid var(--line2)}
+.sec-kicker{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--dim);margin-bottom:10px;display:block}
+.sec-title{font-family:var(--display);font-weight:600;font-size:22px;line-height:1.2;margin-bottom:8px}
+.sec-desc{color:var(--dim);font-size:14px;max-width:70ch}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:860px){.grid2,.grid3{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:18px}
+.card-head{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.card-head b{color:var(--ink);letter-spacing:.04em;font-weight:500}
+.copy-line{font-family:var(--display);font-weight:600;font-size:16px;line-height:1.3}
+.copy-sub{color:var(--dim);font-size:13px;margin-top:6px}
+.mono{font-family:var(--mono)}
+.chip{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
+.swatch-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.swatch{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);position:relative}
+.swatch i{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-style:normal;font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap}
+/* previews */
+.previews{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:1100px){.previews{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.previews{grid-template-columns:1fr}}
+.preview{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.preview-bar{height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;border-bottom:1px solid var(--line2);background:var(--panel2)}
+.preview-bar b{font-family:var(--mono);font-size:10px;letter-spacing:.10em;color:var(--dim)}
+.preview-bar a{font-family:var(--mono);font-size:10px;color:var(--cyan);text-decoration:none}
+.preview-bar a:hover{text-decoration:underline}
+.frame-wrap{background:#0a0a0a;display:flex;align-items:center;justify-content:center;padding:12px;min-height:180px}
+.frame{transform-origin:top left;pointer-events:none}
+.ad-actions{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line2);flex-wrap:wrap}
+.ad-actions a{font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);color:var(--dim);text-decoration:none;background:var(--panel2)}
+.ad-actions a:hover{border-color:var(--amber);color:var(--amber)}
+/* scalable helpers */
+.scale-1080{width:1080px;height:1080px}
+.scale-story{width:1080px;height:1920px}
+.scale-628{width:1200px;height:628px}
+.scale-250{width:300px;height:250px}
+.scale-728{width:728px;height:90px}
+.scale-600{width:300px;height:600px}
+.scale-email{width:600px;height:760px}
+/* table */
+.tbl{width:100%;border-collapse:collapse;margin-top:12px}
+.tbl th{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--dim);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+.tbl td{padding:10px;border-bottom:1px solid var(--line2);font-size:13px;color:var(--dim)}
+.tbl td:first-child{color:var(--ink);font-weight:500}
+.tag{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(86,205,189,.12);color:var(--cyan);border:1px solid rgba(86,205,189,.2)}
+details{border:1px solid var(--line2);border-radius:8px;background:var(--panel);padding:14px 16px}
+details summary{cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center}
+details summary::-webkit-details-marker{display:none}
+details p,details ul{color:var(--dim);font-size:13px;margin-top:10px}
+details ul{padding-left:18px}
+footer{padding:28px 0;border-top:1px solid var(--line);color:var(--muted);font-family:var(--mono);font-size:10px}
+.foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<nav class="rail"><div class="wrap rail-inner">
+  <a class="wordmark" href="#top"><img src="./logo-sm.png" alt=""/><b>AGENTFLOW</b><i>/ ADS</i></a>
+  <div class="rail-nav">
+    <a href="#copy">Copy</a><a href="#previews">Previews</a><a href="#banners">Banners</a><a href="#social">Social</a><a href="#video">Video</a>
+    <a class="btn btn-amber" href="https://agentflow-hackathon.pages.dev" target="_blank">Go to the tool →</a>
+  </div>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap hero-grid">
+  <div>
+    <span class="eyebrow">AD STUDIO — ON BRAND • READY TO SCREENSHOT</span>
+    <h1>One canvas.<br><span class="a">You</span> wire it.<br><span class="c">Your agent</span> drives it.</h1>
+    <p class="lede">Every ad in this studio is built from the real AgentFlow design system — <b style="color:var(--ink)">#121110</b> + <b style="color:var(--amber)">amber #e8a33d</b> + <b style="color:var(--cyan)">cyan #56cdbd</b> + <b style="color:var(--ink)">Chakra Petch / Archivo / IBM Plex Mono</b>. No mockup tool. Just HTML you can open, screenshot, and ship.</p>
+    <div class="kit">
+      <span class="amber">◉ YOU — amber</span><span class="cyan">◉ AGENT — cyan</span>
+      <span>1080×1080</span><span>1080×1920</span><span>1200×628</span><span>300×250</span><span>728×90</span><span>300×600</span>
+      <span>600px email</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+      <a class="btn btn-amber" href="#previews">Browse creatives ↓</a>
+      <a class="btn btn-ghost" href="./copy.json" target="_blank">copy.json</a>
+      <a class="btn btn-ghost" href="https://github.com/Parithosh-Varma/agentflow-webmcp" target="_blank">source</a>
+    </div>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:10px">Tip: open any creative in a new tab → ⌘⇧4 / Share → Save as PNG at native size. Or use Chrome DevTools → Capture screenshot.</p>
+  </div>
+  <div class="card">
+    <div class="card-head"><span>BRAND SYSTEM</span><span class="chip">landing/index.html parity</span></div>
+    <div class="swatch-row">
+      <span class="swatch" style="background:#121110"><i>#121110 bg</i></span>
+      <span class="swatch" style="background:#1e1b18"><i>#1e1b18 panel</i></span>
+      <span class="swatch" style="background:#ede8dc"><i>#ede8dc ink</i></span>
+      <span class="swatch" style="background:#e8a33d"><i>#e8a33d amber</i></span>
+      <span class="swatch" style="background:#56cdbd"><i>#56cdbd cyan</i></span>
+      <span class="swatch" style="background:#8a806f"><i>#8a806f dim</i></span>
+    </div>
+    <div style="margin-top:28px;display:grid;gap:8px">
+      <div style="font-family:var(--display);font-weight:600">Chakra Petch — headlines & display</div>
+      <div style="font-family:var(--body)">Archivo — body & UI</div>
+      <div style="font-family:var(--mono);font-size:13px">IBM Plex Mono — labels, code, tags</div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <a class="btn btn-ghost" href="./creatives/square-dark.html" target="_blank">square-dark.html</a>
+      <a class="btn btn-ghost" href="./creatives/story.html" target="_blank">story.html</a>
+      <a class="btn btn-ghost" href="./creatives/og.html" target="_blank">og.html</a>
+    </div>
+  </div>
+</div></header>
+
+<section class="section" id="copy"><div class="wrap">
+  <span class="sec-kicker">COPY LIBRARY — PICK A LANE, SHIP IT</span>
+  <h2 class="sec-title">Headlines that hand off.</h2>
+  <p class="sec-desc">Awareness → Consideration → Conversion. Every line tested against the same canvas story: human feel, agent speed, same wires.</p>
+  <div class="grid3" style="margin-top:18px">
+    <div class="card"><div class="card-head"><span>AWARENESS</span><span class="chip">cold</span></div><div class="copy-line">The workflow builder<br>your agent can actually use.</div><div class="copy-sub">Stop screenshotting buttons. The page declares 19 tools — the browser mediates.</div><div style="margin-top:10px"><span class="chip">Hook: problem → mechanism</span></div></div>
+    <div class="card"><div class="card-head"><span>CONSIDERATION</span><span class="chip">warm</span></div><div class="copy-line">Amber is you.<br>Cyan is your agent.</div><div class="copy-sub">Drag, wire, RUN — or prompt “add a GitHub API call and run it” and watch signals march.</div><div style="margin-top:10px"><span class="chip">Hook: dual-operator demo</span></div></div>
+    <div class="card"><div class="card-head"><span>CONVERSION</span><span class="chip">hot</span></div><div class="copy-line">Open the instrument.<br>Bring your agent.</div><div class="copy-sub">No signup. Runs in your browser. Autosaves locally — persists when you sign in.</div><div style="margin-top:10px"><span class="chip">Hook: zero-friction CTA</span></div></div>
+  </div>
+  <div class="grid2" style="margin-top:18px">
+    <div class="card"><div class="card-head"><span>MORE HEADLINES</span><a class="chip" href="./copy.json" target="_blank">copy.json →</a></div>
+      <ul style="list-style:none;display:grid;gap:8px;margin-top:8px">
+        <li style="font-family:var(--display);font-weight:600">One canvas. Two operators. <span style="color:var(--dim);font-weight:400;font-family:var(--mono);font-size:12px">— hero lockup</span></li>
+        <li style="font-family:var(--display);font-weight:600">Drag. Wire. Let your agent run it.</li>
+        <li style="font-family:var(--display);font-weight:600">Built for the hand-off moment.</li>
+        <li style="font-family:var(--display);font-weight:600">19 tools. One shared canvas.</li>
+        <li style="font-family:var(--mono);font-size:12px;color:var(--dim)">+ 3 more in copy.json</li>
+      </ul>
+    </div>
+    <div class="card"><div class="card-head"><span>CTAS — ALWAYS AMBER, ALWAYS →</span><span class="chip">tested</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <span style="background:var(--amber);color:#201a10;font-family:var(--display);font-weight:600;padding:8px 14px;border-radius:6px;font-size:13px">Go to the tool →</span>
+        <span style="border:1px solid var(--line);padding:8px 14px;border-radius:6px;font-family:var(--mono);font-size:12px;color:var(--dim)">Open the canvas</span>
+        <span style="border:1px solid var(--line);padding:8px 14px;border-radius:6px;font-family:var(--mono);font-size:12px;color:var(--dim)">Try it live — no signup</span>
+        <span style="border:1px solid var(--line);padding:8px 14px;border-radius:6px;font-family:var(--mono);font-size:12px;color:var(--dim)">Watch signals march</span>
+      </div>
+      <p class="copy-sub" style="margin-top:10px">Rule: primary CTA is always amber + arrow. Ghost CTAs are mono, dim → cyan on hover.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <div class="card-head"><span>GOOGLE SEARCH ADS — 3 VARIANTS</span><span class="chip">RSA ready</span></div>
+    <table class="tbl">
+      <tr><th>Campaign</th><th>Headlines (30c)</th><th>Descriptions (90c)</th><th>Path</th></tr>
+      <tr><td>WebMCP Builder</td><td>Visual Workflow Builder / Your Agent Can Use / WebMCP Native</td><td>Drag 15 modules, wire pins, press RUN. Or prompt your agent with real browser tools.</td><td>canvas / webmcp</td></tr>
+      <tr><td>AgentFlow Brand</td><td>AgentFlow — WebMCP / One Canvas. Two Operators. / Human × Agent Instrument</td><td>19 tools: add_node, connect_nodes, execute_workflow. Same engine, same wires.</td><td>workflow / builder</td></tr>
+      <tr><td> Challenger</td><td>Stop Screenshotting Buttons / Start Declaring Tools / WebMCP Visual Builder</td><td>Your agent sees the canvas through tools, not pixels. Amber=you, cyan=agent.</td><td>webmcp / demo</td></tr>
+    </table>
+    <p class="copy-sub">Final URL for all: <span class="mono" style="color:var(--cyan)">agentflow-hackathon.pages.dev</span> — add utm_source / utm_campaign per channel.</p>
+  </div>
+</div></section>
+
+<section class="section" id="previews"><div class="wrap">
+  <span class="sec-kicker">CREATIVES — SQUARE FEED (1080×1080)</span>
+  <h2 class="sec-title">Screenshot these. They’re already the right size.</h2>
+  <p class="sec-desc">Each card is a live iframe at ~0.28 scale. Click “open” to get the native 1080×1080 file and capture at full res. Background is #121110 — transparent hero compatible.</p>
+  <div class="previews" style="margin-top:18px">
+    <div class="preview">
+      <div class="preview-bar"><b>1080×1080 — DARK INSTRUMENT</b><a href="./creatives/square-dark.html" target="_blank">open ↗</a></div>
+      <div class="frame-wrap" style="height:320px;overflow:hidden"><iframe class="frame" src="./creatives/square-dark.html" style="width:1080px;height:1080px;transform:scale(0.28);border:0" loading="lazy"></iframe></div>
+      <div class="ad-actions"><a href="./creatives/square-dark.html" target="_blank">Open full size</a><a href="./creatives/square-amber.html" target="_blank">Variant: amber</a><a href="./creatives/square-cyan.html" target="_blank">Variant: cyan</a></div>
+    </div>
+    <div class="preview">
+      <div class="preview-bar"><b>1080×1080 — AMBER SIGNAL</b><a href="./creatives/square-amber.html" target="_blank">open ↗</a></div>
+      <div class="frame-wrap" style="height:320px;overflow:hidden"><iframe class="frame" src="./creatives/square-amber.html" style="width:1080px;height:1080px;transform:scale(0.28);border:0" loading="lazy"></iframe></div>
+      <div class="ad-actions"><a href="./creatives/square-amber.html" target="_blank">Open full size</a><span class="chip">STOP SCROLL — high contrast</span></div>
+    </div>
+    <div class="preview">
+      <div class="preview-bar"><b>1080×1080 — CYAN AGENT</b><a href="./creatives/square-cyan.html" target="_blank">open ↗</a></div>
+      <div class="frame-wrap" style="height:320px;overflow:hidden"><iframe class="frame" src="./creatives/square-cyan.html" style="width:1080px;height:1080px;transform:scale(0.28);border:0" loading="lazy"></iframe></div>
+      <div class="ad-actions"><a href="./creatives/square-cyan.html" target="_blank">Open full size</a><span class="chip">for dev / AI audiences</span></div>
+    </div>
+  </div>
+  <div class="previews" style="margin-top:18px">
+    <div class="preview">
+      <div class="preview-bar"><b>1080×1920 — STORY / REEL COVER</b><a href="./creatives/story.html" target="_blank">open ↗</a></div>
+      <div class="frame-wrap" style="height:420px;overflow:hidden"><iframe class="frame" src="./creatives/story.html" style="width:1080px;height:1920px;transform:scale(0.28);border:0" loading="lazy"></iframe></div>
+      <div class="ad-actions"><a href="./creatives/story.html" target="_blank">Open full size</a><span class="chip">IG / TikTok / YT Shorts</span></div>
+    </div>
+    <div class="preview">
+      <div class="preview-bar"><b>1200×628 — OG / LINKEDIN / X</b><a href="./creatives/og.html" target="_blank">open ↗</a></div>
+      <div class="frame-wrap" style="height:260px;overflow:hidden"><iframe class="frame" src="./creatives/og.html" style="width:1200px;height:628px;transform:scale(0.28);border:0" loading="lazy"></iframe></div>
+      <div class="ad-actions"><a href="./creatives/og.html" target="_blank">Open full size</a><span class="chip">link preview + promoted</span></div>
+    </div>
+    <div class="preview">
+      <div class="preview-bar"><b>600×760 — EMAIL HERO</b><a href="./creatives/email.html" target="_blank">open ↗</a></div>
+      <div class="frame-wrap" style="height:320px;overflow:hidden;background:#0f0e0d"><iframe class="frame" src="./creatives/email.html" style="width:600px;height:760px;transform:scale(0.5);border:0" loading="lazy"></iframe></div>
+      <div class="ad-actions"><a href="./creatives/email.html" target="_blank">Open full size</a><span class="chip">600px email template</span></div>
+    </div>
+  </div>
+</div></section>
+
+<section class="section" id="banners"><div class="wrap">
+  <span class="sec-kicker">DISPLAY BANNERS — GOOGLE DISPLAY NETWORK READY</span>
+  <h2 class="sec-title">HTML banners. Screenshot or export to images.</h2>
+  <p class="sec-desc">Standard IAB sizes. Dark instrument theme with animated signal line. Replace screenshots with real canvas capture when you have one.</p>
+  <div class="previews" style="margin-top:18px">
+    <div class="preview">
+      <div class="preview-bar"><b>300×250 — MEDIUM RECTANGLE</b><a href="./creatives/banner-300x250.html" target="_blank">open ↗</a></div>
+      <div class="frame-wrap"><iframe src="./creatives/banner-300x250.html" style="width:300px;height:250px;border:0" loading="lazy"></iframe></div>
+      <div class="ad-actions"><a href="./creatives/banner-300x250.html" target="_blank">Open</a><span class="chip">best performer</span></div>
+    </div>
+    <div class="preview">
+      <div class="preview-bar"><b>728×90 — LEADERBOARD</b><a href="./creatives/banner-728x90.html" target="_blank">open ↗</a></div>
+      <div class="frame-wrap"><iframe src="./creatives/banner-728x90.html" style="width:728px;height:90px;border:0;transform:scale(0.6);transform-origin:center" loading="lazy"></iframe></div>
+      <div class="ad-actions"><a href="./creatives/banner-728x90.html" target="_blank">Open</a><span class="chip">top / bottom slot</span></div>
+    </div>
+    <div class="preview">
+      <div class="preview-bar"><b>300×600 — HALF PAGE</b><a href="./creatives/banner-300x600.html" target="_blank">open ↗</a></div>
+      <div class="frame-wrap" style="height:420px"><iframe src="./creatives/banner-300x600.html" style="width:300px;height:600px;border:0;transform:scale(0.65);transform-origin:top center" loading="lazy"></iframe></div>
+      <div class="ad-actions"><a href="./creatives/banner-300x600.html" target="_blank">Open</a><span class="chip">sidebar premium</span></div>
+    </div>
+  </div>
+  <details style="margin-top:18px"><summary>How to export banners to PNG / GIF <span style="color:var(--dim)">▸</span></summary>
+    <ul>
+      <li>Open the banner file (e.g. <code>banner-300x250.html</code>) in Chrome at 100% zoom.</li>
+      <li>DevTools → <code>⌘⇧P</code> → “Capture screenshot” → it saves at native devicePixelRatio. Or use this studio’s iframes + OS screenshot cropped to frame.</li>
+      <li>For animated GIF: record the page with QuickTime / ScreenFlow, trim to 6s loop (signal march), export GIF.</li>
+      <li>Upload to Google Ads → Display → Uploaded display ads → drag PNGs.</li>
+    </ul>
+  </details>
+</div></section>
+
+<section class="section" id="social"><div class="wrap">
+  <span class="sec-kicker">SOCIAL — COPY & PASTE</span>
+  <h2 class="sec-title">LinkedIn, X, Product Hunt — ready to post.</h2>
+  <div class="grid2" style="margin-top:18px">
+    <div class="card">
+      <div class="card-head"><span>LINKEDIN</span><span class="tag">awareness</span></div>
+      <pre style="white-space:pre-wrap;font-family:var(--body);font-size:13px;color:var(--dim);margin-top:8px">One canvas. Two operators.
+
+I built AgentFlow — a visual workflow instrument where you AND your browser agent build the same machine.
+
+You drag, wire, press RUN (amber). Your agent calls add_node → connect_nodes → execute_workflow (cyan) and you watch signals march across the same wires.
+
+No DOM scraping. The page declares 19 WebMCP tools, the browser mediates.
+
+→ Try live (no signup): https://agentflow-hackathon.pages.dev
+→ Landing: https://agentflow-landing.pages.dev
+
+Built for the WebMCP Hackathon. MIT open source.
+
+#WebMCP #AI #WorkflowAutomation #BuildInPublic</pre>
+      <a class="btn btn-ghost" style="margin-top:10px" href="#" onclick="navigator.clipboard.writeText(this.nextElementSibling?.textContent||'');return false">Copy</a><span style="display:none">One canvas. Two operators.
+
+I built AgentFlow — a visual workflow instrument where you AND your browser agent build the same machine.
+
+You drag, wire, press RUN (amber). Your agent calls add_node → connect_nodes → execute_workflow (cyan) and you watch signals march across the same wires.
+
+No DOM scraping. The page declares 19 WebMCP tools, the browser mediates.
+
+→ Try live (no signup): https://agentflow-hackathon.pages.dev
+→ Landing: https://agentflow-landing.pages.dev
+
+Built for the WebMCP Hackathon. MIT open source.
+
+#WebMCP #AI #WorkflowAutomation #BuildInPublic</span>
+    </div>
+    <div class="card">
+      <div class="card-head"><span>X / TWITTER — 5-TWEET THREAD</span><span class="tag">launch</span></div>
+      <ol style="display:grid;gap:10px;margin-top:8px;padding-left:18px;color:var(--dim);font-size:13px">
+        <li>One canvas. Two operators. 🎛️<br>I built <b style="color:var(--ink)">AgentFlow</b> — a workflow builder where you and your browser agent operate the SAME machine.</li>
+        <li>You: drag modules, wire pins, press RUN → amber signals<br>Agent: add_node → connect_nodes → execute_workflow → cyan<br>Same wires. Same engine. No screenshots.</li>
+        <li>19 WebMCP tools declared by the page, mediated by the browser. Chrome (chrome://flags → WebMCP) + ChatGPT in-app.<br><br>No DOM scraping. No guessing buttons.</li>
+        <li>15 typed modules: API Call, Transform, Condition, AI, Delay… Grid-snapped, DAG-executed in topological order.<br>Runs in your browser. Autosaves locally. No signup.</li>
+        <li>Try it live → agentflow-hackathon.pages.dev<br>Landing → agentflow-landing.pages.dev<br>Source → github.com/Parithosh-Varma/agentflow-webmcp<br>MIT. Built for the WebMCP Hackathon.</li>
+      </ol>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <div class="card-head"><span>PRODUCT HUNT — TAGLINE + FIRST COMMENT</span><span class="chip">PH ready</span></div>
+    <p style="margin-top:8px;font-family:var(--display);font-weight:600">One canvas. Two operators. — The workflow builder your agent can actually use.</p>
+    <p class="copy-sub">AgentFlow is a visual workflow instrument where you and your browser agent build the same machine. Drag 15 modules, wire them, press RUN — or tell your agent “Add an API Call and run it” and watch amber → cyan signals march across the same wires. 19 WebMCP tools, no DOM scraping, runs in your browser.</p>
+    <details style="margin-top:12px"><summary>First comment template</summary><p>Hey hunters! 👋 I built AgentFlow for the WebMCP Hackathon.<br><br>Problem: Visual builders treat agents as second-class — agents must screenshot and guess buttons.<br>Solution: AgentFlow declares 19 structured WebMCP tools. Any WebMCP agent can add_node, connect_nodes, execute_workflow — same engine you use.<br><br>Try it with zero signup: https://agentflow-hackathon.pages.dev — enable WebMCP in Chrome: chrome://flags → WebMCP → Enabled<br>Ask your agent: “Add a GitHub API Call, connect it to Start, and run”<br>Would love feedback!</p></details>
+  </div>
+</div></section>
+
+<section class="section" id="video"><div class="wrap">
+  <span class="sec-kicker">VIDEO — 30S STORYBOARD</span>
+  <h2 class="sec-title">One shoot. Three cuts: 30s / 15s / 6s bumper.</h2>
+  <div class="grid2" style="margin-top:18px">
+    <div class="card"><div class="card-head"><span>BEAT SHEET</span><span class="chip">30s</span></div>
+      <table class="tbl">
+        <tr><th>Time</th><th>Visual</th><th>VO</th></tr>
+        <tr><td class="mono">0–3s</td><td>Black → amber LED pulsing. “One canvas.”</td><td>One canvas.</td></tr>
+        <tr><td class="mono">3–7s</td><td>Human dragging modules on grid, wiring Start → API → Transform</td><td>You wire it — drag, connect, feel the flow take shape.</td></tr>
+        <tr><td class="mono">7–12s</td><td>Agent ToolLog: add_node, connect_nodes, cyan signals</td><td>Your agent drives it — same canvas, same tools, no guessing.</td></tr>
+        <tr><td class="mono">12–18s</td><td>Amber → cyan signals marching, LEDs lighting</td><td>Amber is you. Cyan is your agent. Watch every signal march.</td></tr>
+        <tr><td class="mono">18–24s</td><td>RUN pressed, DAG executes, outputs appear</td><td>Fifteen modules. Nineteen tools. One shared engine.</td></tr>
+        <tr><td class="mono">24–30s</td><td>Logo + amber “Go to the tool →” on dark panel</td><td>AgentFlow. Open the instrument.</td></tr>
+      </table>
+      <p class="copy-sub">Cuts: 15s = beats 1+3+6. 6s bumper = amber→cyan march + logo + CTA.</p>
+    </div>
+    <div class="card"><div class="card-head"><span>PRODUCTION NOTES</span><span class="chip">spec</span></div>
+      <ul style="padding-left:18px;color:var(--dim);font-size:13px;display:grid;gap:8px;margin-top:8px">
+        <li><b style="color:var(--ink)">Capture:</b> Screen record canvas at 1920×1080, 60fps. Use real AgentFlow — don’t mock the wires.</li>
+        <li><b style="color:var(--ink)">Type:</b> Chakra Petch titles, Mono labels. Amber #e8a33d / Cyan #56cdbd — never mix operators’ colors.</li>
+        <li><b style="color:var(--ink)">Sound:</b> Subtle tick per LED, soft whoosh per signal. No music-bed that drowns VO.</li>
+        <li><b style="color:var(--ink)">Export:</b> 1080×1080 (feed), 1080×1920 (story), 1920×1080 (YT). H.264, 12–15 Mbps.</li>
+        <li><b style="color:var(--ink)">CTA end card:</b> 2.5s hold: “Go to the tool →” + “No signup — runs in your browser” + URL bottom in mono.</li>
+      </ul>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><span class="chip">1080×1080</span><span class="chip">1080×1920</span><span class="chip">1920×1080</span><span class="chip">Captions: SRT included in copy.json</span></div>
+    </div>
+  </div>
+</div></section>
+
+<section class="section"><div class="wrap">
+  <span class="sec-kicker">QUICK START — MAKE YOUR FIRST AD IN 60 SECONDS</span>
+  <div class="grid3" style="margin-top:12px">
+    <div class="card"><div class="card-head"><span>01</span><span class="chip">pick</span></div><div class="copy-line">Pick a creative above.</div><p class="copy-sub">Square-dark for cold, amber for stop-scroll, cyan for devs.</p></div>
+    <div class="card"><div class="card-head"><span>02</span><span class="chip">open</span></div><div class="copy-line">Open → screenshot.</div><p class="copy-sub">Click “open ↗” → Chrome → ⌘⇧P → Capture screenshot (full size).</p></div>
+    <div class="card"><div class="card-head"><span>03</span><span class="chip">ship</span></div><div class="copy-line">Upload + pair with copy.</div><p class="copy-sub">Drop PNG into Meta / X / LinkedIn + paste headline + CTA.</p></div>
+  </div>
+  <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:12px">All creatives are static HTML — no build step. Edit text directly in creatives/*.html. Colors and fonts are CSS variables at :root.</p>
+</div></section>
+
+<footer><div class="wrap foot"><span>AGENTFLOW ADS — MIT · Built from landing/index.html + dashboard.html design system</span><span><a href="https://agentflow-hackathon.pages.dev">app</a> · <a href="https://agentflow-landing.pages.dev">landing</a> · <a href="https://github.com/Parithosh-Varma/agentflow-webmcp">source</a></span></div></footer>
+</body>
+</html>

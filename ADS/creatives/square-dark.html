@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=1080"/>
+<title>AF — Square Dark</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121110;--panel:#1e1b18;--panel2:#262220;--line:#3a342e;--ink:#ede8dc;--dim:#8a806f;--amber:#e8a33d;--cyan:#56cdbd;--display:'Chakra Petch',sans-serif;--body:'Archivo',sans-serif;--mono:'IBM Plex Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1080px;background:var(--bg);color:var(--ink);font-family:var(--body);overflow:hidden}
+.wrap{width:1080px;height:1080px;padding:48px 52px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.wrap::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(to right,#211c16 0 1px,transparent 1px 26px),repeating-linear-gradient(to bottom,#211c16 0 1px,transparent 1px 26px);opacity:.35;pointer-events:none}
+.top{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center}
+.brand{font-family:var(--display);font-weight:700;letter-spacing:.14em;font-size:13px;color:var(--ink);display:flex;align-items:center;gap:10px}
+.brand i{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);display:inline-block}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);border:1px solid var(--line);padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.03)}
+h1{position:relative;z-index:1;font-family:var(--display);font-weight:700;font-size:78px;line-height:.95;letter-spacing:-.02em;margin-top:14px}
+h1 .you{color:var(--amber)} h1 .agent{color:var(--cyan)}
+.sub{position:relative;z-index:1;color:var(--dim);font-size:20px;line-height:1.5;max-width:640px;margin-top:18px}
+.sub strong{color:var(--ink);font-weight:500}
+.schematic{position:relative;z-index:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 16px;margin-top:28px}
+.schematic svg{width:100%;height:auto;display:block}
+.wire{stroke:#3a342e;stroke-width:1.8;fill:none}
+.sig{stroke-dasharray:6 8;animation:march 1.1s linear infinite}
+.sig-a{stroke:var(--amber)} .sig-b{stroke:var(--cyan)}
+@keyframes march{to{stroke-dashoffset:-14}}
+.mod-rect{fill:#262220;stroke:#3a342e}
+.mod-label{font-family:var(--mono);font-size:11px;fill:var(--ink);letter-spacing:.08em}
+.mod-type{font-family:var(--mono);font-size:8px;fill:var(--dim);letter-spacing:.18em}
+.led-ring{fill:none;stroke:#3a342e;stroke-width:1.6}
+.cta-row{position:relative;z-index:1;display:flex;gap:14px;align-items:center;margin-top:28px}
+.btn-amber{background:var(--amber);color:#201a10;font-family:var(--display);font-weight:700;letter-spacing:.06em;padding:16px 26px;border-radius:8px;font-size:16px;text-decoration:none}
+.btn-ghost{font-family:var(--mono);font-size:13px;color:var(--dim);text-decoration:none;border:1px solid var(--line);padding:14px 18px;border-radius:8px}
+.foot{position:relative;z-index:1;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.06em;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="top"><span class="brand"><i></i> AGENTFLOW</span><span class="tag">WEBMCP WORKFLOW INSTRUMENT</span></div>
+    <h1>One canvas.<br><span class="you">You</span> wire it.<br><span class="agent">Your agent</span> drives it.</h1>
+    <p class="sub">Drag 15 modules, wire pins, press <strong>RUN</strong> — or tell your browser agent to call <strong>add_node → connect_nodes → execute_workflow</strong> and watch signals march.</p>
+    <div class="schematic">
+      <svg viewBox="0 0 520 168" role="img">
+        <path class="wire" d="M148 44 H210"/><path class="wire sig sig-a" d="M148 44 H210"/>
+        <path class="wire" d="M332 44 H388 V84 H272"/><path class="wire sig sig-b" d="M332 44 H388 V84 H272"/>
+        <path class="wire" d="M148 124 H210"/><path class="wire sig sig-b" d="M148 124 H210"/>
+        <path class="wire" d="M332 124 H388 V84 H272"/>
+        <g><rect x="52" y="22" width="96" height="44" rx="8" class="mod-rect"/><circle class="led-ring" cx="134" cy="32" r="3" fill="#e8a33d"/><text class="mod-type" x="64" y="38">API CALL</text><text class="mod-label" x="64" y="54">fetch</text></g>
+        <g><rect x="210" y="22" width="122" height="44" rx="8" class="mod-rect"/><circle class="led-ring" cx="318" cy="32" r="3" fill="#56cdbd"/><text class="mod-type" x="222" y="38">TRANSFORM</text><text class="mod-label" x="222" y="54">reshape</text></g>
+        <g><rect x="242" y="62" width="96" height="44" rx="8" class="mod-rect"/><circle class="led-ring" cx="324" cy="72" r="3" fill="#ede8dc"/><text class="mod-type" x="254" y="80">OUTPUT</text><text class="mod-label" x="254" y="96">webhook</text></g>
+        <g><rect x="52" y="102" width="96" height="44" rx="8" class="mod-rect"/><circle class="led-ring" cx="134" cy="112" r="3"/><text class="mod-type" x="64" y="120">DELAY</text><text class="mod-label" x="64" y="136">wait 5s</text></g>
+        <g><rect x="210" y="102" width="122" height="44" rx="8" class="mod-rect"/><circle class="led-ring" cx="318" cy="112" r="3"/><text class="mod-type" x="222" y="120">CONDITION</text><text class="mod-label" x="222" y="136">if ready</text></g>
+        <text class="mod-type" x="52" y="164" style="fill:#56cdbd">AGENT: add_node · connect_nodes · run</text>
+        <text class="mod-type" x="360" y="164" style="fill:#e8a33d">YOU: drag · wire · press RUN</text>
+      </svg>
+    </div>
+  </div>
+  <div>
+    <div class="cta-row"><a class="btn-amber" href="https://agentflow-hackathon.pages.dev">Go to the tool →</a><span class="btn-ghost">No signup — runs in your browser</span></div>
+    <div class="foot"><span>19 WEBMCP TOOLS · DAG · GRID-SNAPPED</span><span>agentflow-hackathon.pages.dev</span></div>
+  </div>
+</div>
+</body>
+</html>

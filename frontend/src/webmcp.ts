@@ -24,13 +24,61 @@ interface WebMCPContext {
 const mutationHistory: Array<{ nodes: Node[]; edges: Edge[]; label: string; at: string }> = [];
 const redoStack: Array<{ nodes: Node[]; edges: Edge[]; label: string; at: string }> = [];
 const MAX_HISTORY = 50;
+// Module-level last execution result — survives re-registration. App.tsx passes a
+// fresh ctx object on every nodes/edges change and never passes lastResultRef, so a
+// per-registration ref would be wiped on any canvas mutation (execution blindness).
+const persistedLastResult: { current: any | null } = { current: null };
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor as typeof Function;
 
+// Local helpers replacing missing engine exports
+function hasCycle(nodes: any[], edges: any[]): boolean {
+  const adj = new Map<string, string[]>();
+  nodes.forEach(n => adj.set(n.id, []));
+  edges.forEach(e => { if (adj.has(e.source)) adj.get(e.source)!.push(e.target); });
+  const visited = new Set<string>();
+  const stack = new Set<string>();
+  const dfs = (id: string): boolean => {
+    if (stack.has(id)) return true;
+    if (visited.has(id)) return false;
+    visited.add(id);
+    stack.add(id);
+    for (const nb of adj.get(id) || []) { if (dfs(nb)) return true; }
+    stack.delete(id);
+    return false;
+  };
+  for (const n of nodes) { if (dfs(n.id)) return true; }
+  return false;
+}
+function findDuplicateIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const dup = new Set<string>();
+  for (const id of ids) { if (seen.has(id)) dup.add(id); else seen.add(id); }
+  return Array.from(dup);
+}
+function remapWorkflowIds(nodes: any[], edges: any[]) {
+  const idMap = new Map<string, string>();
+  const newNodes = nodes.map(n => {
+    const newId = `node_${uuidv4().slice(0, 8)}`;
+    idMap.set(n.id, newId);
+    return { ...n, id: newId };
+  });
+  const newEdges = edges.map(e => ({
+    ...e,
+    id: `edge_${uuidv4().slice(0, 8)}`,
+    source: idMap.get(e.source) ?? e.source,
+    target: idMap.get(e.target) ?? e.target,
+  }));
+  return { nodes: newNodes, edges: newEdges };
+}
+
 export function registerWebMCPTools(ctx: WebMCPContext): () => void {
+  // Abort any previous registration to avoid leaking AbortControllers
+  const prevCleanup = (window as any).__agentflowCleanup;
+  if (typeof prevCleanup === 'function') { try { prevCleanup(); } catch {} }
   const controllers: AbortController[] = [];
-  // persistent last result for trace inspection (#8, #4)
-  const lastResultRef: { current: any | null } = (ctx.lastResultRef as any) || { current: null };
-  if (!ctx.lastResultRef) (ctx as any).lastResultRef = lastResultRef;
+  // persistent last result for trace inspection (#8, #4) — shared across re-registrations
+  const lastResultRef: { current: any | null } = persistedLastResult;
+  (ctx as any).lastResultRef = lastResultRef;
   const snapshot = () => ({
     nodes: JSON.parse(JSON.stringify(ctx.nodesRef.current)),
     edges: JSON.parse(JSON.stringify(ctx.edgesRef.current)),
@@ -93,6 +141,13 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     aws_s3: ['url', 'webhookUrl', 'endpoint', 'method', 'headers', 'body', 'payload'],
     openai: ['prompt', 'message', 'model', 'apiKey'],
   };
+  // Global advanced-tab keys (NodePopover Advanced/Output tabs) — valid on any node, never warn
+  const GLOBAL_CONFIG_KEYS: string[] = [
+    'enabled', 'continueOnError', 'tags', 'selectedFields', 'columns',
+    'kvPairs', 'headersMap', 'fieldMap', 'headers',
+    'timeoutMs', 'retries', 'advancedJson', 'codeAdvanced', 'verbose',
+    'conditionExpr', 'outputMode', 'outputSchema', 'sampleOutput', 'outputMap',
+  ];
   function getCustomKnownKeys(): Record<string,string[]> {
     try {
       const raw = localStorage.getItem('agentflow_custom_nodes_v1');
@@ -277,6 +332,17 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
         ctx.addToolLog('connect_nodes', { sourceNodeId: src, targetNodeId: tgt }, result);
         return JSON.stringify(result);
       }
+      if (src === tgt) {
+        const result = { success: false, error: `Self-loop not allowed: ${src} → ${tgt}` };
+        ctx.addToolLog('connect_nodes', { sourceNodeId: src, targetNodeId: tgt }, result);
+        return JSON.stringify(result);
+      }
+      const existing = ctx.edgesRef.current.find(e => e.source === src && e.target === tgt && e.label === (label || ''));
+      if (existing) {
+        const result = { success: true, edgeId: existing.id, message: `Already connected ${src} → ${tgt}` };
+        ctx.addToolLog('connect_nodes', { sourceNodeId: src, targetNodeId: tgt }, result);
+        return JSON.stringify(result);
+      }
       pushHistory(`connect:${src}->${tgt}`);
       // local push if target is upstream of source
       ctx.setNodes((nds: Node[]) =>
@@ -406,7 +472,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     },
     execute: async ({ nodeId }: any) => {
       const node = ctx.nodesRef.current.find((n) => n.id === nodeId);
-      if (!node) return JSON.stringify({ error: 'Node not found' });
+      if (!node) return JSON.stringify({ success: false, error: `Node not found: ${nodeId}. Use find_nodes or get_workflow_status to discover IDs.` });
       const connections = ctx.edgesRef.current.filter((e) => e.source === nodeId || e.target === nodeId);
       const result = {
         node: { id: node.id, type: node.data?.nodeType, label: node.data?.label, config: node.data?.config },
@@ -438,7 +504,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
           const matches = ctx.nodesRef.current.filter(n => String(n.data?.label || '').toLowerCase().includes(String(label).toLowerCase()));
           if (matches.length === 1) resolvedId = matches[0].id;
           else if (matches.length > 1) {
-            const result = { success: false, error: `Label "${label}" matches ${matches.length} nodes: ${matches.map(m=>`${m.id}(${m.data?.label})`).join(', ')}. Use exact nodeId.` };
+            const result = { success: false, error: `Label "${label}" matches ${matches.length} nodes: ${matches.map(m=>`${m.id}(${(m.data as any)?.nodeType}:"${m.data?.label}")`).join(', ')}. Use exact nodeId.` };
             ctx.addToolLog('update_node_config', { nodeId, label, config }, result);
             return JSON.stringify(result);
           }
@@ -455,7 +521,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       const customKeys = getCustomKnownKeys();
       const isCustom = isCustomTypeWebMCP(nodeType);
       const known = KNOWN_CONFIG_KEYS[nodeType] || customKeys[nodeType] || [];
-      const unknownKeys = (!isCustom && known.length) ? Object.keys(config || {}).filter(k => !known.includes(k)) : (isCustom && known.length ? Object.keys(config || {}).filter(k => !known.includes(k)) : []);
+      const unknownKeys = (!isCustom && known.length) ? Object.keys(config || {}).filter(k => !known.includes(k) && !GLOBAL_CONFIG_KEYS.includes(k)) : (isCustom && known.length ? Object.keys(config || {}).filter(k => !known.includes(k) && !GLOBAL_CONFIG_KEYS.includes(k)) : []);
       const warnings = unknownKeys.length ? [`Unknown keys for ${nodeType}: ${unknownKeys.join(', ')}. Known: ${known.join(', ')||'(none)'}. They will be stored but ignored at runtime.`] : [];
       pushHistory(`update:${resolvedId}`);
       ctx.setNodes((nds: Node[]) =>
@@ -532,6 +598,10 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
         if (!engineNodes.find((n) => n.id === e.target))
           errors.push(`wire references missing target ${e.target}`);
       });
+      for (const id of findDuplicateIds(engineNodes.map((n) => n.id)))
+        errors.push(`duplicate node id ${id} — re-import with merge or delete the copy`);
+      if (hasCycle(engineNodes, engineEdges))
+        errors.push('Circular dependency detected — remove the loop before running');
       const result = { valid: errors.length === 0 && engineNodes.length > 0, errors };
       ctx.addToolLog('validate_workflow', {}, result);
       return JSON.stringify(result);
@@ -553,7 +623,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
         if (label) {
           const matches = ctx.nodesRef.current.filter(n => String(n.data?.label||'').toLowerCase().includes(String(label).toLowerCase()));
           if (matches.length === 1) resolvedId = matches[0].id;
-          else if (matches.length > 1) return JSON.stringify({ success:false, error:`Label "${label}" ambiguous: ${matches.map(m=>m.id).join(', ')}`});
+          else if (matches.length > 1) return JSON.stringify({ success:false, error:`Label "${label}" ambiguous: ${matches.map(m=>`${m.id}(${(m.data as any)?.nodeType}:"${m.data?.label}")`).join(', ')}. Use exact nodeId.`});
         }
       }
       const node = ctx.nodesRef.current.find((n) => n.id === resolvedId);
@@ -701,7 +771,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
         if (label) {
           const m = ctx.nodesRef.current.filter(n=>String(n.data?.label||'').toLowerCase().includes(String(label).toLowerCase()));
           if (m.length===1) resolvedId=m[0].id;
-          else if (m.length>1) return JSON.stringify({success:false, error:`Label "${label}" matches ${m.length} nodes`});
+          else if (m.length>1) return JSON.stringify({success:false, error:`Label "${label}" matches ${m.length} nodes: ${m.map(x=>`${x.id}(${(x.data as any)?.nodeType}:"${x.data?.label}")`).join(', ')}. Use exact nodeId.`});
         }
       }
       const node = ctx.nodesRef.current.find((n) => n.id === resolvedId);
@@ -798,11 +868,21 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       },
     },
     execute: async ({ pretty = true }: any) => {
+      let customNodes: any[] = [];
+      try {
+        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('agentflow_custom_nodes_v1') : null;
+        if (raw) {
+          const all = JSON.parse(raw);
+          const used = new Set(ctx.nodesRef.current.map((n) => (n.data as any)?.nodeType));
+          customNodes = (Array.isArray(all) ? all : []).filter((c: any) => used.has(c.type));
+        }
+      } catch {}
       const data = {
         version: 1,
         exportedAt: new Date().toISOString(),
         nodes: ctx.nodesRef.current,
         edges: ctx.edgesRef.current,
+        customNodes,
       };
       const json = pretty ? JSON.stringify(data, null, 2) : JSON.stringify(data);
       const result = { success: true, json, byteLength: json.length };
@@ -827,15 +907,49 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       try {
         const data = JSON.parse(json);
         if (!data.nodes || !data.edges) return JSON.stringify({ success: false, error: 'Invalid workflow JSON: missing nodes/edges' });
+        // Restore bundled custom-node defs so re-import elsewhere doesn't orphan custom_ nodes
+        let restoredCustomNodes = 0;
+        try {
+          const bundled = Array.isArray(data.customNodes) ? data.customNodes : [];
+          if (bundled.length && typeof localStorage !== 'undefined') {
+            const raw = localStorage.getItem('agentflow_custom_nodes_v1');
+            const existing: any[] = raw ? JSON.parse(raw) : [];
+            const have = new Set(existing.map((c: any) => c.type));
+            let changed = false;
+            for (const def of bundled) {
+              if (def?.type && !have.has(def.type)) { existing.push(def); have.add(def.type); restoredCustomNodes++; changed = true; }
+            }
+            if (changed) {
+              localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(existing));
+              try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', { detail: existing })); } catch {}
+            }
+          }
+        } catch {}
+        const isStart = (n: any) => (n.data?.nodeType === 'start' || n.data?.nodeType === 'manual_trigger' || n.type === 'startNode');
+        const existingStarts = ctx.nodesRef.current.filter(isStart).length;
+        const importedStarts = (data.nodes as any[]).filter(isStart).length;
         pushHistory(`import:${merge?'merge':'replace'}:${data.nodes.length}nodes`);
         if (merge) {
-          ctx.setNodes((nds: Node[]) => [...nds, ...data.nodes]);
-          ctx.setEdges((eds: Edge[]) => [...eds, ...data.edges]);
+          // Remap ids so merged nodes never collide with existing ones (duplicate ids corrupt engine lookups)
+          const remapped = remapWorkflowIds(data.nodes, data.edges);
+          // Avoid duplicate Start nodes when merging into a canvas that already has one
+          let mergeNodes = remapped.nodes;
+          let mergeEdges = remapped.edges;
+          if (existingStarts > 0) {
+            const startIds = new Set(mergeNodes.filter(isStart).map(n => n.id));
+            mergeNodes = mergeNodes.filter(n => !isStart(n));
+            mergeEdges = mergeEdges.filter(e => !startIds.has(e.source) && !startIds.has(e.target));
+          }
+          ctx.setNodes((nds: Node[]) => [...nds, ...mergeNodes]);
+          ctx.setEdges((eds: Edge[]) => [...eds, ...mergeEdges]);
         } else {
           ctx.setNodes(data.nodes);
           ctx.setEdges(data.edges);
         }
-        const result = { success: true, message: `Imported ${data.nodes.length} nodes, ${data.edges.length} edges` };
+        const result: any = { success: true, message: `Imported ${data.nodes.length} nodes, ${data.edges.length} edges` };
+        if (restoredCustomNodes) result.restoredCustomNodes = restoredCustomNodes;
+        if (merge && existingStarts > 0 && importedStarts > 0) result.warning = `Merge adds ${importedStarts} Start node(s) to a canvas that already has ${existingStarts}. Delete the duplicate Start to avoid double entry.`;
+        if (!merge && importedStarts > 1) result.warning = `Imported workflow has ${importedStarts} Start nodes. Keep one and delete the rest.`;
         ctx.addToolLog('import_workflow', { merge }, result);
         return JSON.stringify(result);
       } catch (e:any) {
@@ -957,7 +1071,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
             return String(n?.data?.label||'').toLowerCase().includes(String(label).toLowerCase());
           });
           if (candidates.length===1) resolvedId=candidates[0];
-          else if (candidates.length>1) return JSON.stringify({success:false, error:`Label "${label}" matches ${candidates.length}: ${candidates.join(', ')}`});
+          else if (candidates.length>1) return JSON.stringify({success:false, error:`Label "${label}" matches ${candidates.length}: ${candidates.map(id=>{ const n=ctx.nodesRef.current.find(x=>x.id===id); return `${id}(${(n?.data as any)?.nodeType}:"${n?.data?.label}")`; }).join(', ')}. Use exact nodeId.`});
         }
       }
       if (!resolvedId || !(r.outputs||{})[resolvedId]) return JSON.stringify({success:false, error:`No output for ${resolvedId||label}. Valid ids: ${Object.keys(r.outputs||{}).join(', ')}`});
@@ -1021,17 +1135,29 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       try {
         const res = await fetch(url, { method: String(method).toUpperCase(), headers, body: body || undefined, signal: ctrl.signal } as any);
         const text = await res.text();
-        let preview: any = text.slice(0, 3000);
-        try { preview = JSON.parse(text); const s = JSON.stringify(preview, null, 2); preview = s.length>3000 ? JSON.parse(text.slice(0,3000)) : preview; } catch {}
+        // Preview budget: never return unbounded bodies to the agent. Parse full text
+        // first, then truncate the STRINGIFIED form — never JSON.parse a truncated slice
+        // (partial JSON always throws and either swallows the preview or leaks the full object).
+        const PREVIEW_LIMIT = 3000;
+        let bodyPreview: any;
+        try {
+          const parsed = JSON.parse(text);
+          const pretty = JSON.stringify(parsed, null, 2);
+          bodyPreview = pretty.length > PREVIEW_LIMIT
+            ? { _truncated: true, preview: pretty.slice(0, PREVIEW_LIMIT), fullLength: pretty.length, hint: 'preview truncated; narrow the API query for full body' }
+            : parsed;
+        } catch {
+          bodyPreview = text.slice(0, PREVIEW_LIMIT);
+        }
         const result = {
           success: res.ok,
           status: res.status,
           statusText: res.statusText,
           ok: res.ok,
           headers: Object.fromEntries(res.headers.entries()),
-          bodyPreview: typeof preview==='string' ? preview.slice(0,2000) : preview,
+          bodyPreview,
           bodyLength: text.length,
-          truncated: text.length>3000,
+          truncated: text.length > PREVIEW_LIMIT,
           hint: res.ok ? 'API works — wire it into an api_call node with same url/method' : `HTTP ${res.status}. Check url/method/cors. Try again or use different API.`,
         };
         clearTimeout(t);
@@ -1055,7 +1181,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       if (mutationHistory.length===0) return JSON.stringify({success:false, error:'Nothing to undo'});
       const prev = mutationHistory.pop()!;
       // push current to redo
-      try { redoStack.push({ ...snapshot(), label: `redo:${prev.label}`, at: new Date().toISOString() }); } catch {}
+      try { redoStack.push({ ...snapshot(), label: `redo:${prev.label}`, at: new Date().toISOString() }); if (redoStack.length > MAX_HISTORY) redoStack.shift(); } catch {}
       ctx.setNodes(prev.nodes);
       ctx.setEdges(prev.edges);
       const result = { success:true, restoredLabel: prev.label, at: prev.at, nodes: prev.nodes.length, edges: prev.edges.length };
@@ -1070,7 +1196,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     execute: async () => {
       if (redoStack.length===0) return JSON.stringify({success:false, error:'Nothing to redo'});
       const next = redoStack.pop()!;
-      try { mutationHistory.push({ ...snapshot(), label:`undo:${next.label}`, at:new Date().toISOString() }); } catch {}
+      try { mutationHistory.push({ ...snapshot(), label:`undo:${next.label}`, at:new Date().toISOString() }); if (mutationHistory.length > MAX_HISTORY) mutationHistory.shift(); } catch {}
       ctx.setNodes(next.nodes);
       ctx.setEdges(next.edges);
       const result = { success:true, restoredLabel: next.label, nodes:next.nodes.length, edges:next.edges.length };
@@ -1138,10 +1264,17 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       try { const raw=localStorage.getItem('agentflow_custom_nodes_v1'); if(raw) list=JSON.parse(raw); } catch{}
       const idx=list.findIndex((n:any)=>n.type===t);
       if(idx<0) return JSON.stringify({success:false, error:`not found ${t}`});
+      const inUse = ctx.nodesRef.current
+        .filter((n) => (n.data as any)?.nodeType === t)
+        .map((n) => `${n.id}("${(n.data as any)?.label}")`);
       const removed=list.splice(idx,1)[0];
       localStorage.setItem('agentflow_custom_nodes_v1', JSON.stringify(list));
       try { window.dispatchEvent(new CustomEvent('custom-nodes-updated', {detail:list})); } catch{}
-      const result={success:true, deleted:removed.type};
+      const result:any={success:true, deleted:removed.type};
+      if (inUse.length) {
+        result.affectedNodes = inUse;
+        result.warning = `${inUse.length} canvas node(s) still use ${t} (${inUse.join(', ')}) and will fail validation until retyped or the custom node is recreated.`;
+      }
       ctx.addToolLog('delete_custom_node', {type:t}, result);
       return JSON.stringify(result);
     },
@@ -1176,7 +1309,9 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
     },
   });
 
-  return () => {
+  const cleanup = () => {
     controllers.forEach((c) => c.abort());
   };
+  (window as any).__agentflowCleanup = cleanup;
+  return cleanup;
 }

@@ -57,8 +57,11 @@ export function TourOverlay({
     if (!el) { setRect(null); return; }
     const r = el.getBoundingClientRect();
     setRect(r);
-    // estimate card size 320x140 for placement flip
-    setPlacement(getPlacement(r, 340, 160, step.placement));
+    // Estimate card size for placement flip — shrink the estimate on narrow
+    // viewports so clamp() never gets max < min (vw 320 < 340 + margins).
+    const vw = window.innerWidth;
+    const effW = Math.min(340, Math.max(0, vw - 24));
+    setPlacement(getPlacement(r, effW, 160, step.placement));
   };
 
   useLayoutEffect(() => {
@@ -71,7 +74,10 @@ export function TourOverlay({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onSkip();
+      if (e.key === 'Escape') { onSkip(); return; }
+      // Don't hijack ←/→ while typing in a field behind the backdrop.
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
       if (e.key === 'ArrowRight') setIdx((i) => Math.min(steps.length - 1, i + 1));
       if (e.key === 'ArrowLeft') setIdx((i) => Math.max(0, i - 1));
     };
@@ -88,9 +94,11 @@ export function TourOverlay({
   const cardPos: React.CSSProperties = {};
   if (rect) {
     const gap = 14;
-    const cardW = 340;
-    const cardH = 160;
+    // Match the estimate above + onboarding.css (width: 100vw - 24 on small
+    // screens): a fixed 340px card overflows viewports under ~364px wide.
     const vw = window.innerWidth;
+    const cardW = Math.min(340, Math.max(0, vw - 24));
+    const cardH = 160;
     const vh = window.innerHeight;
     const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
     if (placement === 'bottom') {

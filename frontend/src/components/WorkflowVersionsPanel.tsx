@@ -24,7 +24,7 @@ export const WorkflowVersionsPanel: React.FC = () => {
   const fetchVersions = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('agentflow_access_token')
+      const token = localStorage.getItem('agentflow_token')
       if (!token) {
         setError('Not authenticated')
         setLoading(false)
@@ -33,7 +33,7 @@ export const WorkflowVersionsPanel: React.FC = () => {
       const res = await fetch(`https://agentflow.parithosh.workers.dev/api/workflows/${workflowId}/versions`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
         setVersions(data.versions || [])
       } else {

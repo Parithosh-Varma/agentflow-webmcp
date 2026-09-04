@@ -203,11 +203,13 @@ function Module(props: NodeProps) {
   );
 }
 
+const instanceCounters = new Map<string, number>();
+
 export function getInstanceCount(typeKey: string): number {
-  const storageKey = `agentflow_instance_count_${typeKey}`;
-  let count = Number(localStorage.getItem(storageKey) || '0');
-  localStorage.setItem(storageKey, String(count + 1));
-  return count + 1;
+  const prev = instanceCounters.get(typeKey) ?? 0;
+  const next = prev + 1;
+  instanceCounters.set(typeKey, next);
+  return next;
 }
 
 export const nodeTypes: Record<string, any> = {

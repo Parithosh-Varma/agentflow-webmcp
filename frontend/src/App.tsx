@@ -24,7 +24,7 @@ import { LabeledEdge } from './components/LabeledEdge';
 import { useAuth } from './context/AuthContext';
 import logo from './assets/logo.png';
 import type { NodeStatus } from './engine';
-import { localWireAdjust, snapAndPushOnDrop, snapToGrid } from './utils/grid';
+import { localWireAdjust, snapAndPushOnDrop, snapToGrid, getSmartPlacement } from './utils/grid';
 import { HelpDrawer } from './components/HelpDrawer';
 import { AgentToast } from './components/AgentToast';
 import { GithubIcon } from './components/icons';
@@ -346,6 +346,7 @@ function CanvasPage() {
   const onboarding = useOnboarding();
   const [showTour, setShowTour] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isDraggingNode, setIsDraggingNode] = useState(false);
 
   // Session ID for this tab
   const sessionId = getSessionId();
@@ -443,6 +444,15 @@ function CanvasPage() {
   const onConnect = useCallback(
     (params: Connection) => {
       if (!params.source || !params.target) return;
+      if (params.source === params.target) return;
+      const dup = edgesRef.current.some(
+        (e: any) =>
+          e.source === params.source &&
+          e.target === params.target &&
+          (e.sourceHandle || null) === (params.sourceHandle || null) &&
+          (e.targetHandle || null) === (params.targetHandle || null)
+      );
+      if (dup) return;
       setNodes((nds: Node[]) => localWireAdjust(nds, [...edgesRef.current, params as any], params.source!, params.target!));
       setEdges((eds: any[]) =>
         addEdge({ ...params, type: 'labeled', animated: false, style: { stroke: '#6366f1', strokeWidth: 2 } }, eds)
@@ -455,6 +465,32 @@ function CanvasPage() {
     [setNodes, setEdges, fitAllNodes]
   );
 
+  const isValidConnection = useCallback((connection: Connection) => {
+    if (!connection.source || !connection.target) return false;
+    if (connection.source === connection.target) return false;
+    const dup = edgesRef.current.some(
+      (e: any) =>
+        e.source === connection.source &&
+        e.target === connection.target &&
+        (e.sourceHandle || null) === (connection.sourceHandle || null) &&
+        (e.targetHandle || null) === (connection.targetHandle || null)
+    );
+    if (dup) return false;
+    // Prevent cycles: disallow if target can reach source via existing edges
+    const visited = new Set<string>();
+    const stack = [connection.target];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      if (cur === connection.source) return false;
+      if (visited.has(cur)) continue;
+      visited.add(cur);
+      for (const e of edgesRef.current) {
+        if (e.source === cur && !visited.has(e.target)) stack.push(e.target);
+      }
+    }
+    return true;
+  }, []);
+
   // Ensure port dragging renders bezier preview under zoom/pan via React Flow's project()
   const onConnectStart = useCallback((_e: any, _params: any) => {
     void _e; void _params;
@@ -466,6 +502,7 @@ function CanvasPage() {
   const onNodeDragStop = useCallback(
     (_: any, node: Node) => {
       setNodes((nds: Node[]) => snapAndPushOnDrop(node.id, node.position, nds));
+      setIsDraggingNode(false);
     },
     [setNodes]
   );
@@ -484,11 +521,20 @@ function CanvasPage() {
       let pos: { x: number; y: number };
       const rf = reactFlowRef.current;
       if (rf && typeof rf.screenToFlowPosition === 'function') {
-        const flowPos = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-        const snapped = snapToGrid(flowPos.x, flowPos.y);
-        pos = { x: snapped.x, y: snapped.y };
+        try {
+          const flowPos = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+          if (Number.isFinite(flowPos?.x) && Number.isFinite(flowPos?.y)) {
+            const snapped = snapToGrid(flowPos.x, flowPos.y);
+            pos = { x: snapped.x, y: snapped.y };
+          } else {
+            pos = getSmartPlacement(nodesRef.current, selectedIdRef.current);
+          }
+        } catch {
+          pos = getSmartPlacement(nodesRef.current, selectedIdRef.current);
+        }
       } else {
-        pos = { x: 0, y: 0 };
+        // screenToFlowPosition unavailable — smart-place instead of piling at 0,0
+        pos = getSmartPlacement(nodesRef.current, selectedIdRef.current);
       }
       const newNode: Node = {
         id: `node_${uuidv4().slice(0, 8)}`,
@@ -506,16 +552,23 @@ function CanvasPage() {
 
   const prevNodesRef = useRef(nodes.length);
   useEffect(() => {
-    if (nodes.length <= prevNodesRef.current) { prevNodesRef.current = nodes.length; return; }
-    setTimeout(() => fitAllNodes(), 80);
+    const prev = prevNodesRef.current;
     prevNodesRef.current = nodes.length;
+    if (nodes.length <= prev) return;
+    // Only auto-fit bulk loads (demo/import add many); single adds keep viewport stable
+    if (nodes.length - prev <= 1 && prev !== 0) return;
+    const t = setTimeout(() => fitAllNodes(), 80);
+    return () => clearTimeout(t);
   }, [nodes.length, fitAllNodes]);
 
   const prevEdgesPanRef = useRef(edges.length);
   useEffect(() => {
-    if (edges.length <= prevEdgesPanRef.current) { prevEdgesPanRef.current = edges.length; return; }
-    setTimeout(() => fitAllNodes(), 120);
+    const prev = prevEdgesPanRef.current;
     prevEdgesPanRef.current = edges.length;
+    if (edges.length <= prev) return;
+    if (edges.length - prev <= 1 && prev !== 0) return;
+    const t = setTimeout(() => fitAllNodes(), 120);
+    return () => clearTimeout(t);
   }, [edges.length, fitAllNodes]);
 
   useEffect(() => {
@@ -539,7 +592,7 @@ function CanvasPage() {
   const applyConfig = useCallback(
     (nodeId: string, config: any) => {
       setNodes((nds: Node[]) =>
-        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...(n.data as any), config } } : n))
+        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...(n.data as any), config, isConfigured: true } } : n))
       );
       addToolLog(
         'update_node_config',
@@ -553,6 +606,7 @@ function CanvasPage() {
 
   const deleteNode = useCallback(
     (nodeId: string) => {
+      if (nodeId === 'start') return;
       setNodes((nds: Node[]) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds: any[]) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       setSelectedId(null);
@@ -992,7 +1046,10 @@ function CanvasPage() {
             onConnect={onConnect}
             onConnectStart={onConnectStart}
             onConnectEnd={onConnectEnd}
+            onNodeDragStart={() => setIsDraggingNode(true)}
             onNodeDragStop={onNodeDragStop}
+            isValidConnection={isValidConnection}
+            deleteKeyCode={null}
             selectionOnDrag
             panOnDrag={[1, 2]}
             selectionMode={SelectionMode.Partial}
@@ -1000,8 +1057,12 @@ function CanvasPage() {
             connectionLineStyle={{ stroke: '#e8a33d', strokeWidth: 2 }}
             onSelectionChange={onSelectionChange}
             onNodeClick={(_, node) => {
+              if (isDraggingNode) return;
               if (isPlaying && replayData) {
-                inspectNode(node.id, null); // Will find latest event
+                const evt = replayData.events
+                  .filter((e: any) => e.nodeId === node.id && e.timestamp <= currentTime)
+                  .pop() ?? replayData.events.find((e: any) => e.nodeId === node.id) ?? null;
+                inspectNode(node.id, evt);
               } else {
                 setSelectedId(node.id);
               }

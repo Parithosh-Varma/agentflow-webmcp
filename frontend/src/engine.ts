@@ -1,5 +1,7 @@
 // AgentFlow execution engine — runs workflows for real, in the browser.
 
+import { v4 as uuidv4 } from 'uuid';
+
 export type NodeStatus = 'idle' | 'running' | 'done' | 'fault' | 'skipped';
 
 export interface WorkflowNode {
@@ -56,6 +58,64 @@ export function toEngineEdges(edges: any[]): WorkflowEdge[] {
     target: e.target,
     label: (e.label as string) || '',
   }));
+}
+
+export function findDuplicateIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const dups = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) dups.add(id);
+    else seen.add(id);
+  }
+  return Array.from(dups);
+}
+
+export function hasCycle(nodes: WorkflowNode[], edges: WorkflowEdge[]): boolean {
+  const adj = new Map<string, string[]>();
+  for (const n of nodes) adj.set(n.id, []);
+  for (const e of edges) {
+    const list = adj.get(e.source) ?? [];
+    list.push(e.target);
+    adj.set(e.source, list);
+  }
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+  const dfs = (v: string): boolean => {
+    if (recStack.has(v)) return true;
+    if (visited.has(v)) return false;
+    visited.add(v);
+    recStack.add(v);
+    for (const nb of adj.get(v) ?? []) {
+      if (dfs(nb)) return true;
+    }
+    recStack.delete(v);
+    return false;
+  };
+  for (const n of nodes) {
+    if (dfs(n.id)) return true;
+  }
+  return false;
+}
+
+export function remapWorkflowIds(nodes: any[], edges: any[]): { nodes: any[]; edges: any[] } {
+  const idMap = new Map<string, string>();
+  const remappedNodes = nodes.map((n) => {
+    const newId = `node_${uuidv4().slice(0, 8)}`;
+    idMap.set(n.id, newId);
+    const copy = { ...n, id: newId };
+    // preserve position and other fields; ensure data object id consistency if needed
+    if (copy.data && typeof copy.data === 'object') {
+      copy.data = { ...copy.data };
+    }
+    return copy;
+  });
+  const remappedEdges = edges.map((e) => {
+    const newId = `edge_${uuidv4().slice(0, 8)}`;
+    const newSource = idMap.get(e.source) ?? e.source;
+    const newTarget = idMap.get(e.target) ?? e.target;
+    return { ...e, id: newId, source: newSource, target: newTarget };
+  });
+  return { nodes: remappedNodes, edges: remappedEdges };
 }
 
 // ---- helpers --------------------------------------------------------------
@@ -125,12 +185,17 @@ async function runTransform(data: any, cfg: any): Promise<any> {
       return Array.isArray(data) ? data[0] : data;
     case 'expression': {
       if (!cfg?.expression) throw new Error('no expression set');
-      // Support both sync and async expressions: `async (data) => ...` or `(data) => ...`
       const expr = String(cfg.expression).trim();
-      // If expression looks like a function, call it; otherwise evaluate as JS body with `data` in scope.
-      // We use AsyncFunction so `await` inside works (e.g. `async (data) => await fetch(...)`)
-      const fn = new AsyncFunction('data', `"use strict"; return (${expr})(data);`);
-      return await fn(data);
+      try {
+        const fn = new AsyncFunction('data', `"use strict"; return (${expr})(data);`);
+        return await fn(data);
+      } catch (e) {
+        if (e instanceof TypeError) {
+          const fn2 = new AsyncFunction('data', `"use strict"; return ${expr};`);
+          return await fn2(data);
+        }
+        throw e;
+      }
     }
     default:
       return data;
@@ -139,12 +204,21 @@ async function runTransform(data: any, cfg: any): Promise<any> {
 
 async function evalCondition(data: any, cfg: any): Promise<boolean> {
   if (cfg?.expression) {
-    const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`);
-    return await fn(data);
+    try {
+      const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`);
+      return await fn(data);
+    } catch (e) {
+      if (e instanceof TypeError) {
+        const fn2 = new AsyncFunction('data', `"use strict"; return Boolean(${cfg.expression});`);
+        return await fn2(data);
+      }
+      throw e;
+    }
   }
   if (cfg?.path !== undefined && cfg?.path !== '') {
     const actual = getPath(data, cfg.path);
-    return actual === (cfg.equals === undefined ? true : cfg.equals);
+    if (cfg.equals === undefined) return true;
+    return actual == cfg.equals || String(actual) === String(cfg.equals);
   }
   return true;
 }
@@ -187,14 +261,23 @@ async function runOutput(data: any, cfg: any): Promise<any> {
 async function runFilter(data: any, cfg: any): Promise<any> {
   const expr = cfg?.expression;
   if (!expr) throw new Error('filter requires an expression');
-  const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr})(data));`);
-  const pass = await fn(data);
-  return { passed: pass, data };
+  try {
+    const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr})(data));`);
+    const pass = await fn(data);
+    return { passed: pass, data };
+  } catch (e) {
+    if (e instanceof TypeError) {
+      const fn2 = new AsyncFunction('data', `"use strict"; return Boolean(${expr});`);
+      const pass = await fn2(data);
+      return { passed: pass, data };
+    }
+    throw e;
+  }
 }
 
 function runSplit(data: any, cfg: any): any {
   if (Array.isArray(data)) {
-    const batchSize = Number(cfg?.batchSize ?? 1);
+    const batchSize = Math.max(1, Math.floor(Number(cfg?.batchSize ?? 1) || 1));
     const batches: any[][] = [];
     for (let i = 0; i < data.length; i += batchSize) {
       batches.push(data.slice(i, i + batchSize));
@@ -211,8 +294,14 @@ function runSplit(data: any, cfg: any): any {
 function runMerge(data: any, _cfg: any): any {
   if (Array.isArray(data)) {
     return data.reduce((acc, item) => {
-      if (Array.isArray(item)) return acc.concat(item);
-      if (typeof item === 'object' && item !== null) return { ...acc, ...item };
+      if (Array.isArray(item)) {
+        const base = Array.isArray(acc) ? acc : [];
+        return [...base, ...item];
+      }
+      if (typeof item === 'object' && item !== null) {
+        const base = typeof acc === 'object' && !Array.isArray(acc) ? acc : {};
+        return { ...base, ...item };
+      }
       return acc;
     }, {});
   }
@@ -673,37 +762,107 @@ export async function executeWorkflow(
 ): Promise<ExecResult> {
   const t0 = performance.now();
   const onEvent = opts.onEvent || (() => {});
+  if (!nodes || nodes.length === 0) {
+    return {
+      success: false,
+      executedAt: new Date().toISOString(),
+      durationMs: Math.round(performance.now() - t0),
+      order: [],
+      status: {},
+      outputs: { error: 'No nodes in workflow' },
+    };
+  }
   const statusMap: Record<string, NodeStatus> = {};
   const outputs: Record<string, any> = {};
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  let lastCondition: boolean | null = null;
+  const conditionResults: Record<string, boolean> = {};
   let hadError = false;
+
+  if (hasCycle(nodes, edges)) {
+    const adj = new Map<string, string[]>();
+    for (const n of nodes) adj.set(n.id, []);
+    for (const e of edges) {
+      const list = adj.get(e.source) ?? [];
+      list.push(e.target);
+      adj.set(e.source, list);
+    }
+    const visited = new Set<string>();
+    const recStack = new Set<string>();
+    const stack: string[] = [];
+    const cycleIds = new Set<string>();
+    const dfs = (v: string) => {
+      visited.add(v);
+      recStack.add(v);
+      stack.push(v);
+      for (const nb of adj.get(v) ?? []) {
+        if (!visited.has(nb)) {
+          dfs(nb);
+        } else if (recStack.has(nb)) {
+          const idx = stack.indexOf(nb);
+          if (idx !== -1) {
+            for (let i = idx; i < stack.length; i++) {
+              cycleIds.add(stack[i]);
+            }
+          }
+        }
+      }
+      recStack.delete(v);
+      stack.pop();
+    };
+    for (const n of nodes) {
+      if (!visited.has(n.id)) dfs(n.id);
+    }
+    for (const id of cycleIds) {
+      statusMap[id] = 'fault';
+      outputs[id] = { error: 'circular dependency detected' };
+      onEvent({ id, status: 'fault', error: 'circular dependency detected' });
+      hadError = true;
+    }
+  }
 
   const order = topologicalOrder(nodes, edges);
 
   for (const id of order) {
     const node = byId.get(id);
     if (!node) continue;
+    if (statusMap[id] === 'fault') {
+      continue;
+    }
 
     // --- gating: upstream faults/skips + labeled condition branches ---
     const incoming = edges.filter((e) => e.target === id);
     let blocked: string | null = null;
+    const activeIncoming: typeof incoming = [];
     for (const e of incoming) {
-      if (hadError && statusMap[e.source] === 'fault') {
+      const lbl = (e.label || '').trim().toLowerCase();
+      if (lbl === 'true' || lbl === 'false') {
+        const srcCond = conditionResults[e.source];
+        if (srcCond !== undefined) {
+          if ((lbl === 'true') !== srcCond) {
+            continue;
+          }
+        }
+      }
+      activeIncoming.push(e);
+      if (statusMap[e.source] === 'fault') {
         blocked = `upstream "${e.source}" faulted`;
         break;
       }
-      if (statusMap[e.source] === 'skipped') {
-        blocked = `upstream "${e.source}" was skipped`;
-        break;
+    }
+    if (!blocked && activeIncoming.length > 0) {
+      const allSkippedOrFault = activeIncoming.every(e => {
+        const s = statusMap[e.source];
+        return s === 'skipped' || s === 'fault';
+      });
+      const hasDone = activeIncoming.some(e => statusMap[e.source] === 'done');
+      if (!hasDone && allSkippedOrFault) {
+        blocked = activeIncoming.length === 1
+          ? `upstream "${activeIncoming[0].source}" was skipped/faulted`
+          : `all upstream inputs were skipped/faulted`;
       }
-      const lbl = (e.label || '').trim().toLowerCase();
-      if ((lbl === 'true' || lbl === 'false') && lastCondition !== null) {
-        if ((lbl === 'true') !== lastCondition) {
-          blocked = `branch took "${lastCondition ? 'true' : 'false'}", this wire says "${lbl}"`;
-          break;
-        }
-      }
+    }
+    if (activeIncoming.length === 0 && incoming.length > 0) {
+      blocked = 'no active inputs for conditional branch';
     }
 
     if (blocked) {
@@ -718,10 +877,15 @@ export async function executeWorkflow(
 
     try {
       let result: any;
-      const upstreamData = incoming.length
-        ? outputs[incoming[incoming.length - 1].source]
-        : undefined;
-      const data = upstreamData !== undefined ? upstreamData : opts.input ?? {};
+      const doneSources = activeIncoming.filter(e => statusMap[e.source] === 'done');
+      const upstreamData = doneSources.length
+        ? doneSources.map(e => outputs[e.source]).filter(v => v && !(v?.skipped))
+        : incoming.length
+          ? outputs[incoming[incoming.length - 1].source]
+          : undefined;
+      const data = upstreamData !== undefined
+        ? Array.isArray(upstreamData) && upstreamData.length === 1 ? upstreamData[0] : upstreamData
+        : opts.input ?? {};
 
       switch (node.type) {
         case 'start':
@@ -736,7 +900,7 @@ export async function executeWorkflow(
           break;
         case 'condition': {
           const passed = await evalCondition(data, node.config);
-          lastCondition = passed;
+          conditionResults[id] = passed;
           result = { passed, checked: node.label };
           break;
         }

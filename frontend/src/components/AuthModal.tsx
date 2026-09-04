@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 interface Props {
@@ -15,26 +15,59 @@ export function AuthModal({ open, onClose }: Props) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Esc closes (previously there was no dismiss path except a successful
+  // submit — no × button, no Esc — trapping the user in the modal).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
+    // Normalize like AuthPage: trim, require fields, min-6 only on register
+    // (backend login accepts min 1), generic login error to avoid enumeration.
+    const cleanEmail = email.trim();
+    const cleanUsername = username.trim();
+    if (!cleanEmail || !password) {
+      setError('Email and password are required.');
+      return;
+    }
+    if (mode === 'register' && !cleanUsername) {
+      setError('Username is required.');
+      return;
+    }
+    if (mode === 'register' && password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
     setLoading(true);
     try {
       if (mode === 'login') {
-        await login(email, password);
+        await login(cleanEmail, password);
       } else {
-        await register(username, email, password);
+        await register(cleanUsername, cleanEmail, password);
       }
       setEmail('');
       setUsername('');
       setPassword('');
       onClose();
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong');
+      if (mode === 'login') {
+        setError('Invalid email or password.');
+      } else {
+        setError(err?.message || 'Something went wrong');
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleLogout = () => {
@@ -45,7 +78,8 @@ export function AuthModal({ open, onClose }: Props) {
   if (user) {
     return (
       <div className="auth-modal">
-        <div className="auth-content">
+        <div className="auth-content" style={{ position: 'relative' }}>
+          <button type="button" onClick={onClose} aria-label="Close account dialog" style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-soft)', background: 'var(--bg)', color: 'var(--dim)', fontSize: 16, lineHeight: 1, cursor: 'pointer' }}>×</button>
           <div className="auth-title">Account</div>
           <div className="auth-user">
             <span className="auth-user-name">{user.username}</span>
@@ -61,7 +95,8 @@ export function AuthModal({ open, onClose }: Props) {
 
   return (
     <div className="auth-modal">
-      <div className="auth-content">
+      <div className="auth-content" style={{ position: 'relative' }}>
+        <button type="button" onClick={onClose} aria-label="Close sign in dialog" style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-soft)', background: 'var(--bg)', color: 'var(--dim)', fontSize: 16, lineHeight: 1, cursor: 'pointer' }}>×</button>
         <div className="auth-title">{mode === 'login' ? 'Sign In' : 'Create Account'}</div>
 
         {error && <div className="auth-error">{error}</div>}
@@ -77,6 +112,8 @@ export function AuthModal({ open, onClose }: Props) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                disabled={loading}
+                autoComplete="username"
               />
             </label>
           )}
@@ -89,6 +126,8 @@ export function AuthModal({ open, onClose }: Props) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
+              autoComplete="email"
             />
           </label>
           <label className="cfg-row">
@@ -100,7 +139,9 @@ export function AuthModal({ open, onClose }: Props) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+              disabled={loading}
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+              minLength={mode === 'register' ? 6 : undefined}
             />
           </label>
 
@@ -118,6 +159,7 @@ export function AuthModal({ open, onClose }: Props) {
           <button
             className="btn-ghost btn-small"
             onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
+            disabled={loading}
           >
             {mode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
           </button>

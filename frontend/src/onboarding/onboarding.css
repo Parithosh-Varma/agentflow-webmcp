@@ -1,5 +1,5 @@
 /* onboarding.css — uses project tokens with fallbacks */
-.onboarding-root { position: fixed; inset: 0; z-index: 400; pointer-events: none; }
+.onboarding-root { position: fixed; inset: 0; z-index: 500; pointer-events: none; }
 .onboarding-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); pointer-events: auto; }
 .onboarding-highlight {
   position: fixed;
@@ -20,7 +20,7 @@
   max-width: min(360px, calc(100vw - 24px));
   width: calc(100vw - 24px);
   pointer-events: auto;
-  z-index: 401;
+  z-index: 501;
   border: 1px solid var(--border, #e8e0d8);
 }
 @media (max-width: 480px) {
@@ -54,11 +54,16 @@
   padding: 10px 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.16);
   max-width: 280px;
-  z-index: 401;
+  z-index: 501;
   pointer-events: auto;
 }
 .onboarding-tooltip-title { font-weight: 600; font-size: 12px; margin-bottom: 4px; color: var(--ink, #1a1a1a); }
 .onboarding-tooltip-body { font-size: 11px; line-height: 1.5; color: var(--ink-muted, #6b6259); margin-bottom: 8px; }
+@media (max-width: 480px) {
+  /* Tooltip clamps to viewport in JS; keep CSS width consistent so the
+     estimate (min 340px) never overflows narrow screens. */
+  .onboarding-tooltip { max-width: calc(100vw - 24px); }
+}
 
 /* Checklist */
 .onboarding-checklist { border: 1px solid var(--border, #e8e0d8); border-radius: 8px; background: var(--panel, #fff); overflow: hidden; }

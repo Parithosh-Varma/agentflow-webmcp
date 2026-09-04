@@ -1,0 +1,67 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=1080"/>
+<title>AF — Story 1080x1920</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Archivo:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121110;--panel:#1e1b18;--line:#3a342e;--ink:#ede8dc;--dim:#8a806f;--amber:#e8a33d;--cyan:#56cdbd;--display:'Chakra Petch',sans-serif;--body:'Archivo',sans-serif;--mono:'IBM Plex Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}html,body{width:1080px;height:1920px;background:var(--bg);color:var(--ink);overflow:hidden}
+.wrap{width:1080px;height:1920px;padding:56px 52px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.wrap::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(to right,#211c16 0 1px,transparent 1px 26px),repeating-linear-gradient(to bottom,#211c16 0 1px,transparent 1px 26px);opacity:.28;pointer-events:none}
+.top{position:relative;z-index:1;display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;letter-spacing:.16em;color:var(--dim)}
+.top b{color:var(--ink);letter-spacing:.12em}
+.hero{position:relative;z-index:1;margin-top:18px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--dim);display:flex;align-items:center;gap:8px}
+.eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+h1{font-family:var(--display);font-weight:700;font-size:96px;line-height:.92;letter-spacing:-.02em;margin-top:18px}
+h1 .you{color:var(--amber)} h1 .agent{color:var(--cyan)}
+.sub{color:var(--dim);font-size:26px;line-height:1.45;max-width:760px;margin-top:18px}
+.sub strong{color:var(--ink)}
+.steps{position:relative;z-index:1;margin-top:28px;display:grid;gap:16px}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;display:grid;grid-template-columns:56px 1fr;gap:18px;align-items:center}
+.num{width:56px;height:56px;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:22px;color:var(--amber)}
+.step:nth-child(2) .num{color:var(--cyan)} .step:nth-child(3) .num{color:var(--ink)}
+.step h3{font-size:22px;font-weight:600} .step p{color:var(--dim);font-size:16px;margin-top:4px} .step code{font-family:var(--mono);font-size:13px;color:var(--cyan)}
+.schematic{position:relative;z-index:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:18px}
+.schematic svg{width:100%;height:auto;display:block}
+.wire{stroke:#3a342e;stroke-width:2;fill:none} .sig{stroke-dasharray:6 8;animation:march 1s linear infinite} .sig-a{stroke:var(--amber)} .sig-b{stroke:var(--cyan)}
+@keyframes march{to{stroke-dashoffset:-14}}
+.cta{position:relative;z-index:1;background:var(--amber);border-radius:14px;padding:26px 28px;display:flex;justify-content:space-between;align-items:center;margin-top:22px}
+.cta b{font-family:var(--display);font-weight:700;font-size:26px;color:#201a10}
+.cta span{font-family:var(--mono);font-size:12px;color:#6b4a12}
+.url{position:relative;z-index:1;text-align:center;font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--dim);margin-top:10px}
+.swipe{position:relative;z-index:1;text-align:center;font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--dim);margin-top:6px}
+.swipe::before{content:'↑';display:block;font-size:18px;color:var(--amber);margin-bottom:4px}
+</style></head><body>
+<div class="wrap">
+  <div>
+    <div class="top"><span><b>AGENTFLOW</b> / WEBMCP</span><span>NO SIGNUP</span></div>
+    <div class="hero">
+      <div class="eyebrow">WEBMCP WORKFLOW INSTRUMENT</div>
+      <h1>One canvas.<br><span class="you">You</span> wire it.<br><span class="agent">Your agent</span> drives it.</h1>
+      <p class="sub">Drag 15 modules, wire pins, press <strong>RUN</strong> — or prompt your agent and watch <strong>amber → cyan</strong> signals march the same wires.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="num">01</div><div><h3>Sketch it</h3><p>Drag modules onto the grid-snapped canvas.</p></div></div>
+      <div class="step"><div class="num">02</div><div><h3>Delegate it</h3><p>Tell your agent: <code>add_node → connect_nodes → run</code></p></div></div>
+      <div class="step"><div class="num">03</div><div><h3>Run it</h3><p>Signals march. LEDs light. Outputs land.</p></div></div>
+    </div>
+    <div class="schematic">
+      <svg viewBox="0 0 520 150" role="img">
+        <path class="wire" d="M148 40 H210"/><path class="wire sig sig-a" d="M148 40 H210"/>
+        <path class="wire" d="M332 40 H390 V75 H272"/><path class="wire sig sig-b" d="M332 40 H390 V75 H272"/>
+        <path class="wire" d="M148 110 H210"/><path class="wire sig sig-b" d="M148 110 H210"/>
+        <g><rect x="52" y="18" width="96" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="64" y="34" font-family="IBM Plex Mono" font-size="8" fill="#8a806f" letter-spacing="1.5">API CALL</text><text x="64" y="50" font-family="IBM Plex Mono" font-size="11" fill="#ede8dc">fetch</text></g>
+        <g><rect x="210" y="18" width="122" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="222" y="34" font-family="IBM Plex Mono" font-size="8" fill="#8a806f">TRANSFORM</text><text x="222" y="50" font-family="IBM Plex Mono" font-size="11" fill="#ede8dc">reshape</text></g>
+        <g><rect x="242" y="53" width="96" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="254" y="71" font-family="IBM Plex Mono" font-size="8" fill="#8a806f">OUTPUT</text><text x="254" y="87" font-family="IBM Plex Mono" font-size="11" fill="#ede8dc">webhook</text></g>
+        <g><rect x="52" y="88" width="96" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="64" y="106" font-family="IBM Plex Mono" font-size="8" fill="#8a806f">DELAY</text><text x="64" y="122" font-family="IBM Plex Mono" font-size="11" fill="#ede8dc">wait 5s</text></g>
+        <g><rect x="210" y="88" width="122" height="44" rx="8" fill="#262220" stroke="#3a342e"/><text x="222" y="106" font-family="IBM Plex Mono" font-size="8" fill="#8a806f">CONDITION</text><text x="222" y="122" font-family="IBM Plex Mono" font-size="11" fill="#ede8dc">if ready</text></g>
+      </svg>
+    </div>
+  </div>
+  <div>
+    <div class="cta"><b>Go to the tool →</b><span>runs in your<br>browser</span></div>
+    <div class="url">agentflow-hackathon.pages.dev</div>
+    <div class="swipe">SWIPE UP</div>
+  </div>
+</div>
+</body></html>

@@ -57,6 +57,8 @@ export function AgentToast({ suppress = false, delayMs = 2200, autoHideMs = 0 }:
     // Re-check after a tick — extensions inject late
     const t1 = setTimeout(check, 800);
     const t2 = setTimeout(check, 1800);
+    // Refresh detection while toast is pending
+    const iv = setInterval(check, 2000);
 
     const timer = setTimeout(() => {
       if (localStorage.getItem(TOAST_DONT_SHOW_KEY) === 'true') return;
@@ -69,6 +71,7 @@ export function AgentToast({ suppress = false, delayMs = 2200, autoHideMs = 0 }:
       clearTimeout(timer);
       clearTimeout(t1);
       clearTimeout(t2);
+      clearInterval(iv);
     };
   }, [suppress, delayMs]);
 
@@ -86,7 +89,7 @@ export function AgentToast({ suppress = false, delayMs = 2200, autoHideMs = 0 }:
   if (!open) return null;
 
   const handleDismiss = () => {
-    // X close — snooze 24h
+    // X close — snooze 24h (matches the tooltip/title contract below)
     try { localStorage.setItem(TOAST_SNOOZE_KEY, String(Date.now() + SNOOZE_CLOSE_MS)); } catch {}
     setOpen(false);
   };
@@ -116,7 +119,7 @@ export function AgentToast({ suppress = false, delayMs = 2200, autoHideMs = 0 }:
   };
 
   return (
-    <div className="agent-toast" role="dialog" aria-modal="true" aria-label="Browser agent tip">
+    <div className="agent-toast" role="dialog" aria-modal="false" aria-label="Browser agent tip">
       <div className="agent-toast-inner">
       <div className="agent-toast-icon" aria-hidden><img src="/logo.png" alt="" style={{width:'22px',height:'22px',objectFit:'contain'}}/></div>
 
@@ -168,7 +171,7 @@ export function AgentToast({ suppress = false, delayMs = 2200, autoHideMs = 0 }:
         </details>
       </div>
 
-      <button className="agent-toast-close" onClick={handleDismiss} aria-label="Dismiss">
+      <button className="agent-toast-close" onClick={handleDismiss} aria-label="Dismiss (snooze 1 day)" title="Dismiss — hide for 24 hours">
           <CloseIcon size={14} />
         </button>
 

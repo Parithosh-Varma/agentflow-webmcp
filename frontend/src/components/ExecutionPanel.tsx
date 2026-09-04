@@ -75,26 +75,22 @@ export function ExecutionPanel({
   setIsExecuting,
   setLiveStatus,
 }: Props) {
-  const { value: inputValue, setValue: setInputValue, error: inputErrorValue, validate: validateInput, parse: parseInput } = useJsonEditor('{}');
+  const { value: inputValue, setValue: setInputValue, error: inputErrorValue, validate: validateInput } = useJsonEditor('{}');
 
   const runFlow = async () => {
     if (isExecuting || nodes.length === 0) return;
+    // Single parse (was parse→validate→parse = 3× JSON.parse on every run)
+    let input: any;
+    try {
+      input = JSON.parse(inputValue);
+    } catch {
+      validateInput();
+      addToolLog('execute_workflow', {}, { error: 'input is not valid JSON' }, 'you');
+      return;
+    }
+    if (inputErrorValue) validateInput();
     setIsExecuting(true);
     setLiveStatus(() => ({}));
-    let input: any = {};
-    try {
-      input = parseInput() || {};
-    } catch {
-      addToolLog('execute_workflow', {}, { error: 'input is not valid JSON' }, 'you');
-      setIsExecuting(false);
-      return;
-    }
-    if (!validateInput()) {
-      addToolLog('execute_workflow', {}, { error: 'input is not valid JSON' }, 'you');
-      setIsExecuting(false);
-      return;
-    }
-    input = parseInput()!;
 
     try {
       const result = await executeWorkflow(toEngineNodes(nodes), toEngineEdges(edges), {
@@ -131,8 +127,9 @@ export function ExecutionPanel({
       };
       setExecutionResult(errResult);
       addToolLog('execute_workflow', { input }, errResult, 'you');
+    } finally {
+      setIsExecuting(false);
     }
-    setIsExecuting(false);
   };
 
   const validateWorkflow = () => {
@@ -250,6 +247,13 @@ export function ExecutionPanel({
               </button>
             </div>
           )}
+
+          <div className="exec-legend" style={{ fontSize: '10px', color: 'var(--muted)', margin: '6px 0', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <span><span className="exec-node-status-dot status-done" /> done</span>
+            <span><span className="exec-node-status-dot status-fault" /> fault</span>
+            <span><span className="exec-node-status-dot status-skipped" /> skipped — upstream fault or false branch</span>
+            <span><span className="exec-node-status-dot status-running" /> running</span>
+          </div>
 
           <details className="exec-node-details">
             <summary>All node outputs ({nodeResults.filter(r => !r.isStart && r.hasOutput).length})</summary>

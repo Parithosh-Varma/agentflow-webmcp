@@ -14,13 +14,20 @@ export function ChallengeBanner({ variant = 'banner' }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem(DISMISS_KEY) === 'true') { setDismissed(true); return; }
-    const t = setTimeout(() => handleDismiss(), 10000);
-    return () => clearTimeout(t);
+    try {
+      if (localStorage.getItem(DISMISS_KEY) === 'true') setDismissed(true);
+    } catch { /* private-mode storage — keep banner visible */ }
   }, []);
 
+  // Auto-dismiss after 10s with reset path via refresh (no persistent storage)
+  useEffect(() => {
+    if (dismissed) return;
+    const t = setTimeout(() => setDismissed(true), 10000);
+    return () => clearTimeout(t);
+  }, [dismissed, expanded]);
+
   const handleDismiss = () => {
-    localStorage.setItem(DISMISS_KEY, 'true');
+    try { localStorage.setItem(DISMISS_KEY, 'true'); } catch {}
     setDismissed(true);
   };
 
@@ -46,9 +53,13 @@ export function ChallengeBanner({ variant = 'banner' }: Props) {
     );
   }
 
-  // hero / banner — full-width, centered, not small thumbnail
+  // hero / banner — full-width, centered, not small thumbnail.
+  // Dismissal is explicit only (close button): the old 10s auto-dismiss
+  // persisted to localStorage with no way back (resetChallengeBanner is
+  // not wired to any UI), so readers lost the banner mid-read.
   return (
     <div className="challenge-hero" role="banner">
+      <button className="challenge-hero-close" onClick={handleDismiss} aria-label="Dismiss challenge banner">×</button>
       <div className="challenge-hero-inner">
         <div className="challenge-hero-label">
           <span className="challenge-hero-kicker">Hackathon Challenge</span>

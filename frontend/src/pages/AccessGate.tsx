@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAccess } from '../context/AccessContext';
 import logo from '../assets/logo.png';
@@ -14,10 +14,18 @@ export function AccessGate() {
 
   const from = (location.state as any)?.from?.pathname || '/tool';
 
-  if (hasAccess) {
-    // already verified — redirect to tool
-    // use effect-like immediate navigate
-    setTimeout(() => navigate(from, { replace: true }), 0);
+  useEffect(() => {
+    if (hasAccess) {
+      navigate(from, { replace: true });
+    }
+  }, [hasAccess, from, navigate]);
+
+  if (hasAccess === undefined) {
+    return (
+      <div className="auth-page">
+        <div style={{ padding: 40, textAlign: 'center' }}>Verifying access…</div>
+      </div>
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
