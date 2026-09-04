@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://agentflow-landing.pages.dev/sitemap.xml
