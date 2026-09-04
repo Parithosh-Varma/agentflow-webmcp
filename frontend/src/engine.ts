@@ -137,11 +137,46 @@ function parseMaybeJson(text: string): any {
   }
 }
 
+// SECURITY: block private/loopback/link-local targets for browser-side fetches.
+// Prevents intranet scanning via api_call/webhook/graphql/probe_api.
+export function assertSafeUrl(raw: string): string {
+  let u: URL;
+  try { u = new URL(String(raw)); } catch { throw new Error('invalid URL'); }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('URL must be http(s)');
+  const host = u.hostname.toLowerCase();
+  if (host === 'localhost' || host === '0.0.0.0' || host === '::1' || host === '[::]' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') || host === '169.254.169.254' || host === 'metadata.google.internal') {
+    throw new Error('URL host not allowed');
+  }
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const o = m.slice(1).map(Number);
+    if (o[0] === 10 || o[0] === 127 || (o[0] === 169 && o[1] === 254) || (o[0] === 192 && o[1] === 168) || (o[0] === 172 && o[1] >= 16 && o[1] <= 31) || o[0] === 0) {
+      throw new Error('URL resolves to private address range');
+    }
+  }
+  return u.toString();
+}
+
+const BLOCKED_CODE = [/require\s*\(/, /process\s*[./\[]/, /child_process/, /\bfs\s*[./\[]/, /eval\s*\(/, /Function\s*\(/, /AsyncFunction/, /constructor\s*\(/, /__proto__/, /prototype\s*\./, /globalThis/, /localStorage|sessionStorage|indexedDB/, /document\s*\./, /window\s*\./, /navigator\s*\./, /import\s*\(/, /fetch\s*\(/, /XMLHttpRequest|WebSocket|EventSource/];
+export function validateUserCode(code: string): void {
+  if (typeof code !== 'string' || code.length > 10000) throw new Error('code too large (max 10KB)');
+  for (const pat of BLOCKED_CODE) if (pat.test(code)) throw new Error(`blocked pattern: ${pat}`);
+}
+async function runUserFn<T>(code: string, argNames: string[], args: any[], timeoutMs = 3000): Promise<T> {
+  validateUserCode(code);
+  const fn = new AsyncFunction(...argNames, `"use strict"; ${code}`);
+  return await Promise.race([
+    (fn as any)(...args),
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs)),
+  ]);
+}
+
 // ---- node runners ---------------------------------------------------------
 
 async function runApiCall(cfg: any, input: any): Promise<any> {
   const url: string | undefined = cfg?.url;
   if (!url) throw new Error('no URL configured — click the module to set one');
+  assertSafeUrl(url);
 
   const method = String(cfg?.method || 'GET').toUpperCase();
   const headers: Record<string, string> = { ...(cfg?.headers || {}) };
@@ -186,11 +221,13 @@ async function runTransform(data: any, cfg: any): Promise<any> {
     case 'expression': {
       if (!cfg?.expression) throw new Error('no expression set');
       const expr = String(cfg.expression).trim();
+      validateUserCode(expr);
       try {
         const fn = new AsyncFunction('data', `"use strict"; return (${expr})(data);`);
         return await fn(data);
       } catch (e) {
         if (e instanceof TypeError) {
+          validateUserCode(String(expr));
           const fn2 = new AsyncFunction('data', `"use strict"; return ${expr};`);
           return await fn2(data);
         }
@@ -205,11 +242,13 @@ async function runTransform(data: any, cfg: any): Promise<any> {
 async function evalCondition(data: any, cfg: any): Promise<boolean> {
   if (cfg?.expression) {
     try {
+      validateUserCode(String(cfg.expression));
       const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`);
       return await fn(data);
     } catch (e) {
       if (e instanceof TypeError) {
-        const fn2 = new AsyncFunction('data', `"use strict"; return Boolean(${cfg.expression});`);
+        validateUserCode(String(cfg.expression));
+          const fn2 = new AsyncFunction('data', `"use strict"; return Boolean(${cfg.expression});`);
         return await fn2(data);
       }
       throw e;
@@ -246,6 +285,7 @@ async function runOutput(data: any, cfg: any): Promise<any> {
   if (kind === 'webhook') {
     const url = cfg?.url;
     if (!url) throw new Error('no webhook URL configured');
+    assertSafeUrl(url);
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -261,12 +301,14 @@ async function runOutput(data: any, cfg: any): Promise<any> {
 async function runFilter(data: any, cfg: any): Promise<any> {
   const expr = cfg?.expression;
   if (!expr) throw new Error('filter requires an expression');
+  validateUserCode(String(expr));
   try {
     const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr})(data));`);
     const pass = await fn(data);
     return { passed: pass, data };
   } catch (e) {
     if (e instanceof TypeError) {
+      validateUserCode(String(expr));
       const fn2 = new AsyncFunction('data', `"use strict"; return Boolean(${expr});`);
       const pass = await fn2(data);
       return { passed: pass, data };
@@ -328,6 +370,7 @@ async function runCode(data: any, cfg: any): Promise<any> {
   // 2) `return await fetch(data.url).then(r=>r.json())`
   // 3) `const res = await fetch(...); return res.json();` (no wrapper needed)
   // We also support user writing an IIFE: `return (async () => { ... })()` still works.
+  validateUserCode(String(code));
   const fn = new AsyncFunction('data', `"use strict"; ${code}`);
   return await fn(data);
 }
@@ -335,6 +378,7 @@ async function runCode(data: any, cfg: any): Promise<any> {
 async function runWebhook(data: any, cfg: any): Promise<any> {
   const url = cfg?.url;
   if (!url) throw new Error('webhook requires a URL');
+  assertSafeUrl(url);
   const method = String(cfg?.method || 'POST').toUpperCase();
   const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(cfg?.headers || {}) };
   const res = await fetch(url, { method, headers, body: JSON.stringify(data) });
@@ -371,6 +415,7 @@ async function runAi(data: any, cfg: any): Promise<any> {
 async function runValidator(data: any, cfg: any): Promise<any> {
   const rules = cfg?.rules || cfg?.expression;
   if (rules) {
+    validateUserCode(String(rules));
     const fn = new AsyncFunction('data', `"use strict"; return await (${rules})(data);`);
     const valid = await fn(data);
     return { valid: Boolean(valid), data };
@@ -429,6 +474,7 @@ async function runGraphQL(_data: any, cfg: any): Promise<any> {
   const variables = cfg?.variables || {};
   const headers = cfg?.headers || {};
   if (!url) throw new Error('GraphQL requires url/endpoint');
+  assertSafeUrl(url);
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
@@ -473,6 +519,7 @@ async function runSwitch(data: any, cfg: any): Promise<any> {
   const expression = cfg?.expression || cfg?.code;
   let matched: string | number = 'default';
   if (expression) {
+    validateUserCode(String(expression));
     const fn = new AsyncFunction('data', `"use strict"; return await (${expression})(data);`);
     const res = await fn(data);
     matched = String(res);
@@ -480,6 +527,7 @@ async function runSwitch(data: any, cfg: any): Promise<any> {
     for (const rule of rules) {
       const expr = rule.expression || rule.condition;
       if (expr) {
+        validateUserCode(String(expr));
         const fn = new AsyncFunction('data', `"use strict"; return Boolean(await (${expr})(data));`);
         if (await fn(data)) { matched = rule.value ?? rule.case ?? 'true'; break; }
       }
@@ -560,6 +608,7 @@ function runItemLists(data: any, cfg: any): any {
 
 async function runFunction(data: any, cfg: any): Promise<any> {
   const code = cfg?.code || cfg?.functionCode || cfg?.expression || 'return data;';
+  validateUserCode(String(code));
   const fn = new AsyncFunction('data', 'items', `"use strict"; ${code}`);
   const items = Array.isArray(data) ? data : [data];
   // n8n Function node signature: function(item) per item, we mimic
@@ -641,6 +690,7 @@ async function runGenericApp(app: string, data: any, cfg: any): Promise<any> {
     console.log(`[AgentFlow ${app} simulated]`, { data: String(JSON.stringify(data)).slice(0, 500), cfg });
     return { app, simulated: true, note: simulatedNote, dataPreview: String(JSON.stringify(data)).slice(0, 500), config: cfg };
   }
+  assertSafeUrl(url);
   const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: method === 'GET' ? undefined : JSON.stringify(body) });
   const text = await res.text();
   const parsed = parseMaybeJson(text);
@@ -719,6 +769,7 @@ function getCustomDef(type: string): any | undefined {
 async function runCustom(data: any, cfg: any, def: any): Promise<any> {
   const code = cfg.code || def.code;
   if (!code) throw new Error(`custom node ${def.type} missing code`);
+  validateUserCode(String(code));
   const fn = new AsyncFunction('data', 'config', `"use strict"; ${code}`);
   return await fn(data, cfg);
 }

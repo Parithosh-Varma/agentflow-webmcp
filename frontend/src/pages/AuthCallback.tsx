@@ -19,6 +19,8 @@ export function AuthCallback() {
     if (accessToken) {
       localStorage.setItem('agentflow_access_token', accessToken);
     }
+    // SECURITY: strip tokens from URL/history/referer immediately.
+    try { window.history.replaceState(null, '', window.location.pathname); } catch {}
 
     // Resolve redirect — if it contains origin, strip to pathname+search
     let target = '/tool';

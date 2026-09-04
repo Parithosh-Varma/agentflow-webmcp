@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://agentflow-landing.pages.dev/sitemap.xml
+Sitemap: https://agentflow-hackathon.pages.dev/sitemap.xml

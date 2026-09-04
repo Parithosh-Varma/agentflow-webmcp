@@ -1,6 +1,6 @@
 import type { Node, Edge } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
-import { executeWorkflow, toEngineNodes, toEngineEdges, type NodeStatus } from './engine';
+import { executeWorkflow, toEngineNodes, toEngineEdges, assertSafeUrl, type NodeStatus } from './engine';
 import { getSmartPlacement, localWireAdjust, snapToGrid, findNearestOpenSlot } from './utils/grid';
 
 interface WebMCPContext {
@@ -474,11 +474,13 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       const node = ctx.nodesRef.current.find((n) => n.id === nodeId);
       if (!node) return JSON.stringify({ success: false, error: `Node not found: ${nodeId}. Use find_nodes or get_workflow_status to discover IDs.` });
       const connections = ctx.edgesRef.current.filter((e) => e.source === nodeId || e.target === nodeId);
+      // SECURITY: never return secrets to agent/canvas logs.
+      const { apiKey, ...safeConfig } = (node.data?.config as any) || {};
       const result = {
-        node: { id: node.id, type: node.data?.nodeType, label: node.data?.label, config: node.data?.config },
+        node: { id: node.id, type: node.data?.nodeType, label: node.data?.label, config: safeConfig, ...(apiKey ? { hasApiKey: true } : {}) },
         connections: connections.map((e) => ({ source: e.source, target: e.target, label: e.label })),
       };
-      ctx.addToolLog('get_node_details', { nodeId }, result);
+      ctx.addToolLog('get_node_details', { nodeId }, { id: node.id, type: node.data?.nodeType });
       return JSON.stringify(result);
     },
   });
@@ -1130,6 +1132,7 @@ export function registerWebMCPTools(ctx: WebMCPContext): () => void {
       required:['url'],
     },
     execute: async ({ url, method='GET', headers={}, body, timeoutMs=8000 }:any) => {
+      try { assertSafeUrl(String(url)); } catch (e:any) { const err={success:false, error:e?.message||'URL not allowed'}; ctx.addToolLog('probe_api', {url, method}, err); return JSON.stringify(err); }
       const ctrl = new AbortController();
       const t = setTimeout(()=>ctrl.abort(), Math.max(1000, Math.min(15000, Number(timeoutMs)||8000)));
       try {

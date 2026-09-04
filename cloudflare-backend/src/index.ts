@@ -1,14 +1,14 @@
 // Cloudflare Workers — AgentFlow prod with P0/P1/P2 optimizations
 import { z } from "zod";
 
-const ALLOWED_IPS = ['122.171.20.180', '2401:4900:894c:d56d:6db7:9211:c0ae:ec56'];
-const ACCESS_CODE = '7c29f34ff320ed1dd8be77c9b0fa2c9e671062f7c613b0178b3e94ce0a132316';
-
+// SECURITY: no hardcoded IPs/secrets. Configure via env / wrangler secret.
 interface Env {
   DB: D1Database;
   AUTH: Fetcher;
   JWT_SECRET: string;
   ENVIRONMENT: string;
+  ACCESS_CODE_HASH?: string;
+  FRONTEND_URL?: string;
 }
 interface User { id: string; email: string; name: string; created_at: string; }
 interface Workflow { id: string; user_id: string; name: string; description: string; nodes: any[]; edges: any[]; created_at: string; updated_at: string; }
@@ -58,7 +58,7 @@ async function processQ() {
     job.attempts++;
     try {
       if (job.type === 'webhook') {
-        try { await fetch(job.payload.url, { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(job.payload.data), signal: AbortSignal.timeout(5000) }); } catch {}
+        try { assertSafeUrl(job.payload.url); await fetch(job.payload.url, { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(job.payload.data), signal: AbortSignal.timeout(5000) }); } catch {}
       }
       qMetrics.processed++;
     } catch { qMetrics.failed++; if (job.attempts < 3) bgQueue.push(job); }
@@ -75,14 +75,24 @@ export default {
     gMetrics.requests++;
     const t0 = Date.now();
 
-    // CORS headers with compression hint
+    // SECURITY: CORS allowlist (no wildcard with credential headers).
+    // Set FRONTEND_URL="https://a.pages.dev,https://b.pages.dev" in wrangler vars.
+    const allowedOrigins = String(env.FRONTEND_URL || 'https://agentflow-hackathon.pages.dev').split(',').map(s=>s.trim()).filter(Boolean);
+    const origin = request.headers.get('Origin') || '';
+    const allowOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+    // CORS + security headers
     const headers: Record<string,string> = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowOrigin,
+      'Vary': 'Origin',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Access-Token',
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+      'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
     };
 
     if (request.method === 'OPTIONS') {
@@ -277,31 +287,63 @@ export default {
 };
 
 // Auth helpers
+// SECURITY: salted PBKDF2-SHA256 (100k iters) stored as `saltHex:hashHex`.
+// Legacy unsalted SHA-256 hashes still verify (migration path) but new passwords use salt.
 async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, key, 256);
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashHex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${saltHex}:${hashHex}`;
+}
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  try {
+    if (stored.includes(':')) {
+      const [saltHex, hashHex] = stored.split(':');
+      const salt = Uint8Array.from(saltHex.match(/../g)!.map(h => parseInt(h, 16)));
+      const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+      const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, key, 256);
+      const hex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+      return timingSafeEqual(hex, hashHex);
+    }
+    // legacy unsalted SHA-256
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+    const hex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    return timingSafeEqual(hex, stored);
+  } catch { return false; }
+}
+function b64urlEncode(data: string | ArrayBuffer): string {
+  const bin = typeof data === 'string' ? btoa(data) : btoa(String.fromCharCode(...new Uint8Array(data)));
+  return bin.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlDecode(b64url: string): string {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  return atob(b64);
 }
 async function verifyToken(token: string, secret: string): Promise<string | null> {
   try {
     const [header, payload, signature] = token.split('.');
+    if (!header || !payload || !signature) return null;
+    const hdr = JSON.parse(b64urlDecode(header));
+    if (hdr.alg !== 'HS256') return null;
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-    const valid = await crypto.subtle.verify('HMAC', key, Uint8Array.from(atob(signature), c => c.charCodeAt(0)), encoder.encode(`${header}.${payload}`));
+    const sigBytes = Uint8Array.from(b64urlDecode(signature), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(`${header}.${payload}`));
     if (!valid) return null;
-    const data = JSON.parse(atob(payload));
+    const data = JSON.parse(b64urlDecode(payload));
     if (data.exp < Date.now() / 1000) return null;
     return data.sub;
   } catch { return null; }
 }
 async function createToken(userId: string, secret: string): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = btoa(JSON.stringify({ sub: userId, exp: Math.floor(Date.now() / 1000) + 86400 }));
+  const header = b64urlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = b64urlEncode(JSON.stringify({ sub: userId, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 86400 }));
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${header}.${payload}`));
-  return `${header}.${payload}.${btoa(String.fromCharCode(...new Uint8Array(signature)))}`;
+  return `${header}.${payload}.${b64urlEncode(signature)}`;
 }
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -310,37 +352,60 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 async function createAccessToken(secret: string): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = btoa(JSON.stringify({ typ: 'access', exp: Math.floor(Date.now() / 1000) + 86400 * 7, iat: Math.floor(Date.now() / 1000) }));
+  const header = b64urlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = b64urlEncode(JSON.stringify({ typ: 'access', exp: Math.floor(Date.now() / 1000) + 86400 * 7, iat: Math.floor(Date.now() / 1000) }));
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${header}.${payload}`));
-  return `${header}.${payload}.${btoa(String.fromCharCode(...new Uint8Array(signature)))}`;
+  return `${header}.${payload}.${b64urlEncode(signature)}`;
 }
 async function verifyAccessToken(token: string, secret: string): Promise<boolean> {
   try {
     const [header, payload, signature] = token.split('.');
     if (!header || !payload || !signature) return false;
+    const hdr = JSON.parse(b64urlDecode(header));
+    if (hdr.alg !== 'HS256') return false;
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-    const valid = await crypto.subtle.verify('HMAC', key, Uint8Array.from(atob(signature), c => c.charCodeAt(0)), encoder.encode(`${header}.${payload}`));
+    const sigBytes = Uint8Array.from(b64urlDecode(signature), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(`${header}.${payload}`));
     if (!valid) return false;
-    const data = JSON.parse(atob(payload));
+    const data = JSON.parse(b64urlDecode(payload));
     if (data.typ !== 'access') return false;
     if (data.exp < Date.now() / 1000) return false;
     return true;
   } catch { return false; }
 }
+// SECURITY: SSRF guard shared by api_call/webhook/graphql/probe.
+function assertSafeUrl(raw: string): string {
+  let u: URL;
+  try { u = new URL(String(raw)); } catch { throw new Error('invalid URL'); }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('URL must be http(s)');
+  const host = u.hostname.toLowerCase();
+  if (host === 'localhost' || host === '0.0.0.0' || host === '::1' || host === '[::]' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') || host === '169.254.169.254' || host === 'metadata.google.internal') {
+    throw new Error('URL host not allowed');
+  }
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const o = m.slice(1).map(Number);
+    if (o[0] === 10 || o[0] === 127 || (o[0] === 169 && o[1] === 254) || (o[0] === 192 && o[1] === 168) || (o[0] === 172 && o[1] >= 16 && o[1] <= 31) || o[0] === 0) {
+      throw new Error('URL resolves to private address range');
+    }
+  }
+  return u.toString();
+}
 async function handleVerifyAccess(request: Request, env: Env, headers: Record<string, string>): Promise<Response> {
   const body = (await request.json().catch(() => ({} as any))) as any;
   const code = String(body.code ?? body.accessCode ?? '').trim();
-  let ok = timingSafeEqual(code, ACCESS_CODE);
-  if (!ok && code.length > 0) {
+  // SECURITY: access code never hardcoded — compare SHA-256 hex from env.
+  const expectedHash = String(env.ACCESS_CODE_HASH || '').toLowerCase();
+  let ok = false;
+  if (code.length > 0 && expectedHash) {
     try {
       const encoder = new TextEncoder();
       const hash = await crypto.subtle.digest('SHA-256', encoder.encode(code));
       const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-      if (timingSafeEqual(hex, ACCESS_CODE)) ok = true;
+      if (timingSafeEqual(hex, expectedHash)) ok = true;
     } catch {}
   }
   if (!ok) {
@@ -372,11 +437,11 @@ async function handleRegister(request: Request, env: Env, headers: Record<string
 }
 async function handleLogin(request: Request, env: Env, headers: Record<string, string>, data: any): Promise<Response> {
   const { email, password } = data;
-  const passwordHash = await hashPassword(password);
-  const user = await env.DB.prepare('SELECT id, email, name FROM users WHERE email = ? AND password_hash = ?').bind(email, passwordHash).first<User>();
-  if (!user) {
+  const row = await env.DB.prepare('SELECT id, email, name, password_hash FROM users WHERE email = ?').bind(email).first<User & { password_hash: string }>();
+  if (!row || !(await verifyPassword(password, row.password_hash))) {
     return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401, headers: { ...headers, 'Content-Type': 'application/json' } });
   }
+  const user = { id: row.id, email: row.email, name: row.name };
   const token = await createToken(user.id, env.JWT_SECRET);
   return new Response(JSON.stringify({ user, token }), { headers: { ...headers, 'Content-Type': 'application/json' } });
 }
@@ -445,8 +510,12 @@ async function executeWorkflow(request: Request, userId: string, env: Env, heade
   const getPath = (obj:any, p:string)=> p.split('.').filter(Boolean).reduce((o,k)=> o==null?undefined:o[k], obj);
   const parseMaybeJson = (t:string)=> { try{ return JSON.parse(t); }catch{ return t; } };
   const AsyncFunction: any = Object.getPrototypeOf(async function(){}).constructor;
-  const BLOCKED = [/require\s*\(/, /process\./, /child_process/, /fs\./, /eval\s*\(/, /Function\s*\(/, /while\s*\(\s*true\s*\)/, /for\s*\(\s*;\s*;\s*\)/];
-  const validateCode = (c:string)=> { if(c.length>10000) throw new Error('code too large'); for(const pat of BLOCKED) if(pat.test(c)) throw new Error(`blocked ${pat}`); };
+  const BLOCKED = [/require\s*\(/, /process\s*[./\[]/, /child_process/, /fs\s*[./\[]/, /eval\s*\(/, /Function\s*\(/, /AsyncFunction/, /constructor\s*\(/, /__proto__/, /prototype\s*\./, /globalThis/, /localStorage|sessionStorage|indexedDB/, /document\s*\./, /window\s*\./, /navigator\s*\./, /import\s*\(/, /fetch\s*\(/, /XMLHttpRequest|WebSocket|EventSource/, /while\s*\(\s*true\s*\)/, /for\s*\(\s*;\s*;\s*\)/];
+  const validateCode = (c:string)=> { if(typeof c !== 'string' || c.length>10000) throw new Error('code too large (max 10KB)'); for(const pat of BLOCKED) if(pat.test(c)) throw new Error(`blocked ${pat}`); };
+  // NOTE: Worker cannot safely run arbitrary user JS — validate ALL expression
+  // paths (transform/condition/filter/validator/switch/code/function/custom).
+  // fetch() is blocked in user code; network must use api_call/webhook nodes
+  // which enforce assertSafeUrl().
   async function runCustom(data:any, cfg:any, def:any){
     const code = cfg.code || def.code;
     if(!code) throw new Error(`custom ${def.type} missing code`);
@@ -485,32 +554,32 @@ async function executeWorkflow(request: Request, userId: string, env: Env, heade
       const t = node.type;
       if(t==='start'||t==='manual_trigger') result = input||{};
       else if(t==='api_call'){
-        const url=cfg.url; if(!url) throw new Error('no URL'); const method=String(cfg.method||'GET').toUpperCase(); const headers2={...(cfg.headers||{})}; let body:any; if(method!=='GET'&&method!=='HEAD'){ const raw=cfg.body ?? input; if(raw!==undefined&&raw!==null&&raw!==''){ body=typeof raw==='string'?raw:JSON.stringify(raw); if(!headers2['Content-Type']) headers2['Content-Type']='application/json'; } }
+        const url=cfg.url; if(!url) throw new Error('no URL'); assertSafeUrl(url); const method=String(cfg.method||'GET').toUpperCase(); const headers2={...(cfg.headers||{})}; let body:any; if(method!=='GET'&&method!=='HEAD'){ const raw=cfg.body ?? input; if(raw!==undefined&&raw!==null&&raw!==''){ body=typeof raw==='string'?raw:JSON.stringify(raw); if(!headers2['Content-Type']) headers2['Content-Type']='application/json'; } }
         const res=await fetch(url,{method, headers:headers2, body, signal: AbortSignal.timeout(8000)}); const text=await res.text(); const parsed=parseMaybeJson(text); if(!res.ok) throw new Error(`HTTP ${res.status}`); result=parsed;
       } else if(t==='transform'){
         const op=cfg.op||'passthrough';
         if(op==='pick'){ const keys=String(cfg.keys||'').split(',').map((k:string)=>k.trim()).filter(Boolean); const out:any={}; for(const k of keys) out[k]=getPath(data,k); result=out; }
         else if(op==='count') result= Array.isArray(data)?{count:data.length}:{count:Object.keys(data||{}).length};
         else if(op==='first') result= Array.isArray(data)?data[0]:data;
-        else if(op==='expression'){ if(!cfg.expression) throw new Error('no expression'); try { const fn=new AsyncFunction('data', `"use strict"; return (${String(cfg.expression).trim()})(data);`); result=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) result={ simulated:true, expression: cfg.expression, data }; else throw e; } }
+        else if(op==='expression'){ if(!cfg.expression) throw new Error('no expression'); validateCode(String(cfg.expression)); try { const fn=new AsyncFunction('data', `"use strict"; return (${String(cfg.expression).trim()})(data);`); result=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) result={ simulated:true, expression: cfg.expression, data }; else throw e; } }
         else result=data;
-      } else if(t==='condition'){ let passed:boolean; if(cfg.expression){ try { const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`); passed=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) passed=true; else throw e; } } else { passed = cfg.path ? getPath(data,cfg.path)=== (cfg.equals===undefined?true:cfg.equals) : true; } lastCondition=passed; result={passed, checked: node.label}; }
+      } else if(t==='condition'){ let passed:boolean; if(cfg.expression){ validateCode(String(cfg.expression)); try { const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`); passed=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) passed=true; else throw e; } } else { passed = cfg.path ? getPath(data,cfg.path)=== (cfg.equals===undefined?true:cfg.equals) : true; } lastCondition=passed; result={passed, checked: node.label}; }
       else if(t==='delay'){ await sleep(Number(cfg.ms||1000)); result={waitedMs:Number(cfg.ms||1000)}; }
       else if(t==='output'){ result={delivered:'console', data}; }
-      else if(t==='filter'){ if(!cfg.expression) throw new Error('filter requires expression'); let pass:boolean; try { const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`); pass=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) pass=true; else throw e; } result={passed:pass, data}; }
+      else if(t==='filter'){ if(!cfg.expression) throw new Error('filter requires expression'); validateCode(String(cfg.expression)); let pass:boolean; try { const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${cfg.expression})(data));`); pass=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) pass=true; else throw e; } result={passed:pass, data}; }
       else if(t==='split'){ if(Array.isArray(data)){ const bs=Number(cfg.batchSize||1); const batches=[]; for(let i=0;i<data.length;i+=bs) batches.push(data.slice(i,i+bs)); result={batches, count:batches.length}; } else if(typeof data==='object'&&data!==null){ const ks=Object.keys(data); result={items:ks.map(k=>({key:k,value:data[k]})), count:ks.length}; } else result={items:[data],count:1}; }
       else if(t==='merge'){ if(Array.isArray(data)) result=data.reduce((a:any,it:any)=> Array.isArray(it)?a.concat(it): (typeof it==='object'&&it!==null?{...a,...it}:a),{}); else result=data; }
       else if(t==='loop'){ const items=Array.isArray(data)?data:data?.items||data?.batches||[data]; const max=Number(cfg.maxIterations||10); const res=[]; for(let i=0;i<Math.min(items.length,max);i++) res.push({index:i,value:items[i]}); result={iterations:res,total:items.length}; }
       else if(t==='code'){ const code=cfg.code||cfg.expression; if(!code) throw new Error('code requires code'); validateCode(code); try { const fn=new AsyncFunction('data', `"use strict"; ${code}`); result=await fn(data); } catch(e:any){ if(String(e.message).includes('Code generation')) result={ simulated:true, code: code.slice(0,200), data }; else throw e; } }
-      else if(t==='webhook'){ const url=cfg.url; if(!url) throw new Error('webhook requires URL'); const method=String(cfg.method||'POST').toUpperCase(); const h={'Content-Type':'application/json',...(cfg.headers||{})}; const res=await fetch(url,{method, headers:h, body:JSON.stringify(data), signal: AbortSignal.timeout(8000)}); const txt=await res.text(); const parsed=parseMaybeJson(txt); if(!res.ok) throw new Error(`webhook ${res.status}`); result={status:res.status, data:parsed}; }
+      else if(t==='webhook'){ const url=cfg.url; if(!url) throw new Error('webhook requires URL'); assertSafeUrl(url); const method=String(cfg.method||'POST').toUpperCase(); const h={'Content-Type':'application/json',...(cfg.headers||{})}; const res=await fetch(url,{method, headers:h, body:JSON.stringify(data), signal: AbortSignal.timeout(8000)}); const txt=await res.text(); const parsed=parseMaybeJson(txt); if(!res.ok) throw new Error(`webhook ${res.status}`); result={status:res.status, data:parsed}; }
       else if(t==='ai'){ const prompt=cfg.prompt||'Summarize'; const apiKey=cfg.apiKey; if(!apiKey) result={prompt, response:`[AI simulated] ${prompt}`}; else { const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${apiKey}`}, body: JSON.stringify({model:cfg.model||'gpt-3.5-turbo', messages:[{role:'user', content:`${prompt}\n\n${JSON.stringify(data,null,2)}`}]}), signal: AbortSignal.timeout(10000)}); if(!res.ok) throw new Error(`AI ${res.status}`); const j:any=await res.json(); result={response:j.choices?.[0]?.message?.content||''}; } }
-      else if(t==='validator'){ const r=cfg.rules||cfg.expression; if(r){ let v:boolean; try { const fn=new AsyncFunction('data', `"use strict"; return await (${r})(data);`); v=Boolean(await fn(data)); } catch(e:any){ if(String(e.message).includes('Code generation')) v=true; else throw e; } result={valid:v, data}; } else result={valid:!!data, data}; }
+      else if(t==='validator'){ const r=cfg.rules||cfg.expression; if(r){ validateCode(String(r)); let v:boolean; try { const fn=new AsyncFunction('data', `"use strict"; return await (${r})(data);`); v=Boolean(await fn(data)); } catch(e:any){ if(String(e.message).includes('Code generation')) v=true; else throw e; } result={valid:v, data}; } else result={valid:!!data, data}; }
       else if(t==='logger'){ result={level:cfg.level||'info', message:cfg.message||'', data, timestamp:new Date().toISOString()}; }
       else if(t==='file'){ result={operation:cfg.operation||'read', path:cfg.path||'output.json'}; }
       else if(t==='schedule'){ const intervalMs=cfg.intervalMs||cfg.ms||0; if(intervalMs) await sleep(Number(intervalMs)); result={scheduled:true, cron:cfg.cron||'*/5 * * * *'}; }
-      else if(t==='graphql'){ const url=cfg.url||cfg.endpoint; if(!url) throw new Error('GraphQL requires url'); const res=await fetch(url,{method:'POST', headers:{'Content-Type':'application/json',...(cfg.headers||{})}, body: JSON.stringify({query:cfg.query||'{ __typename }', variables: typeof cfg.variables==='string'?JSON.parse(cfg.variables):cfg.variables||{}}), signal: AbortSignal.timeout(8000)}); const txt=await res.text(); const parsed=parseMaybeJson(txt); if(!res.ok) throw new Error(`GraphQL ${res.status}`); result=parsed; }
+      else if(t==='graphql'){ const url=cfg.url||cfg.endpoint; if(!url) throw new Error('GraphQL requires url'); assertSafeUrl(url); const res=await fetch(url,{method:'POST', headers:{'Content-Type':'application/json',...(cfg.headers||{})}, body: JSON.stringify({query:cfg.query||'{ __typename }', variables: typeof cfg.variables==='string'?JSON.parse(cfg.variables):cfg.variables||{}}), signal: AbortSignal.timeout(8000)}); const txt=await res.text(); const parsed=parseMaybeJson(txt); if(!res.ok) throw new Error(`GraphQL ${res.status}`); result=parsed; }
       else if(t==='set'){ const keepOnly=cfg.keepOnlySet||cfg.keepOnly||false; const fields=cfg.fields||cfg.set||cfg.values||{}; let parsedFields:any={}; if(typeof fields==='string') try{parsedFields=JSON.parse(fields);}catch{parsedFields={}} else if(typeof fields==='object') parsedFields=fields; if(Object.keys(parsedFields).length===0){ const reserved=new Set(['keepOnlySet','keepOnly','fields','set','values']); for(const [k,v] of Object.entries(cfg)) if(!reserved.has(k)) parsedFields[k]=v; } const base= keepOnly?{}: (typeof data==='object'&&data!==null?{...data}:{}); for(const [k,v] of Object.entries(parsedFields)){ if(typeof v==='string'&& (v as string).includes('{{')) (base as any)[k]=(v as string).replace(/\{\{\s*\$json\.([\w.]+)\s*\}\}/g, (_m,p)=>String(getPath(data,p)??'')); else (base as any)[k]=v; } result=base; }
-      else if(t==='switch'){ const rules=cfg.rules||cfg.cases||[]; const expr=cfg.expression||cfg.code; let matched='default'; if(expr){ try { const fn=new AsyncFunction('data', `"use strict"; return await (${expr})(data);`); matched=String(await fn(data)); } catch(e:any){ if(String(e.message).includes('Code generation')) matched='default'; else throw e; } } else if(Array.isArray(rules)&&rules.length){ for(const rule of rules){ const ex=rule.expression||rule.condition; if(ex){ try { const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${ex})(data));`); if(await fn(data)){ matched=rule.value||rule.case||'true'; break; } } catch(e:any){ if(String(e.message).includes('Code generation')) { matched=rule.value||'true'; break; } else throw e; } } } } else if(cfg.value!==undefined) matched=String(cfg.value); result={case:matched, data, matchedCase:matched}; }
+      else if(t==='switch'){ const rules=cfg.rules||cfg.cases||[]; const expr=cfg.expression||cfg.code; let matched='default'; if(expr){ validateCode(String(expr)); try { const fn=new AsyncFunction('data', `"use strict"; return await (${expr})(data);`); matched=String(await fn(data)); } catch(e:any){ if(String(e.message).includes('Code generation')) matched='default'; else throw e; } } else if(Array.isArray(rules)&&rules.length){ for(const rule of rules){ const ex=rule.expression||rule.condition; if(ex){ validateCode(String(ex)); try { const fn=new AsyncFunction('data', `"use strict"; return Boolean(await (${ex})(data));`); if(await fn(data)){ matched=rule.value||rule.case||'true'; break; } } catch(e:any){ if(String(e.message).includes('Code generation')) { matched=rule.value||'true'; break; } else throw e; } } } } else if(cfg.value!==undefined) matched=String(cfg.value); result={case:matched, data, matchedCase:matched}; }
       else if(t==='aggregate'){ const field=cfg.field||cfg.groupBy||''; const op=cfg.operation||cfg.aggregate||'count'; const items=Array.isArray(data)?data:data?.items||data?.data||[data]; if(op==='count') result={count:items.length, field, operation:op}; else if(op==='sum'&&field){ const sum=items.reduce((s:number,it:any)=> s+Number(getPath(it,field)??it[field]??0),0); result={sum, field, count:items.length}; } else if(op==='avg'&&field){ const sum=items.reduce((s:number,it:any)=> s+Number(getPath(it,field)??0),0); result={avg: items.length? sum/items.length:0, field, count:items.length}; } else if(field){ const groups:Record<string,any[]>={}; for(const it of items){ const key=String(getPath(it,field)??it[field]??'null'); if(!groups[key]) groups[key]=[]; groups[key].push(it); } result={groups, count:items.length, field}; } else result={count:items.length, items}; }
       else if(t==='sort'){ const field=cfg.field||cfg.sortBy||''; const order=String(cfg.order||cfg.direction||'asc').toLowerCase(); const items=Array.isArray(data)?[...data]:data?.items?[...data.items]:[data]; if(!field) items.sort(); else items.sort((a:any,b:any)=>{ const av=getPath(a,field)??a[field]; const bv=getPath(b,field)??b[field]; if(av===bv) return 0; const cmp= av>bv?1:-1; return order==='desc'?-cmp:cmp; }); result={sorted:items, count:items.length, field, order}; }
       else if(t==='limit'){ const max=Number(cfg.max||cfg.limit||10); const offset=Number(cfg.offset||0); const items=Array.isArray(data)?data:data?.items||data?.data||[data]; const sliced=items.slice(offset, offset+max); result={limited:sliced, count:sliced.length, total:items.length, offset, max}; }
@@ -520,7 +589,7 @@ async function executeWorkflow(request: Request, userId: string, env: Env, heade
       else if(t==='webhook_response'){ result={status:Number(cfg.status||200), body: cfg.body||data, headers:cfg.headers||{}, simulated:true}; }
       else if(t==='html'){ const op=cfg.operation||'extract'; const html=String(cfg.html||data.html||data||''); const selector=cfg.selector||cfg.css||''; const attr=cfg.attribute||'textContent'; if(op==='extract'&&selector) result={html:html.slice(0,5000), selector, note:'HTML extract requires DOMParser in Worker — returning raw'}; else result={html:html.slice(0,5000), operation:op, selector}; }
       else if(t==='date_time'){ const op=cfg.operation||'now'; const inp=cfg.date||cfg.value||data; const fmt=cfg.format||'iso'; const parse=(v:any)=>{ if(v instanceof Date) return v; if(typeof v==='number') return new Date(v); if(typeof v==='string'){ const d=new Date(v); if(!isNaN(d.getTime())) return d; } return new Date(); }; if(op==='now') result={now:new Date().toISOString(), timestamp:Date.now()}; else if(op==='format'){ const d=parse(inp); result={formatted: fmt==='iso'?d.toISOString():d.toLocaleString(), input:inp}; } else if(op==='add'){ const d=parse(inp); const amt=Number(cfg.amount||1); const unit=cfg.unit||'days'; const mul:Record<string,number>={ms:1,seconds:1000,minutes:60000,hours:3600000,days:86400000}; result={result:new Date(d.getTime()+amt*(mul[unit]||86400000)).toISOString(), operation:op, amount:amt, unit}; } else result={result:parse(inp).toISOString(), operation:op}; }
-      else if(['slack','discord','github','gmail','google_sheets','notion','airtable','postgres','mysql','mongodb','redis','stripe','shopify','aws_s3'].includes(t)){ const url=cfg.url||cfg.webhookUrl||cfg.endpoint; if(!url){ result={app:t, simulated:true, note:`simulated ${t} — configure url`}; } else { const method=String(cfg.method||'POST').toUpperCase(); const h={'Content-Type':'application/json',...(cfg.headers||{})}; const body=cfg.body??cfg.payload??data; const res=await fetch(url,{method, headers:h, body: method==='GET'?undefined:JSON.stringify(body), signal: AbortSignal.timeout(8000)}); const txt=await res.text(); const parsed=parseMaybeJson(txt); if(!res.ok) throw new Error(`${t} HTTP ${res.status}`); result={app:t, status:res.status, data:parsed, simulated:false}; } }
+      else if(['slack','discord','github','gmail','google_sheets','notion','airtable','postgres','mysql','mongodb','redis','stripe','shopify','aws_s3'].includes(t)){ const url=cfg.url||cfg.webhookUrl||cfg.endpoint; if(url) assertSafeUrl(url); if(!url){ result={app:t, simulated:true, note:`simulated ${t} — configure url`}; } else { const method=String(cfg.method||'POST').toUpperCase(); const h={'Content-Type':'application/json',...(cfg.headers||{})}; const body=cfg.body??cfg.payload??data; const res=await fetch(url,{method, headers:h, body: method==='GET'?undefined:JSON.stringify(body), signal: AbortSignal.timeout(8000)}); const txt=await res.text(); const parsed=parseMaybeJson(txt); if(!res.ok) throw new Error(`${t} HTTP ${res.status}`); result={app:t, status:res.status, data:parsed, simulated:false}; } }
       else if(t==='openai'){ const prompt=cfg.prompt||cfg.message||'Hello'; const model=cfg.model||'gpt-4o-mini'; const apiKey=cfg.apiKey; if(!apiKey) result={app:'openai', model, prompt, response:`[OpenAI simulated] ${prompt}`, note:'No API key'}; else { const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${apiKey}`}, body: JSON.stringify({model, messages:[{role:'user', content:`${prompt}\n\n${JSON.stringify(data,null,2)}`}]}), signal: AbortSignal.timeout(10000)}); if(!res.ok) throw new Error(`OpenAI ${res.status}`); const j:any=await res.json(); result={app:'openai', model, response:j.choices?.[0]?.message?.content||'', prompt}; } }
       else if(t.startsWith('custom_')){
         const def = customMap.get(t);

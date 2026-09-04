@@ -39,8 +39,23 @@ app.use(cors({
   allowedHeaders: ['Content-Type','Authorization','X-Access-Token'],
 }));
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://accounts.google.com', 'https://apis.google.com'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'", 'https://agentflow.parithosh.workers.dev', 'https://api.openai.com'],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
+  frameguard: { action: 'deny' },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 app.use(compression({ level: 6, threshold: 512 }));
 app.use(express.json({ limit: '1mb' }));
@@ -56,13 +71,15 @@ const globalLimiter = rateLimit({
 });
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 200,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Rate limit exceeded for tool execution.' },
 });
 app.use('/api/', globalLimiter);
 app.use('/api/execute-tool', strictLimiter);
+app.use('/api/execute', strictLimiter);
+app.use('/api/auth/verify-access', strictLimiter);
 app.use('/api', authMiddleware);
 
 // Serve static frontend in production
@@ -124,7 +141,7 @@ async function processQueue() {
       if (job.type === 'file') await new Promise(r => setTimeout(r, 150));
       if (job.type === 'webhook') {
         // probe delivery without blocking main request
-        try { await fetch(job.payload.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(job.payload.data), signal: AbortSignal.timeout(5000) }); } catch {}
+        try { assertSafeUrl(job.payload.url); await fetch(job.payload.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(job.payload.data), signal: AbortSignal.timeout(5000) }); } catch {}
       }
       queueMetrics.processed++;
       logger.info({ jobId: job.id, type: job.type }, 'job processed');
@@ -332,11 +349,34 @@ function pushHistory(label, workflow) {
 const sleep = (ms) => new Promise(r => setTimeout(r, Math.max(0, ms)));
 function getPath(obj, pathStr) { return pathStr.split('.').filter(Boolean).reduce((o,k) => (o==null?undefined:o[k]), obj); }
 function parseMaybeJson(t) { try { return JSON.parse(t); } catch { return t; } }
+// SECURITY: SSRF guard — block private/loopback/link-local/hosts.
+function assertSafeUrl(raw) {
+  let u;
+  try { u = new URL(String(raw)); } catch { throw new Error('invalid URL'); }
+  if (!['http:', 'https:'].includes(u.protocol)) throw new Error('URL must be http(s)');
+  const host = u.hostname.toLowerCase();
+  const blockedHosts = new Set(['localhost', '0.0.0.0', '[::]', '::1']);
+  if (blockedHosts.has(host) || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) {
+    throw new Error('URL host not allowed');
+  }
+  // IPv4 private/loopback/link-local/reserved + metadata IP
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const o = m.slice(1).map(Number);
+    if (o.some(n => n < 0 || n > 255)) throw new Error('invalid IP');
+    if (o[0] === 10 || o[0] === 127 || (o[0] === 169 && o[1] === 254) || (o[0] === 192 && o[1] === 168) || (o[0] === 172 && o[1] >= 16 && o[1] <= 31) || o[0] === 0) {
+      throw new Error('URL resolves to private address range');
+    }
+  }
+  if (host === '169.254.169.254' || host === 'metadata.google.internal') throw new Error('URL host not allowed');
+  return u.toString();
+}
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 
 async function runApiCall(cfg, input) {
   const url = cfg?.url;
   if (!url) throw new Error('no URL configured');
+  assertSafeUrl(url);
   const method = String(cfg?.method || 'GET').toUpperCase();
   const headers = { ...(cfg?.headers || {}) };
   let body;
@@ -379,7 +419,7 @@ async function runCode(data, cfg) {
   return await fn(data);
 }
 async function runWebhook(data, cfg) {
-  const url = cfg?.url; if (!url) throw new Error('webhook requires URL');
+  const url = cfg?.url; if (!url) throw new Error('webhook requires URL'); assertSafeUrl(url);
   const method = String(cfg?.method||'POST').toUpperCase();
   const headers = { 'Content-Type':'application/json', ...(cfg?.headers||{}) };
   const res = await fetch(url, { method, headers, body: JSON.stringify(data), signal: AbortSignal.timeout(8000) });
@@ -413,7 +453,7 @@ async function runSchedule(_data, cfg) {
   return { scheduled: true, cron, nextRun: new Date(Date.now() + (intervalMs || 60000)).toISOString() };
 }
 async function runGraphQL(_data, cfg) {
-  const url = cfg?.url || cfg?.endpoint;
+  const url = cfg?.url || cfg?.endpoint; assertSafeUrl(url);
   const query = cfg?.query || cfg?.graphql || '{ __typename }';
   const variables = cfg?.variables || {};
   const headers = cfg?.headers || {};
@@ -522,7 +562,7 @@ function runDateTime(data, cfg) {
   return { result: parse(input).toISOString(), operation };
 }
 async function runGenericApp(app, data, cfg) {
-  const url = cfg?.url || cfg?.webhookUrl || cfg?.endpoint;
+  const url = cfg?.url || cfg?.webhookUrl || cfg?.endpoint; if (url) assertSafeUrl(url);
   const method = String(cfg?.method || 'POST').toUpperCase();
   const headers = cfg?.headers || {};
   const body = cfg?.body ?? cfg?.payload ?? data;
@@ -921,7 +961,7 @@ app.post('/api/execute-tool', async (req, res) => {
       case 'probe_api': {
         const parsed=probeApiSchema.safeParse(input||{}); if(!parsed.success) { const issues3=(parsed.error.issues||parsed.error.errors||[]); result={success:false, error: issues3.map(e=>e.message).join(', ') || parsed.error.message}; break; }
         const {url, method, headers, body, timeoutMs}=parsed.data;
-        try { const res=await fetch(url, { method, headers, body: body||undefined, signal:AbortSignal.timeout(timeoutMs)}); const text=await res.text(); let preview=text.slice(0,3000); try{ const j=JSON.parse(text); preview=JSON.stringify(j,null,2).slice(0,3000); }catch{} result={success:res.ok,status:res.status,statusText:res.statusText,ok:res.ok, bodyPreview: preview.slice(0,2000), bodyLength:text.length, truncated:text.length>3000, hint: res.ok? 'API works' : `HTTP ${res.status}`}; } catch(e){ result={success:false, error:e.name==='TimeoutError'?`Timeout after ${timeoutMs}ms`:e.message}}; break;
+        try { assertSafeUrl(url); const res=await fetch(url, { method, headers, body: body||undefined, signal:AbortSignal.timeout(timeoutMs)}); const text=await res.text(); let preview=text.slice(0,3000); try{ const j=JSON.parse(text); preview=JSON.stringify(j,null,2).slice(0,3000); }catch{} result={success:res.ok,status:res.status,statusText:res.statusText,ok:res.ok, bodyPreview: preview.slice(0,2000), bodyLength:text.length, truncated:text.length>3000, hint: res.ok? 'API works' : `HTTP ${res.status}`}; } catch(e){ result={success:false, error:e.name==='TimeoutError'?`Timeout after ${timeoutMs}ms`:e.message}}; break;
       }
       case 'undo_last_action': {
         if(mutationHistory.length===0) { result={success:false, error:'Nothing to undo'}; break; }
@@ -1010,13 +1050,12 @@ app.get('/api/workflow', (req, res) => {
 });
 app.get('/api/workflows', (req, res) => {
   // P1: paginated, light payload - per-user if auth enabled
+  // SECURITY: always scope to userId (dev-anon is its own isolated scope).
   const page = Math.max(1, parseInt(req.query.page)||1);
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit)||20));
   const userId = req.userId || 'dev-anon';
   let all = Array.from(workflows.values());
-  if (isSupabaseEnabled() && userId !== 'dev-anon') {
-    all = all.filter(w=> w.userId === userId || w.user_id === userId || w.id === 'default' || w.id.startsWith(userId+':'));
-  }
+  all = all.filter(w=> (w.userId === userId || w.user_id === userId) || w.id === 'default' || w.id.startsWith(userId+':'));
   const mapped = all.map(w=>({ id:w.id, name:w.name||w.id, nodeCount:w.nodes?.length||0, edgeCount:w.edges?.length||0, updatedAt:w.updatedAt }));
   mapped.sort((a,b)=> new Date(b.updatedAt)-new Date(a.updatedAt));
   const start=(page-1)*limit; res.json({ workflows: mapped.slice(start,start+limit), total: mapped.length, page, limit });
@@ -1065,7 +1104,7 @@ app.get('/api/workflows/:id/versions', async (req,res)=>{
       const vFile = require('path').join(DATA_DIR, 'workflow_versions.json');
       let arr = [];
       if (require('fs').existsSync(vFile)) arr = JSON.parse(require('fs').readFileSync(vFile,'utf8'));
-      const filtered = arr.filter(v=> v.workflow_id===workflowId && (v.user_id===userId || v.user_id==='dev-anon')).slice(-20).reverse();
+      const filtered = arr.filter(v=> v.workflow_id===workflowId && v.user_id===userId).slice(-20).reverse();
       return res.json({ success:true, versions: filtered });
     }
   } catch (e) {
@@ -1078,14 +1117,14 @@ app.get('/api/workflows/:id/versions/:versionId', async (req,res)=>{
   try {
     if (isSupabaseEnabled()) {
       const sb = getClient();
-      const { data, error } = await sb.from('workflow_versions').select('*').eq('id', versionId).eq('workflow_id', id).single();
+      const { data, error } = await sb.from('workflow_versions').select('*').eq('id', versionId).eq('workflow_id', id).eq('user_id', userId).single();
       if (error || !data) return res.status(404).json({ success:false, error:'not found' });
       return res.json({ success:true, version: data });
     } else {
       const vFile = require('path').join(DATA_DIR, 'workflow_versions.json');
       let arr = [];
       if (require('fs').existsSync(vFile)) arr = JSON.parse(require('fs').readFileSync(vFile,'utf8'));
-      const v = arr.find(x=> x.id===versionId && x.workflow_id===id);
+      const v = arr.find(x=> x.id===versionId && x.workflow_id===id && x.user_id===userId);
       if (!v) return res.status(404).json({ success:false, error:'not found' });
       return res.json({ success:true, version: v });
     }
@@ -1108,23 +1147,17 @@ app.post('/api/queue/enqueue', (req,res)=>{
 // Custom nodes REST (sync with frontend localStorage)
 app.get('/api/custom-nodes', (req,res)=> {
   const userId = req.userId || 'dev-anon';
-  let nodes = customNodesCache;
-  if (isSupabaseEnabled() && userId !== 'dev-anon') {
-    nodes = nodes.filter(n=> !n.user_id || n.user_id === userId);
-  }
+  // SECURITY: always scope to owner — no global fallback.
+  const nodes = customNodesCache.filter(n=> n.user_id === userId);
   res.json({success:true, nodes, count: nodes.length});
 });
 app.post('/api/custom-nodes', (req,res)=>{
   const { nodes, type, displayName, description, color, icon, fields, code } = req.body;
   if (Array.isArray(nodes)) {
     const userId = req.userId || 'dev-anon';
-    if (isSupabaseEnabled() && userId !== 'dev-anon') {
-      const other = customNodesCache.filter(n=> n.user_id && n.user_id !== userId);
-      const withUser = nodes.map(n=> ({...n, user_id: userId}));
-      customNodesCache = [...other, ...withUser];
-    } else {
-      customNodesCache = nodes;
-    }
+    const other = customNodesCache.filter(n=> n.user_id !== userId);
+    const withUser = nodes.map(n=> ({...n, user_id: userId}));
+    customNodesCache = [...other, ...withUser];
     saveCustomNodes();
     return res.json({success:true, count: customNodesCache.length, nodes: customNodesCache});
   }
@@ -1145,7 +1178,8 @@ app.post('/api/custom-nodes', (req,res)=>{
 app.delete('/api/custom-nodes/:type', (req,res)=>{
   const t = String(req.params.type||'').toLowerCase();
   const userId = req.userId || 'dev-anon';
-  const idx = customNodesCache.findIndex(n=> n.type===t && (n.user_id===userId || (!n.user_id && userId==='dev-anon') || !isSupabaseEnabled()));
+  // SECURITY: owner-only delete — no global-fallback bypass.
+  const idx = customNodesCache.findIndex(n=> n.type===t && n.user_id===userId);
   if (idx<0) return res.status(404).json({success:false, error:`not found ${t}`});
   const removed = customNodesCache.splice(idx,1)[0]; saveCustomNodes();
   res.json({success:true, deleted:removed.type});

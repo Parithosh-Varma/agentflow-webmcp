@@ -278,26 +278,38 @@ export function ReplayOverlay({
     return packets;
   }, [replayData, edges, currentTime, isPlaying]);
 
-  // SVG filter for packet glow
+  // SVG filter for packet glow (built with DOM API — no innerHTML)
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const existingFilter = document.getElementById('packet-glow');
     if (!existingFilter) {
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const NS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(NS, 'svg');
       svg.style.position = 'absolute';
       svg.style.width = '0';
       svg.style.height = '0';
-      svg.innerHTML = `
-        <defs>
-          <filter id="packet-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2" result="blur"/>
-            <feMerge>
-              <feMergeNode in="blur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-        </defs>
-      `;
+      svg.setAttribute('aria-hidden', 'true');
+      const defs = document.createElementNS(NS, 'defs');
+      const filter = document.createElementNS(NS, 'filter');
+      filter.setAttribute('id', 'packet-glow');
+      filter.setAttribute('x', '-50%');
+      filter.setAttribute('y', '-50%');
+      filter.setAttribute('width', '200%');
+      filter.setAttribute('height', '200%');
+      const blur = document.createElementNS(NS, 'feGaussianBlur');
+      blur.setAttribute('stdDeviation', '2');
+      blur.setAttribute('result', 'blur');
+      const merge = document.createElementNS(NS, 'feMerge');
+      const n1 = document.createElementNS(NS, 'feMergeNode');
+      n1.setAttribute('in', 'blur');
+      const n2 = document.createElementNS(NS, 'feMergeNode');
+      n2.setAttribute('in', 'SourceGraphic');
+      merge.appendChild(n1);
+      merge.appendChild(n2);
+      filter.appendChild(blur);
+      filter.appendChild(merge);
+      defs.appendChild(filter);
+      svg.appendChild(defs);
       document.body.appendChild(svg);
     }
   }, []);

@@ -5,13 +5,28 @@ try { ivm = require('isolated-vm'); } catch {}
 
 const BLOCKED_PATTERNS = [
   /require\s*\(/,
-  /process\./,
+  /process\s*[./\[]/,
   /child_process/,
-  /fs\./,
+  /fs\s*[./\[]/,
   /eval\s*\(/,
   /Function\s*\(/,
+  /AsyncFunction/,
+  /constructor\s*\[/,
+  /constructor\s*\(/,
+  /__proto__/,
+  /prototype\s*\./,
+  /globalThis/,
+  /global\s*\./,
+  /localStorage|sessionStorage|indexedDB/,
+  /document\s*\./,
+  /window\s*\./,
+  /navigator\s*\./,
+  /import\s*\(/,
   /while\s*\(\s*true\s*\)/,
   /for\s*\(\s*;\s*;\s*\)/,
+  /atob\s*\(|btoa\s*\(/,
+  /fetch\s*\(/,
+  /XMLHttpRequest|WebSocket|EventSource/,
 ];
 
 function validateCode(code) {
@@ -25,7 +40,9 @@ function validateCode(code) {
 
 async function runWithVM(code, data, config, timeoutMs = 2000) {
   const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-  // Create a limited context
+  // Create a limited context — SECURITY: no fetch/XHR/WS/storage/DOM/process.
+  // Network access must go through api_call/webhook nodes with URL allowlisting,
+  // not through arbitrary user code.
   const sandbox = {
     data: JSON.parse(JSON.stringify(data)),
     config: JSON.parse(JSON.stringify(config)),
@@ -39,9 +56,7 @@ async function runWithVM(code, data, config, timeoutMs = 2000) {
     Number,
     Boolean,
     RegExp,
-    fetch: global.fetch ? global.fetch.bind(global) : undefined,
-    setTimeout,
-    setInterval,
+    // NOTE: fetch/XHR/timers intentionally NOT exposed (see BLOCKED_PATTERNS).
     clearTimeout,
     clearInterval,
   };
@@ -66,9 +81,11 @@ async function runWithIsolatedVM(code, data, config, timeoutMs = 2000) {
   const jail = context.global;
   // Provide limited globals
   await jail.set('global', jail.derefInto());
-  // Helper to copy data/config as JSON (structured clone) – embed directly to avoid injection
-  const dataLiteral = JSON.stringify(data);
-  const configLiteral = JSON.stringify(config);
+  // Helper to copy data/config as JSON (structured clone) – escape `<` to
+  // prevent `</script>` breakout when code runs in DOM-adjacent contexts.
+  const safeJson = (v) => JSON.stringify(v ?? null).replace(/</g, '\\u003c');
+  const dataLiteral = safeJson(data);
+  const configLiteral = safeJson(config);
   const codeToRun = `
     const data = ${dataLiteral};
     const config = ${configLiteral};
