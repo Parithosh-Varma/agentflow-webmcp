@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import {
   ReactFlow,
@@ -17,7 +17,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { registerWebMCPTools } from './webmcp';
 import { Sidebar } from './components/Sidebar';
-import { NodePopover } from './components/NodePopover';
+const NodePopover = lazy(() => import('./components/NodePopover').then((m) => ({ default: m.NodePopover })));
 import { WorkflowManager } from './components/WorkflowManager';
 import { nodeTypes } from './components/nodes';
 import { LabeledEdge } from './components/LabeledEdge';
@@ -25,12 +25,12 @@ import { useAuth } from './context/AuthContext';
 import logo from './assets/logo.png';
 import type { NodeStatus } from './engine';
 import { localWireAdjust, snapAndPushOnDrop, snapToGrid, getSmartPlacement } from './utils/grid';
-import { HelpDrawer } from './components/HelpDrawer';
+const HelpDrawer = lazy(() => import('./components/HelpDrawer').then((m) => ({ default: m.HelpDrawer })));
 import { AgentToast } from './components/AgentToast';
 import { GithubIcon } from './components/icons';
 
 import { useOnboarding } from './onboarding/useOnboarding';
-import { TourOverlay } from './onboarding/TourOverlay';
+const TourOverlay = lazy(() => import('./onboarding/TourOverlay').then((m) => ({ default: m.TourOverlay })));
 import { v4 as uuidv4 } from 'uuid';
 import { NODE_DISPLAY_NAMES, getInstanceCount } from './components/nodes';
 import {
@@ -812,9 +812,6 @@ function CanvasPage() {
     try {
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('agentflow_theme_v1', theme);
-      // favicon follows theme — white logo for dark bg, black logo for light paper
-      const fav = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
-      if (fav) fav.href = '/favicon.svg';
     } catch {}
   }, [theme]);
 
@@ -941,6 +938,12 @@ function CanvasPage() {
               setLiveStatus({});
               setExecutionResult(null);
             }}
+            executionResult={executionResult}
+            isExecuting={isExecuting}
+            setExecutionResult={setExecutionResult}
+            setIsExecuting={setIsExecuting}
+            setLiveStatus={setLiveStatus}
+            toolLogs={toolLogs}
           >
             {user && (
               <WorkflowManager
@@ -1126,19 +1129,25 @@ function CanvasPage() {
         </div>
 
         {selectedId && (
-          <NodePopover
-            node={nodes.find((n) => n.id === selectedId) || null}
-            onChange={applyConfig}
-            onDelete={deleteNode}
-            onClose={() => setSelectedId(null)}
-          />
+          <Suspense fallback={null}>
+            <NodePopover
+              node={nodes.find((n) => n.id === selectedId) || null}
+              onChange={applyConfig}
+              onDelete={deleteNode}
+              onClose={() => setSelectedId(null)}
+            />
+          </Suspense>
         )}
       </div>
 
       {!onboarding.isDismissed('canvas-tour') && showTour && (
-        <TourOverlay steps={CANVAS_TOUR_STEPS} onComplete={completeTour} onSkip={completeTour} />
+        <Suspense fallback={null}>
+          <TourOverlay steps={CANVAS_TOUR_STEPS} onComplete={completeTour} onSkip={completeTour} />
+        </Suspense>
       )}
-      <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} onReplay={resetOnboarding} />
+      <Suspense fallback={null}>
+        <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} onReplay={resetOnboarding} />
+      </Suspense>
       {!helpOpen && !showTour && (
         <button
           data-onboarding="help-tour-trigger"

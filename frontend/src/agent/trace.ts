@@ -18,7 +18,8 @@ export interface TapSpec {
   label: string;
   /** Node id (planned key) this tap observes. Resolved to real id at build. */
   afterKey: string;
-  config: { kind: string; key: string; level?: string; message?: string };
+  /** Valid logger-node config keys (level/message) — unknown keys warn at runtime. */
+  config: { level?: string; message?: string };
 }
 
 /** Insert a capture logger after every transform/condition (tap nodes). */
@@ -26,7 +27,7 @@ export function planTapNodes(afterKeys: string[]): TapSpec[] {
   return afterKeys.map((key) => ({
     label: `tap:after_${key}`,
     afterKey: key,
-    config: { kind: 'capture', key: `after_${key}`, level: 'info', message: `tap after ${key}` },
+    config: { level: 'info', message: `[tap] after_${key}` },
   }));
 }
 

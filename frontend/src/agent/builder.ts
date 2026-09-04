@@ -310,7 +310,7 @@ export async function buildLayers(
 
 export function webhookEnrichSpecs(): BuildSpec[] {
   return [
-    { key: 'ingest:webhook', type: 'webhook', role: 'ingest', intent: 'receive user events', region: 'ingest', row: 0, config: { method: 'POST' } },
+    { key: 'ingest:webhook', type: 'webhook', role: 'ingest', intent: 'receive user events', region: 'ingest', row: 0, config: { method: 'POST', url: 'https://jsonplaceholder.typicode.com/posts' } },
     { key: 'transform:dedup', type: 'transform', role: 'dedup', intent: 'normalize user events', region: 'transform', row: 0, config: { op: 'passthrough' }, connectFrom: [{ key: 'ingest:webhook' }] },
     { key: 'transform:enrich', type: 'code', role: 'enrich', intent: 'enrich with profile fields', region: 'transform', row: 0, config: { code: 'return { ...data, enriched: true };' }, connectFrom: [{ key: 'transform:dedup' }] },
     { key: 'logic:route', type: 'condition', role: 'route', intent: 'route premium vs standard', region: 'transform', row: 1, config: { path: 'enriched', equals: true }, connectFrom: [{ key: 'transform:enrich' }] },

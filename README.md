@@ -119,6 +119,25 @@ $$
 
 ---
 
+## Agent Reliability — Blind-Execution Patterns
+
+Production agents run blind (stateless tools, no step-pause, silent failures). `frontend/src/agent/` implements the battle-tested pattern set so agents build correctly, not just quickly:
+
+- **State abstraction** (`state.ts`) — `agentflow_state_v2` in localStorage: regions + grid mental model (never raw x/y), config fingerprints for idempotency, write-through saves.
+- **Defensive probing** (`probe.ts`) — discover (`get_workflow_status` + `find_nodes`) → schema-probe unknown types with throwaway nodes → safe execute with runId tracking.
+- **Pseudo-debugging** (`trace.ts`) — logger tap nodes, validator error boundaries, post-hoc trace reconstruction + drift detection.
+- **Layered builds** (`builder.ts`) — plan → nodes → edges → configs, verification gate per layer, idempotent retries, export snapshots for rollback. Includes the webhook → dedup → enrich → condition → 3-outputs example.
+
+Drive it live the way an agent would:
+
+```bash
+AGENTFLOW_URL=https://agentflow-hackathon.pages.dev/ node agent-harness-resilient.cjs
+```
+
+See `PAPER.md §3.5` for the formal treatment.
+
+---
+
 ## Architecture
 
 ```

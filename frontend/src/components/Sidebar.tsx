@@ -11,7 +11,9 @@ import {
   SlackIcon, DiscordIcon, GithubIcon, GmailIcon, GoogleSheetsIcon, NotionIcon, AirtableIcon, PostgresIcon, MySQLIcon, MongoDBIcon, RedisIcon, StripeIcon, ShopifyIcon, AwsS3Icon, OpenAIIcon,
 } from './icons';
 import { getSmartPlacement, snapToGrid, findNearestOpenSlot } from '../utils/grid';
-import type { NodeStatus } from '../engine';
+import type { ExecResult, NodeStatus } from '../engine';
+import { ExecutionPanel } from './ExecutionPanel';
+import { ToolLog } from './ToolLog';
 import './Sidebar.css';
 
 // ——— catalog with categories + descriptions ———
@@ -93,6 +95,12 @@ interface Props {
   clearRunState: () => void;
   reactFlowRef?: React.MutableRefObject<any>;
   children?: ReactNode;
+  executionResult: ExecResult | null;
+  isExecuting: boolean;
+  setExecutionResult: (r: ExecResult | null) => void;
+  setIsExecuting: (v: boolean) => void;
+  setLiveStatus: (updater: (prev: Record<string, NodeStatus>) => Record<string, NodeStatus>) => void;
+  toolLogs: Array<{ tool: string; input: any; result: any; time: string; actor: 'agent' | 'you' }>;
 }
 
 function buildExampleFlow(): { nodes: Node[]; edges: any[] } {
@@ -195,8 +203,9 @@ export function buildJudgeDemoFlow(): { nodes: Node[]; edges: any[] } {
 }
 
 export function Sidebar({
-  nodes, setNodes, setEdges, selectedId, setSelectedId,
-  liveStatus, addToolLog, clearRunState, reactFlowRef, children
+  nodes, setNodes, setEdges, edges, selectedId, setSelectedId,
+  liveStatus, addToolLog, clearRunState, reactFlowRef, children,
+  executionResult, isExecuting, setExecutionResult, setIsExecuting, setLiveStatus, toolLogs
 }: Props) {
   const [label, setLabel] = useState('');
   const [search, setSearch] = useState('');
@@ -609,6 +618,22 @@ export function Sidebar({
 
 
       {children}
+
+      <div className="sidebar-section sb-run">
+        <div className="sidebar-section-title">Run console</div>
+        <ExecutionPanel
+          executionResult={executionResult}
+          isExecuting={isExecuting}
+          nodes={nodes}
+          edges={edges}
+          addToolLog={addToolLog}
+          setExecutionResult={setExecutionResult}
+          setIsExecuting={setIsExecuting}
+          setLiveStatus={setLiveStatus}
+        />
+      </div>
+
+      <ToolLog logs={toolLogs} />
 
       <div className="sidebar-section sb-footer">
         <p className="hint">

@@ -163,6 +163,26 @@ $$
 
 where $c(v)$ is module cost (e.g., `delay` sleeps, `api_call` fetches). Live status is a map $S: V \to \{\text{idle},\text{running},\text{done},\text{fault},\text{skipped}\}$ updated via `onEvent` callback. Edges animate when `dst.status = running` (`edge-flowing` → `stroke-dasharray`).
 
+### 3.5 Agent Reliability Layer (blind execution)
+
+Production agents operate *blind*: stateless tool calls, no step-pause, silent failures. AgentFlow therefore ships an agent-side reliability layer (`frontend/src/agent/`, fully unit-tested) implementing four patterns:
+
+**State \& canvas abstraction.** A single source of truth `agentflow_state_v2` in `localStorage` reconstructs the spatial + execution mental model, separate from workflow JSON. Agents never reason in raw $x/y$: regions $\mathcal{R} = \{\text{ingest}, \text{transform}, \text{output}\}$ map to grid cells, and the next node is $\text{region.nextCol}(row)$. Every mutation is write-through (tool call $\rightarrow$ `save_workflow` $\rightarrow$ state save). Idempotency keys are canonical-JSON fingerprints:
+
+$$
+\phi(c) = \text{cyrb53}(\text{canon}(c)), \quad \text{skip mutation iff } \phi(c_{\text{new}}) = \phi(c_{\text{old}})
+$$
+
+**Defensive probing (3 phases).** (A) *Discovery*: `get_workflow_status` + `find_nodes` build a per-type capability cache. (B) *Schema probing*: for unknown type $T$, a throwaway probe node walks configs $c_0 \subset c_1 \subset \dots$ via `run_node`, stopping when $\text{status} = \text{done}$ or the error stabilizes ($\epsilon_k = \epsilon_{k-1}$), then caches $\{\text{required}, \text{optional}, \text{rejects}, \text{example}\}$. (C) *Safe execute*: `execute_workflow` + `get_execution_details` under a fresh $\text{runId}$, recording per-node artifacts without mutating stored fingerprints on failure.
+
+**Pseudo-debugging.** With no breakpoints, the agent inserts `logger` tap nodes after each transform/condition and `validator` error boundaries on risky branches, then reconstructs the ordered trace *post hoc*:
+
+$$
+\text{trace} = \langle (v_{\pi(k)}, s_k, h_{\text{in}}^k, h_{\text{out}}^k) \rangle_{k=1}^n, \quad \text{drift}(v) \iff h_{\text{in}}^{\text{new}}(v) \neq h_{\text{in}}^{\text{old}}(v)
+$$
+
+**Fault-tolerant layered build.** Plan (pre-allocate all region slots in state) $\rightarrow$ Layer 1 nodes $\rightarrow$ gate (node count) $\rightarrow$ Layer 2 edges $\rightarrow$ gate (edge count, self-loop/duplicate check) $\rightarrow$ Layer 3 configs with per-node mini-executes $\rightarrow$ monitored full run. All mutations are idempotent (deterministic labels $\rightarrow$ ID reuse; `already connected` $=$ success), and each layer is preceded by an `export_workflow` snapshot in `state.backups[\text{runId}]$ for one-step rollback. A Playwright harness (`agent-harness-resilient.cjs`) executes the full pattern set against the live deployment; production smoke runs green at $8/9$ nodes `done` with the `false` branch correctly `skipped`.
+
 ---
 
 ## 4. Interaction Design
@@ -220,7 +240,7 @@ $$
 T = O(6+5) + \sum c(v) \approx O(11) \text{ plus one fetch}
 $$
 
-Grid operations are $O(|V|)$ per drop/wire. Bundle is $\sim 503\text{kB}$ JS / $75\text{kB}$ CSS (gzip $155\text{kB}$ / $12.5\text{kB}$).
+Grid operations are $O(|V|)$ per drop/wire. Bundle is $\sim 557\text{kB}$ JS main chunk / $97\text{kB}$ CSS (gzip $171\text{kB}$ / $16\text{kB}$), with `NodePopover` ($30\text{kB}$), `HelpDrawer`, and `TourOverlay` code-split via `React.lazy` so they never block first paint.
 
 ### 6.3 Hackathon Demo
 

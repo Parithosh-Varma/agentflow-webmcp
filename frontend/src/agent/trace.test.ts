@@ -15,7 +15,7 @@ describe('agent/trace: tap + boundary planning', () => {
     const taps = planTapNodes(['dedup', 'route']);
     expect(taps).toHaveLength(2);
     expect(taps[0]?.label).toBe('tap:after_dedup');
-    expect(taps[0]?.config).toMatchObject({ kind: 'capture', key: 'after_dedup' });
+    expect(taps[0]?.config).toMatchObject({ level: 'info', message: '[tap] after_dedup' });
   });
   it('wraps risky branches with validator → output', () => {
     const guard = planErrorBoundary('enrich');

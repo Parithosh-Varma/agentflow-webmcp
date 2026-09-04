@@ -64,7 +64,7 @@ function gridToCoords(region, col, row) {
 // webhook → dedup → enrich → condition → 3 outputs
 function specs() {
   return [
-    { key: 'ingest:webhook', type: 'webhook', region: 'ingest', row: 0, config: { method: 'POST' }, from: [] },
+    { key: 'ingest:webhook', type: 'webhook', region: 'ingest', row: 0, config: { method: 'POST', url: 'https://jsonplaceholder.typicode.com/posts' }, from: [] },
     { key: 'transform:dedup', type: 'transform', region: 'transform', row: 0, config: { op: 'passthrough' }, from: [{ key: 'ingest:webhook' }] },
     { key: 'transform:enrich', type: 'code', region: 'transform', row: 0, config: { code: 'return { ...data, enriched: true };' }, from: [{ key: 'transform:dedup' }] },
     { key: 'logic:route', type: 'condition', region: 'transform', row: 1, config: { path: 'enriched', equals: true }, from: [{ key: 'transform:enrich' }] },
@@ -72,7 +72,7 @@ function specs() {
     { key: 'output:standard', type: 'output', region: 'output', row: 1, config: { kind: 'console' }, from: [{ key: 'logic:route', label: 'false' }] },
     { key: 'output:archive', type: 'output', region: 'output', row: 2, config: { kind: 'console' }, from: [{ key: 'logic:route' }] },
     // taps + guard (pseudo-debugging)
-    { key: 'tap:after_enrich', type: 'logger', region: 'transform', row: 2, config: { kind: 'capture', key: 'after_enrich' }, from: [{ key: 'transform:enrich' }] },
+    { key: 'tap:after_enrich', type: 'logger', region: 'transform', row: 2, config: { level: 'info', message: '[tap] after_enrich' }, from: [{ key: 'transform:enrich' }] },
     { key: 'guard:enrich', type: 'validator', region: 'transform', row: 2, config: { expression: '(data) => data !== null && data !== undefined' }, from: [{ key: 'transform:enrich' }] },
   ];
 }
@@ -81,6 +81,13 @@ function specs() {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   page.on('pageerror', (e) => console.log('[pageerror]', e.message));
+  // Clean first impression: dismiss onboarding tour + agent toast before load.
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('onboarding_dismissed_canvas-tour', 'true');
+      localStorage.setItem('agentflow_agent_toast_dont_show_v1', 'true');
+    } catch {}
+  });
   await page.goto(URL, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => window.__webmcpReady === true, { timeout: 15000 });
 
@@ -199,7 +206,8 @@ function specs() {
     if (upd.warnings) console.log(`[L3] ${s.key} warnings:`, upd.warnings.join(' | ').slice(0, 200));
     try {
       const mini = await call('run_node', { nodeId: ids[s.key], input: { probe: true } });
-      console.log(`[L3] mini-run ${s.key}:`, mini.success ? mini.status || 'ok' : `FAULT ${mini.error}`.slice(0, 160));
+      const ok = mini.success ? `ok (${mini.status || 'done'})` : `FAULT ${mini.error || JSON.stringify(mini).slice(0, 160)}`;
+      console.log(`[L3] mini-run ${s.key}:`, ok);
     } catch (e) {
       console.log(`[L3] mini-run ${s.key} threw (deferred to full run):`, e.message);
     }
@@ -231,6 +239,10 @@ function specs() {
     console.log(`[monitor] ${faulted.length} fault(s) isolated for Phase-B re-probe:`, faulted.map((p) => p.label).join(', '));
     process.exitCode = 2;
   }
+  try {
+    await page.locator('.react-flow__controls-fitview').click({ timeout: 5000 });
+    await page.waitForTimeout(500);
+  } catch {}
   await page.screenshot({ path: '/tmp/agentflow-resilient-result.png', fullPage: false });
   console.log('screenshot -> /tmp/agentflow-resilient-result.png');
   console.log('=== RESILIENT AGENT SESSION END ===');
