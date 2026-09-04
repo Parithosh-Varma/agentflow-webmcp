@@ -630,6 +630,15 @@
 }
 .sb-footer b { color: var(--ink-2); font-weight: 600; }
 
+/* Sticky RUN — always visible while the sidebar scrolls */
+.sb-run {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--panel);
+  border-top: 1px solid var(--border-faint);
+}
+
 /* Scrollbar for sidebar */
 .sidebar::-webkit-scrollbar,
 .sb-scroll::-webkit-scrollbar,

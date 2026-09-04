@@ -335,7 +335,7 @@ export function Sidebar({
     } catch {}
   };
 
-  void loadExample; void loadJudgeDemo;
+  void loadExample;
   const clearCanvas = () => {
     const startNode = nodes.find((n) => n.id === 'start');
     let keep: any[];
@@ -547,6 +547,9 @@ export function Sidebar({
             />
             <p className="sb-empty-canvas-title">No modules yet</p>
             <p className="hint sb-empty-canvas-hint">Drag a module to canvas, click to add, or ask your <b>browser agent</b> — “Add an API Call to HackerNews and run it”.<br/>Try <b>★ Judge Demo</b> below for a 30s wow flow.</p>
+            <button className="btn-run" onClick={loadJudgeDemo} style={{ width: '100%', marginTop: 8, justifyContent: 'center', display: 'flex' }}>
+              ★ Judge Demo
+            </button>
           </div>
         ) : (
           <div className="node-list">

@@ -6,7 +6,6 @@ import {
   useNodesState,
   useEdgesState,
   Controls,
-  MiniMap,
   Background,
   BackgroundVariant,
   SelectionMode,
@@ -417,6 +416,17 @@ function CanvasPage() {
     reactFlowRef.current?.fitView({ padding: 0.15, duration: 400, maxZoom: 1 });
   }, []);
 
+  const loadJudgeDemo = useCallback(() => {
+    const { nodes: jdNodes, edges: jdEdges } = buildJudgeDemoFlow();
+    setLiveStatus({});
+    setExecutionResult(null);
+    setNodes(jdNodes);
+    setEdges(jdEdges.map((e: any) => ({ ...e, animated: false, style: { stroke: '#3a342c', strokeWidth: 1.6 } })));
+    addToolLog('load_judge_demo', { via: 'empty-state' }, { success: true, message: 'Loaded Judge Demo — press RUN' }, 'you');
+    setSelectedId(null);
+    setTimeout(() => fitAllNodes(), 220);
+  }, [setNodes, setEdges, fitAllNodes, addToolLog]);
+
   const onConnect = useCallback(
     (params: Connection) => {
       if (!params.source || !params.target) return;
@@ -645,6 +655,27 @@ function CanvasPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [showTour]);
 
+  // Ctrl/Cmd+Enter runs from anywhere — clicks the run console button.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        const btn = document.querySelector('[data-onboarding="run-button"]') as HTMLButtonElement | null;
+        if (btn && !btn.disabled) {
+          e.preventDefault();
+          btn.click();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Small screens start with the sidebar collapsed so the canvas owns the viewport.
+  useEffect(() => {
+    try {
+      if (window.innerWidth < 900) setSidebarOpen(false);
+    } catch {}
+  }, []);
   // Hard-remove any stray floating ? FAB that overlapped +/- (cache-bust failsafe)
   useEffect(() => {
     const killFab = () => document.querySelectorAll('.help-fab, button.help-fab').forEach(el => el.remove());
@@ -996,6 +1027,9 @@ function CanvasPage() {
                       <div className="canvas-empty-icon">◎</div>
                       <div className="canvas-empty-title">No modules yet</div>
                       <p className="canvas-empty-desc canvas-empty-desc--bold">Drag or ask agent — or hit ★ Judge Demo</p>
+                      <button className="btn-run" onClick={loadJudgeDemo} style={{ marginTop: 12 }}>
+                        ★ Judge Demo
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1035,12 +1069,6 @@ function CanvasPage() {
             proOptions={{ hideAttribution: false }}
           >
             <Controls showInteractive={false} position="bottom-right" />
-            <MiniMap
-              nodeColor="#3a342c"
-              maskColor="rgba(21,19,16,0.8)"
-              style={{ background: 'var(--panel)', width: 130, height: 90 }}
-              position="top-right"
-            />
 <Background variant={BackgroundVariant.Lines} gap={26} color="var(--grid-line)" />
           </ReactFlow>
 
