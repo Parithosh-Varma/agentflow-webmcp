@@ -27,9 +27,46 @@
       rel="stylesheet"
     />
     <title>AgentFlow — Visual Workflow Builder × WebMCP</title>
+    <style>
+      /* Boot splash — inline so it paints before the JS bundle loads.
+         Removed by src/boot.ts once React mounts. Skipped entirely on
+         repeat views within the session (see script below). */
+      #boot-splash {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 14px; background: #0d0c0b; color: #ede8dc;
+        font-family: ui-monospace, 'IBM Plex Mono', monospace;
+        transition: opacity 0.35s ease;
+      }
+      #boot-splash.boot-done { opacity: 0; pointer-events: none; }
+      #boot-splash .boot-word { font-size: 13px; letter-spacing: 0.32em; }
+      #boot-splash .boot-led {
+        width: 10px; height: 10px; border-radius: 50%;
+        background: #e8a33d; animation: boot-blink 0.9s ease-in-out infinite;
+      }
+      #boot-splash .boot-sub { font-size: 10px; letter-spacing: 0.2em; color: #8a806f; }
+      @keyframes boot-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash .boot-led { animation: none; }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="boot-splash" role="status" aria-label="Loading AgentFlow">
+      <div class="boot-led"></div>
+      <div class="boot-word">AGENTFLOW</div>
+      <div class="boot-sub">HUMAN × AGENT CANVAS</div>
+    </div>
+    <script>
+      // Repeat views in this session skip the splash for instant entry.
+      try {
+        if (sessionStorage.getItem('af_boot_seen') === '1') {
+          var s = document.getElementById('boot-splash');
+          if (s) s.remove();
+        }
+      } catch (e) {}
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

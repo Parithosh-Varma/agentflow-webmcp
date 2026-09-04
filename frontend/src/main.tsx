@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { AccessProvider } from './context/AccessContext'
 import { captureError, initObservability } from './observability'
+import { dismissBootSplash } from './boot'
 import './index.css'
 import App from './App.tsx'
 
@@ -40,3 +41,5 @@ createRoot(document.getElementById('root')!).render(
     </RootErrorBoundary>
   </StrictMode>,
 )
+
+dismissBootSplash();
