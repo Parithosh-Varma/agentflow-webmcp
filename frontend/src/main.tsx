@@ -32,11 +32,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <RootErrorBoundary>
       <BrowserRouter>
-        <AccessProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <AccessProvider>
             <App />
-          </AuthProvider>
-        </AccessProvider>
+          </AccessProvider>
+        </AuthProvider>
       </BrowserRouter>
     </RootErrorBoundary>
   </StrictMode>,
